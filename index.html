@@ -1,0 +1,1460 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Cable Run — Measurement Tool</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0d0e;
+    --panel: #14181a;
+    --panel-2: #1c2124;
+    --line: #262d31;
+    --text: #e8eef0;
+    --muted: #7d8a91;
+    --accent: #b6ff3c;
+    --accent-soft: #b6ff3c22;
+    --danger: #ff5b5b;
+    --calib: #ffb13c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; font-family: 'Sora', sans-serif; color: var(--text); background: var(--bg); }
+
+  body {
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 1fr 320px;
+    grid-template-areas: "top top" "stage side";
+  }
+
+  /* Top toolbar */
+  header {
+    grid-area: top;
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 18px;
+    padding: 0 18px;
+    z-index: 5;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 600; letter-spacing: 0.02em;
+  }
+  .brand .dot { width: 10px; height: 10px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .brand small { color: var(--muted); font-weight: 400; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  .toolbar { display: flex; gap: 6px; align-items: center; }
+  .divider { width: 1px; height: 28px; background: var(--line); margin: 0 6px; }
+
+  button, label.btn {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all .12s ease;
+    user-select: none;
+  }
+  button:hover, label.btn:hover { border-color: #38434a; background: #232a2e; }
+  button.active { background: var(--accent); color: #0b0d0e; border-color: var(--accent); font-weight: 600; }
+  button.ghost { background: transparent; }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    padding: 4px 10px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+  }
+  .pill strong { color: var(--text); font-weight: 500; }
+
+  input[type=file] { display: none; }
+
+  /* Stage */
+  main {
+    grid-area: stage;
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 20% 30%, #161b1e 0%, #0b0d0e 60%),
+      var(--bg);
+  }
+  #stage {
+    position: absolute; inset: 0;
+    overflow: hidden;
+    cursor: crosshair;
+  }
+  #stage.selection { cursor: default; }
+  #stage.pan { cursor: grab; }
+  #stage.dragging { cursor: grabbing !important; }
+  #stage.erase { cursor: not-allowed; }
+
+  #viewport {
+    position: absolute;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+  #baseCanvas, #drawCanvas {
+    position: absolute; top: 0; left: 0;
+    display: block;
+  }
+
+  .empty {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    color: var(--muted);
+    pointer-events: none;
+    text-align: center;
+    padding: 40px;
+  }
+  .empty h2 { font-family: 'Sora'; font-weight: 600; color: var(--text); font-size: 26px; margin-bottom: 8px; letter-spacing: -0.01em; }
+  .empty p { max-width: 420px; line-height: 1.5; font-size: 14px; }
+  .empty .key { font-family: 'JetBrains Mono', monospace; background: var(--panel-2); border: 1px solid var(--line); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--text); }
+  .empty ol { margin-top: 24px; text-align: left; font-size: 13px; line-height: 2; }
+  .empty ol li::marker { color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+
+  /* HUD overlay */
+  .hud {
+    position: absolute;
+    bottom: 16px; left: 16px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    z-index: 4;
+  }
+  .hud .pill { background: rgba(20,24,26,0.85); backdrop-filter: blur(8px); }
+
+  .status {
+    position: absolute;
+    top: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(20,24,26,0.92);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    z-index: 4;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    display: none;
+  }
+  .status.show { display: block; }
+  .status .key { font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+
+  /* Side panel */
+  aside {
+    grid-area: side;
+    background: var(--panel);
+    border-left: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .side-h {
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .side-h h3 {
+    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted);
+    font-weight: 500;
+  }
+  .side-h .total {
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .side-h .total .unit { font-size: 14px; color: var(--muted); margin-left: 6px; }
+  .side-h .sub { color: var(--muted); font-size: 12px; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+
+  .tabs {
+    display: flex;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-bottom: 2px solid transparent;
+    color: var(--muted);
+    padding: 10px 0;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .tab:hover { color: var(--text); background: var(--panel-2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: transparent; }
+
+  .page-group {
+    margin: 14px 4px 4px;
+    padding: 0 8px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .page-group:first-child { margin-top: 4px; }
+  .page-group strong { color: var(--text); font-weight: 500; }
+  .page-group .jump {
+    background: transparent; border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    font-family: inherit; letter-spacing: 0.08em;
+    cursor: pointer;
+  }
+  .page-group .jump:hover { color: var(--accent); border-color: var(--accent); }
+  .page-group .no-scale { color: var(--calib); }
+
+  .meas-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .meas-list:empty::before {
+    content: 'No runs measured yet.';
+    display: block;
+    color: var(--muted);
+    text-align: center;
+    font-size: 13px;
+    padding: 24px 16px;
+  }
+  .meas-item {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    transition: border-color .15s ease;
+    position: relative;
+  }
+  .meas-item:hover { border-color: #38434a; }
+  .meas-item.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(182,255,60,0.12); }
+  .meas-item .swatch {
+    width: 12px; height: 12px; border-radius: 3px;
+    flex-shrink: 0;
+    box-shadow: 0 0 8px currentColor;
+  }
+  .meas-item .row.head { cursor: pointer; }
+  .meas-item .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .meas-item input.name {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    flex: 1;
+    outline: none;
+    padding: 2px 0;
+    border-bottom: 1px solid transparent;
+  }
+  .meas-item input.name { cursor: default; }
+  .meas-item input.name:not([readonly]) { cursor: text; }
+  .meas-item input.name:focus:not([readonly]) { border-bottom-color: var(--accent); }
+  .meas-item input.name:focus[readonly] { outline: none; }
+  .meas-item .len { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 500; color: var(--accent); }
+  .meas-item .meta { color: var(--muted); font-size: 11px; margin-top: 6px; font-family: 'JetBrains Mono', monospace; display: flex; justify-content: space-between; }
+  .meas-item .del {
+    background: transparent; border: none; color: var(--muted);
+    cursor: pointer; padding: 4px; border-radius: 4px;
+    font-size: 16px;
+    line-height: 1;
+  }
+  .meas-item .del:hover { color: var(--danger); background: rgba(255,91,91,0.1); }
+
+  .footer {
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    display: flex; gap: 8px;
+  }
+  .footer button { flex: 1; }
+
+  /* Modal */
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .modal-bg.show { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 24px;
+    width: 360px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  }
+  .modal h3 { font-size: 18px; margin-bottom: 4px; font-weight: 600; }
+  .modal p { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .modal .field { display: flex; gap: 8px; align-items: center; }
+  .modal input[type=number], .modal input[type=text] {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    outline: none;
+  }
+  .modal input:focus { border-color: var(--accent); }
+  .modal select {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 14px;
+    outline: none;
+    cursor: pointer;
+  }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .modal button.primary { background: var(--accent); color: #0b0d0e; border-color: var(--accent); font-weight: 600; }
+  .modal button.primary:hover { filter: brightness(1.1); }
+
+  /* SVG icons sized inline */
+  svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="dot"></div>
+    <div>Cable<small>&nbsp;Run</small></div>
+    <small style="margin-left:8px">measurement</small>
+  </div>
+
+  <div class="toolbar">
+    <label class="btn" for="fileInput">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+      Open PDF / Image
+    </label>
+    <input type="file" id="fileInput" accept="application/pdf,image/*" />
+
+    <div class="divider"></div>
+
+    <button id="btn-selection" title="Select tool (V)">
+      <svg viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6-6-15z"/></svg>
+      Select
+    </button>
+    <button id="btn-calibrate" title="Set scale by drawing a line of known length (C)">
+      <svg viewBox="0 0 24 24"><path d="M3 12h18M3 8v8M21 8v8"/></svg>
+      Calibrate
+    </button>
+    <button id="btn-measure" title="Click to add points. Double-click or Enter to finish. (M)">
+      <svg viewBox="0 0 24 24"><path d="M4 20l6-6 4 4 6-10"/><circle cx="4" cy="20" r="1.5"/><circle cx="10" cy="14" r="1.5"/><circle cx="14" cy="18" r="1.5"/><circle cx="20" cy="8" r="1.5"/></svg>
+      Measure
+    </button>
+    <button id="btn-pan" title="Drag to pan (P, or hold Space)">
+      <svg viewBox="0 0 24 24"><path d="M5 9l-2 3 2 3M9 5l3-2 3 2M15 19l-3 2-3-2M19 9l2 3-2 3M12 5v14M5 12h14"/></svg>
+      Pan
+    </button>
+    <button id="btn-erase" title="Click a measurement to remove (E)">
+      <svg viewBox="0 0 24 24"><path d="M3 21h18M6 21l3-12 6 6-3 6M9 9l8-8 6 6-8 8"/></svg>
+      Erase
+    </button>
+  </div>
+
+  <div style="flex:1"></div>
+
+  <div class="toolbar">
+    <button id="prevPage" disabled>‹</button>
+    <span class="pill" id="pageLabel">— / —</span>
+    <button id="nextPage" disabled>›</button>
+
+    <div class="divider"></div>
+
+    <button id="zoomOut">−</button>
+    <span class="pill" id="zoomLabel"><strong>100%</strong></span>
+    <button id="zoomIn">+</button>
+    <button id="zoomFit" title="Fit to view">Fit</button>
+
+    <div class="divider"></div>
+
+    <span class="pill" id="scaleLabel">Scale: <strong>—</strong></span>
+    <button id="resetScale" disabled title="Reset calibration for the current page only">Reset</button>
+  </div>
+</header>
+
+<main>
+  <div id="stage">
+    <div id="viewport">
+      <canvas id="baseCanvas"></canvas>
+      <canvas id="drawCanvas"></canvas>
+    </div>
+    <div class="empty" id="empty">
+      <h2>Drop in a floor plan to begin.</h2>
+      <p>Upload a PDF or image, calibrate the scale against a known dimension, then trace your cable runs.</p>
+      <ol>
+        <li>Click <span class="key">Open PDF / Image</span> and pick a file.</li>
+        <li>Hit <span class="key">Calibrate</span>, draw a line on a known dimension, enter its real length.</li>
+        <li>Hit <span class="key">Measure</span>, click point-to-point to trace a run. Double-click to finish.</li>
+      </ol>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="hud">
+      <span class="pill" id="cursorPos">x: — &nbsp; y: —</span>
+      <span class="pill" id="liveLen" style="display:none">live: <strong>—</strong></span>
+    </div>
+  </div>
+</main>
+
+<aside>
+  <div class="side-h">
+    <h3 id="totalHeading">This Page Total</h3>
+    <div class="total"><span id="totalLen">0.00</span><span class="unit" id="totalUnit">ft</span></div>
+    <div class="sub"><span id="runCount">0</span> runs</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="page">This Page</button>
+    <button class="tab" data-tab="all">All Pages</button>
+  </div>
+
+  <div class="meas-list" id="measList"></div>
+
+  <div class="footer">
+    <select id="unitSelect" class="btn" style="cursor:pointer">
+      <option value="ft">feet (ft)</option>
+      <option value="yd">yards (yd)</option>
+      <option value="in">inches (in)</option>
+      <option value="m">meters (m)</option>
+      <option value="cm">centimeters (cm)</option>
+    </select>
+    <button id="clearAll" class="danger">Clear All</button>
+  </div>
+</aside>
+
+<div class="modal-bg" id="calibModal">
+  <div class="modal">
+    <h3>Set scale</h3>
+    <p>How long is the line you just drew, in real-world units?</p>
+    <div class="field">
+      <input type="number" id="calibValue" step="any" min="0" placeholder="e.g. 10" autofocus />
+      <select id="calibUnit">
+        <option value="ft">ft</option>
+        <option value="yd">yd</option>
+        <option value="in">in</option>
+        <option value="m">m</option>
+        <option value="cm">cm</option>
+      </select>
+    </div>
+    <div class="field" style="margin-top: 14px">
+      <label style="color:var(--muted); font-size:12px; min-width:70px">Apply to</label>
+      <select id="calibScope" style="flex:1">
+        <option value="this">This page only</option>
+        <option value="all">All pages</option>
+        <option value="custom">Specific pages…</option>
+      </select>
+    </div>
+    <div class="field" id="calibRangeField" style="margin-top: 8px; display:none">
+      <label style="color:var(--muted); font-size:12px; min-width:70px">Pages</label>
+      <input type="text" id="calibRange" placeholder="e.g. 1, 3, 5-7" />
+    </div>
+    <div class="actions">
+      <button id="calibCancel">Cancel</button>
+      <button id="calibOk" class="primary">Set Scale</button>
+    </div>
+  </div>
+</div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ------- State -------
+const state = {
+  mode: 'selection', // 'selection' | 'calibrate' | 'measure' | 'pan' | 'erase'
+  prevMode: 'selection',     // mode to return to after a space-pan
+  spaceHeld: false,
+  pdf: null,
+  pdfPage: 1,
+  pdfPages: 0,
+  imageBitmap: null,        // for image uploads
+  pageRenderScale: 2,       // resolution multiplier for rendered PDF/image
+  baseW: 0, baseH: 0,
+  zoom: 1,
+  panX: 0, panY: 0,
+  isPanning: false,
+  panStart: null,
+  // Calibration: pageScales[pageNum] = px-per-inch for that page.
+  // pxPerInch mirrors the CURRENT page's scale for convenience.
+  pxPerInch: null,
+  pageScales: {},
+  inProgress: null,         // current polyline being drawn: { points: [{x,y}], type }
+  measurements: [],         // { id, name, points: [{x,y}], lengthInches, page }
+  hoverId: null,
+  selectedId: null,
+  dragVertex: null,         // { measurementId, vertexIndex }
+  shiftHeld: false,
+  unit: 'ft',
+  cursorImg: null,          // current mouse position in image coords
+  sidebarTab: 'page',       // 'page' | 'all'
+  // PDF page cache (LRU)
+  pageCache: new Map(),
+  MAX_CACHE: 20,
+  preRenderQueue: [],
+  preRenderRunning: false,
+  navToken: 0,
+};
+
+function currentPage() { return state.pdf ? state.pdfPage : 1; }
+function totalPages() { return state.pdf ? state.pdfPages : 1; }
+
+function parsePageRange(input, max) {
+  const set = new Set();
+  for (const part of String(input || '').split(',')) {
+    const s = part.trim();
+    if (!s) continue;
+    if (s.includes('-')) {
+      const [a, b] = s.split('-').map(n => parseInt(n.trim(), 10));
+      if (Number.isFinite(a) && Number.isFinite(b)) {
+        for (let i = Math.min(a, b); i <= Math.max(a, b); i++) {
+          if (i >= 1 && i <= max) set.add(i);
+        }
+      }
+    } else {
+      const n = parseInt(s, 10);
+      if (Number.isFinite(n) && n >= 1 && n <= max) set.add(n);
+    }
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+function updateScaleLabel() {
+  if (state.pxPerInch) {
+    $('scaleLabel').innerHTML = `Scale: <strong>1 ${UNIT_LABEL[state.unit]} = ${ (UNIT_TO_INCH[state.unit] * state.pxPerInch).toFixed(2) } px</strong>`;
+    $('resetScale').disabled = false;
+  } else {
+    $('scaleLabel').innerHTML = 'Scale: <strong>—</strong>';
+    $('resetScale').disabled = true;
+  }
+}
+
+function recomputeLengthsForPage(p) {
+  const scale = state.pageScales[p] || null;
+  for (const m of state.measurements) {
+    if (m.page !== p) continue;
+    m.lengthPx = polylineLengthPx(m.points);
+    m.lengthInches = scale ? (m.lengthPx / scale) : null;
+  }
+}
+
+// unit conversion: how many inches in one unit
+const UNIT_TO_INCH = { in: 1, ft: 12, yd: 36, cm: 0.393700787, m: 39.3700787 };
+const UNIT_LABEL = { in: 'in', ft: 'ft', yd: 'yd', cm: 'cm', m: 'm' };
+
+// distinct, dark-bg-friendly palette (red reserved for erase hover)
+const PALETTE = [
+  '#b6ff3c', '#4cd6ff', '#ff9b3c', '#ff5bd6',
+  '#ffd93c', '#9b7bff', '#3cffb6', '#ffb13c',
+  '#7cff7c', '#5b8cff', '#ff7ba8', '#3ce8ff',
+];
+
+// ------- DOM -------
+const $ = (id) => document.getElementById(id);
+const stage = $('stage');
+const viewport = $('viewport');
+const baseCanvas = $('baseCanvas');
+const drawCanvas = $('drawCanvas');
+const baseCtx = baseCanvas.getContext('2d');
+const drawCtx = drawCanvas.getContext('2d');
+const empty = $('empty');
+const statusEl = $('status');
+const measList = $('measList');
+
+// ------- Helpers -------
+function setMode(m, opts = {}) {
+  // Don't overwrite prevMode when entering pan via Space
+  if (!opts.transient) state.prevMode = m === 'pan' ? state.prevMode : m;
+  state.mode = m;
+  ['selection','calibrate','measure','pan','erase'].forEach(x => {
+    $('btn-' + x).classList.toggle('active', x === m);
+  });
+  stage.classList.toggle('selection', m === 'selection');
+  stage.classList.toggle('pan', m === 'pan');
+  stage.classList.toggle('erase', m === 'erase');
+  if (m !== 'measure' && m !== 'calibrate') state.inProgress = null;
+  if (m !== 'selection') state.selectedId = null;
+  redraw();
+  updateStatus();
+}
+function updateStatus() {
+  const map = {
+    selection: 'SELECT — click a run to select it. Delete to remove. Hold Space to pan, Ctrl+Wheel to zoom.',
+    calibrate: 'CALIBRATE — click two points spanning a known distance.',
+    measure: state.pxPerInch
+      ? 'MEASURE — click to add points. Double-click or press Enter to finish. Esc to cancel.'
+      : 'MEASURE — calibrate first to get accurate lengths.',
+    pan: 'PAN — drag to move. Release Space to exit.',
+    erase: 'ERASE — click a measurement line to delete it.',
+  };
+  statusEl.textContent = map[state.mode];
+  statusEl.classList.toggle('show', !!state.baseW);
+}
+function showStatus(text, ms = 1800) {
+  statusEl.textContent = text;
+  statusEl.classList.add('show');
+  clearTimeout(showStatus._t);
+  if (ms) showStatus._t = setTimeout(() => updateStatus(), ms);
+}
+
+function applyTransform() {
+  viewport.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+  $('zoomLabel').innerHTML = `<strong>${Math.round(state.zoom * 100)}%</strong>`;
+}
+
+function screenToImage(clientX, clientY) {
+  const rect = stage.getBoundingClientRect();
+  const sx = clientX - rect.left;
+  const sy = clientY - rect.top;
+  return { x: (sx - state.panX) / state.zoom, y: (sy - state.panY) / state.zoom };
+}
+
+function imageToScreen(x, y) {
+  return { x: x * state.zoom + state.panX, y: y * state.zoom + state.panY };
+}
+
+function distancePx(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+function polylineLengthPx(points) {
+  let d = 0;
+  for (let i = 1; i < points.length; i++) d += distancePx(points[i - 1], points[i]);
+  return d;
+}
+function pxToInches(px) {
+  if (!state.pxPerInch) return null;
+  return px / state.pxPerInch;
+}
+function inchesToUnit(inches) {
+  return inches / UNIT_TO_INCH[state.unit];
+}
+function formatLen(inches) {
+  if (inches == null) return '—';
+  const v = inchesToUnit(inches);
+  return v.toFixed(2);
+}
+
+function fitToView() {
+  const rect = stage.getBoundingClientRect();
+  if (!state.baseW || !state.baseH) return;
+  const padding = 32;
+  const z = Math.min((rect.width - padding) / state.baseW, (rect.height - padding) / state.baseH);
+  state.zoom = z;
+  state.panX = (rect.width - state.baseW * z) / 2;
+  state.panY = (rect.height - state.baseH * z) / 2;
+  applyTransform();
+}
+
+// ------- File loading -------
+$('fileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  resetDocState();
+  if (file.type === 'application/pdf') {
+    const buf = await file.arrayBuffer();
+    state.pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    state.pdfPages = state.pdf.numPages;
+    state.pdfPage = 1;
+    state.imageBitmap = null;
+    await renderPdfPage();
+  } else if (file.type.startsWith('image/')) {
+    const img = await createImageBitmap(file);
+    state.imageBitmap = img;
+    state.pdf = null;
+    state.pdfPages = 1;
+    state.pdfPage = 1;
+    state.baseW = img.width;
+    state.baseH = img.height;
+    baseCanvas.width = drawCanvas.width = img.width;
+    baseCanvas.height = drawCanvas.height = img.height;
+    baseCtx.drawImage(img, 0, 0);
+    onPageReady();
+  }
+});
+
+function resetDocState() {
+  state.measurements = [];
+  state.pageScales = {};
+  state.pxPerInch = null;
+  state.inProgress = null;
+  state.selectedId = null;
+  state.pageCache.clear();
+  state.preRenderQueue = [];
+  state.preRenderRunning = false;
+  state.sidebarTab = 'page';
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'page'));
+  $('totalHeading').textContent = 'This Page Total';
+  updateScaleLabel();
+}
+
+function cacheGet(p) {
+  if (!state.pageCache.has(p)) return null;
+  // touch for LRU
+  const c = state.pageCache.get(p);
+  state.pageCache.delete(p);
+  state.pageCache.set(p, c);
+  return c;
+}
+function cacheSet(p, canvas) {
+  state.pageCache.set(p, canvas);
+  // Evict least-recently-used, but never the current page
+  while (state.pageCache.size > state.MAX_CACHE) {
+    let oldest = null;
+    for (const k of state.pageCache.keys()) { if (k !== state.pdfPage) { oldest = k; break; } }
+    if (oldest == null) break;
+    state.pageCache.delete(oldest);
+  }
+}
+
+async function renderPageToCanvas(pageNum) {
+  const page = await state.pdf.getPage(pageNum);
+  const viewport_ = page.getViewport({ scale: state.pageRenderScale });
+  const c = document.createElement('canvas');
+  c.width = viewport_.width;
+  c.height = viewport_.height;
+  await page.render({ canvasContext: c.getContext('2d'), viewport: viewport_ }).promise;
+  cacheSet(pageNum, c);
+  return c;
+}
+
+function blitToBase(cached) {
+  baseCanvas.width = drawCanvas.width = cached.width;
+  baseCanvas.height = drawCanvas.height = cached.height;
+  state.baseW = cached.width;
+  state.baseH = cached.height;
+  baseCtx.drawImage(cached, 0, 0);
+}
+
+async function renderPdfPage() {
+  state.navToken++;
+  const myToken = state.navToken;
+  const p = state.pdfPage;
+
+  let cached = cacheGet(p);
+  if (cached) {
+    blitToBase(cached);
+    onPageReady();
+    schedulePreRender();
+    return;
+  }
+  cached = await renderPageToCanvas(p);
+  if (myToken !== state.navToken) return; // user navigated away mid-render
+  blitToBase(cached);
+  onPageReady();
+  schedulePreRender();
+}
+
+function schedulePreRender() {
+  if (!state.pdf) return;
+  const desired = [];
+  const p = state.pdfPage;
+  // Prioritize nearest neighbors, expanding outward
+  for (let off = 1; off <= state.pdfPages; off++) {
+    if (p + off <= state.pdfPages) desired.push(p + off);
+    if (p - off >= 1) desired.push(p - off);
+  }
+  state.preRenderQueue = desired.filter(n => !state.pageCache.has(n));
+  runPreRender();
+}
+
+async function runPreRender() {
+  if (state.preRenderRunning) return;
+  state.preRenderRunning = true;
+  try {
+    while (state.preRenderQueue.length > 0 && state.pdf) {
+      const n = state.preRenderQueue.shift();
+      if (state.pageCache.has(n)) continue;
+      try { await renderPageToCanvas(n); } catch (_) { /* ignore */ }
+      // Yield to keep UI responsive
+      await new Promise(r => setTimeout(r, 0));
+    }
+  } finally {
+    state.preRenderRunning = false;
+  }
+}
+
+function onPageReady() {
+  empty.style.display = 'none';
+  state.inProgress = null;
+  state.pxPerInch = state.pageScales[currentPage()] || null;
+  $('prevPage').disabled = currentPage() <= 1;
+  $('nextPage').disabled = currentPage() >= totalPages();
+  const dot = state.pxPerInch ? ' <span style="color:var(--accent)">●</span>' : '';
+  $('pageLabel').innerHTML = `${currentPage()} / ${totalPages()}${dot}`;
+  updateScaleLabel();
+  renderList();
+  fitToView();
+  redraw();
+  updateStatus();
+}
+
+async function goToPage(n) {
+  if (!state.pdf || n < 1 || n > state.pdfPages || n === state.pdfPage) return;
+  state.pdfPage = n;
+  await renderPdfPage();
+}
+
+$('prevPage').addEventListener('click', () => goToPage(state.pdfPage - 1));
+$('nextPage').addEventListener('click', () => goToPage(state.pdfPage + 1));
+
+// ------- Tool buttons -------
+$('btn-selection').addEventListener('click', () => setMode('selection'));
+$('btn-calibrate').addEventListener('click', () => setMode('calibrate'));
+$('btn-measure').addEventListener('click', () => setMode('measure'));
+$('btn-pan').addEventListener('click', () => setMode('pan'));
+$('btn-erase').addEventListener('click', () => setMode('erase'));
+$('btn-selection').classList.add('active');
+
+// ------- Zoom buttons -------
+$('zoomIn').addEventListener('click', () => zoomAt(stageCenter(), 1.25));
+$('zoomOut').addEventListener('click', () => zoomAt(stageCenter(), 0.8));
+$('zoomFit').addEventListener('click', fitToView);
+function stageCenter() { const r = stage.getBoundingClientRect(); return { clientX: r.left + r.width/2, clientY: r.top + r.height/2 }; }
+function zoomAt(pt, factor) {
+  const img = screenToImage(pt.clientX, pt.clientY);
+  state.zoom *= factor;
+  state.zoom = Math.min(Math.max(state.zoom, 0.05), 20);
+  // re-anchor so img point stays under cursor
+  const newScreen = imageToScreen(img.x, img.y);
+  const rect = stage.getBoundingClientRect();
+  const targetSx = pt.clientX - rect.left;
+  const targetSy = pt.clientY - rect.top;
+  state.panX += targetSx - newScreen.x;
+  state.panY += targetSy - newScreen.y;
+  applyTransform();
+}
+
+// ------- Wheel: Ctrl+wheel = zoom, plain wheel = scroll (deltaX horizontal, deltaY vertical) -------
+stage.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) {
+    const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
+    zoomAt({ clientX: e.clientX, clientY: e.clientY }, factor);
+  } else {
+    // Browsers translate Shift+wheel into deltaX on many systems; respect both axes.
+    state.panX -= e.deltaX;
+    state.panY -= e.deltaY;
+    applyTransform();
+  }
+}, { passive: false });
+
+// ------- Mouse interactions -------
+stage.addEventListener('mousedown', (e) => {
+  if (!state.baseW) return;
+  if (e.button === 1 || state.mode === 'pan') {
+    state.isPanning = true;
+    state.panStart = { x: e.clientX - state.panX, y: e.clientY - state.panY };
+    stage.classList.add('dragging');
+    e.preventDefault();
+    return;
+  }
+  const p = screenToImage(e.clientX, e.clientY);
+
+  if (state.mode === 'selection') {
+    // Vertex hit first — clicking a node selects its run AND starts drag
+    const v = findNearestVertex(p, 10 / state.zoom);
+    if (v) {
+      state.selectedId = v.measurementId;
+      state.dragVertex = v;
+      stage.classList.add('dragging');
+      renderList();
+      redraw();
+      return;
+    }
+    const hitId = findNearestMeasurement(p, 8 / state.zoom);
+    state.selectedId = hitId;
+    renderList();
+    redraw();
+  } else if (state.mode === 'calibrate') {
+    if (!state.inProgress) {
+      state.inProgress = { type: 'calib', points: [p] };
+    } else {
+      const placePoint = e.shiftKey ? snapAngle(state.inProgress.points[state.inProgress.points.length - 1], p) : p;
+      state.inProgress.points.push(placePoint);
+      pendingCalibration = state.inProgress;
+      openCalibModal();
+    }
+    redraw();
+  } else if (state.mode === 'measure') {
+    if (!state.inProgress) {
+      state.inProgress = { type: 'measure', points: [p] };
+    } else {
+      const placePoint = e.shiftKey ? snapAngle(state.inProgress.points[state.inProgress.points.length - 1], p) : p;
+      state.inProgress.points.push(placePoint);
+    }
+    redraw();
+  } else if (state.mode === 'erase') {
+    const hitId = findNearestMeasurement(p, 8 / state.zoom);
+    if (hitId != null) {
+      state.measurements = state.measurements.filter(m => m.id !== hitId);
+      renderList();
+      redraw();
+    }
+  }
+});
+
+stage.addEventListener('mousemove', (e) => {
+  if (state.isPanning) {
+    state.panX = e.clientX - state.panStart.x;
+    state.panY = e.clientY - state.panStart.y;
+    applyTransform();
+    return;
+  }
+  if (!state.baseW) return;
+  state.cursorImg = screenToImage(e.clientX, e.clientY);
+  $('cursorPos').innerHTML = `x: <strong>${state.cursorImg.x.toFixed(0)}</strong> &nbsp; y: <strong>${state.cursorImg.y.toFixed(0)}</strong>`;
+
+  if (state.dragVertex) {
+    const m = state.measurements.find(x => x.id === state.dragVertex.measurementId);
+    if (m) {
+      m.points[state.dragVertex.vertexIndex] = state.cursorImg;
+      m.lengthPx = polylineLengthPx(m.points);
+      m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
+      renderList();
+      redraw();
+    }
+    return;
+  }
+
+  state.shiftHeld = e.shiftKey;
+
+  if (state.inProgress) {
+    // live preview (snapped to 45° when Shift is held)
+    const preview = getEffectiveCursor();
+    redraw(preview);
+    if (state.pxPerInch) {
+      const pts = [...state.inProgress.points, preview];
+      const len = polylineLengthPx(pts);
+      const liveEl = $('liveLen');
+      liveEl.style.display = 'inline-block';
+      const snapTag = state.shiftHeld ? ' <span style="color:var(--accent)">⊾ snap</span>' : '';
+      liveEl.innerHTML = `live: <strong>${formatLen(pxToInches(len))} ${UNIT_LABEL[state.unit]}</strong>${snapTag}`;
+    }
+  } else {
+    $('liveLen').style.display = 'none';
+  }
+
+  if (state.mode === 'erase' || state.mode === 'selection') {
+    const newHover = findNearestMeasurement(state.cursorImg, 8 / state.zoom);
+    if (newHover !== state.hoverId) {
+      state.hoverId = newHover;
+      redraw();
+    }
+    if (state.mode === 'selection') {
+      const v = findNearestVertex(state.cursorImg, 10 / state.zoom);
+      stage.style.cursor = v ? 'grab' : (newHover != null ? 'pointer' : '');
+    } else {
+      stage.style.cursor = '';
+    }
+  }
+});
+
+stage.addEventListener('mouseup', (e) => {
+  if (state.isPanning) {
+    state.isPanning = false;
+    stage.classList.remove('dragging');
+  }
+  if (state.dragVertex) {
+    state.dragVertex = null;
+    stage.classList.remove('dragging');
+  }
+});
+
+stage.addEventListener('dblclick', (e) => {
+  if (state.mode === 'measure' && state.inProgress && state.inProgress.points.length >= 2) {
+    finishMeasurement();
+  }
+});
+
+window.addEventListener('keydown', (e) => {
+  // Skip hotkeys when typing into inputs
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+
+  if (e.key === ' ' || e.code === 'Space') {
+    if (!state.spaceHeld) {
+      state.spaceHeld = true;
+      if (state.mode !== 'pan') {
+        state.prevMode = state.mode;
+        setMode('pan', { transient: true });
+      }
+    }
+    e.preventDefault();
+    return;
+  }
+
+  if (e.key === 'Shift') {
+    state.shiftHeld = true;
+    if (state.inProgress) redraw(getEffectiveCursor());
+    return;
+  }
+
+  if (e.key === 'Escape') { state.inProgress = null; redraw(); }
+  else if (e.key === 'Enter' && state.mode === 'measure' && state.inProgress && state.inProgress.points.length >= 2) {
+    finishMeasurement();
+  }
+  else if ((e.key === 'Delete' || e.key === 'Backspace') && state.mode === 'selection' && state.selectedId != null) {
+    state.measurements = state.measurements.filter(m => m.id !== state.selectedId);
+    state.selectedId = null;
+    renderList(); redraw();
+    e.preventDefault();
+  }
+  else if (e.key === 'v' || e.key === 'V') setMode('selection');
+  else if (e.key === 'c' || e.key === 'C') setMode('calibrate');
+  else if (e.key === 'm' || e.key === 'M') setMode('measure');
+  else if (e.key === 'p' || e.key === 'P') setMode('pan');
+  else if (e.key === 'e' || e.key === 'E') setMode('erase');
+  else if (e.key === 'f' || e.key === 'F') fitToView();
+});
+
+window.addEventListener('keyup', (e) => {
+  if (e.key === ' ' || e.code === 'Space') {
+    state.spaceHeld = false;
+    if (state.mode === 'pan' && state.prevMode && state.prevMode !== 'pan') {
+      setMode(state.prevMode);
+    }
+    if (state.isPanning) {
+      state.isPanning = false;
+      stage.classList.remove('dragging');
+    }
+  }
+  if (e.key === 'Shift') {
+    state.shiftHeld = false;
+    if (state.inProgress) redraw(state.cursorImg);
+  }
+});
+
+function finishMeasurement() {
+  const pts = state.inProgress.points;
+  const lenPx = polylineLengthPx(pts);
+  const lengthInches = state.pxPerInch ? pxToInches(lenPx) : null;
+  const id = Date.now();
+  // pick next unused color (cycle through palette)
+  const usedColors = new Set(state.measurements.map(m => m.color));
+  let color = PALETTE.find(c => !usedColors.has(c));
+  if (!color) color = PALETTE[state.measurements.length % PALETTE.length];
+  state.measurements.push({
+    id,
+    name: `Run ${state.measurements.length + 1}`,
+    color,
+    points: pts.slice(),
+    lengthInches,
+    lengthPx: lenPx,
+    page: currentPage(),
+  });
+  state.inProgress = null;
+  renderList();
+  redraw();
+  // Auto-focus the name input on the just-added run with text selected.
+  // User can type to rename, hit Enter / Escape to commit, or just click the
+  // canvas to start a new measurement (canvas click naturally blurs the input
+  // and the default "Run N" name stays).
+  requestAnimationFrame(() => {
+    const item = measList.querySelector(`.meas-item[data-meas-id="${id}"]`);
+    if (item) {
+      item.scrollIntoView({ block: 'nearest' });
+      const input = item.querySelector('input.name');
+      if (input) { input.removeAttribute('readonly'); input.focus(); input.select(); }
+    }
+  });
+}
+
+function snapAngle(from, to) {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist === 0) return to;
+  const angle = Math.atan2(dy, dx);
+  const step = Math.PI / 12; // 15 degrees
+  const snapped = Math.round(angle / step) * step;
+  return { x: from.x + Math.cos(snapped) * dist, y: from.y + Math.sin(snapped) * dist };
+}
+
+function getEffectiveCursor() {
+  if (!state.shiftHeld || !state.inProgress || state.inProgress.points.length < 1 || !state.cursorImg) {
+    return state.cursorImg;
+  }
+  const last = state.inProgress.points[state.inProgress.points.length - 1];
+  return snapAngle(last, state.cursorImg);
+}
+
+function measurementsOnCurrentPage() {
+  const p = currentPage();
+  return state.measurements.filter(m => m.page === p);
+}
+
+function findNearestVertex(p, tol) {
+  for (const m of measurementsOnCurrentPage()) {
+    for (let i = 0; i < m.points.length; i++) {
+      const d = Math.hypot(p.x - m.points[i].x, p.y - m.points[i].y);
+      if (d <= tol) return { measurementId: m.id, vertexIndex: i };
+    }
+  }
+  return null;
+}
+
+function findNearestMeasurement(p, tol) {
+  for (const m of measurementsOnCurrentPage()) {
+    for (let i = 1; i < m.points.length; i++) {
+      const d = pointToSegmentDist(p, m.points[i-1], m.points[i]);
+      if (d <= tol) return m.id;
+    }
+  }
+  return null;
+}
+function pointToSegmentDist(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const len2 = dx*dx + dy*dy;
+  let t = 0;
+  if (len2 > 0) t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  const x = a.x + t * dx, y = a.y + t * dy;
+  return Math.hypot(p.x - x, p.y - y);
+}
+
+// ------- Calibration modal -------
+let pendingCalibration = null;
+function openCalibModal() {
+  $('calibModal').classList.add('show');
+  $('calibValue').value = '';
+  $('calibUnit').value = state.unit;
+  $('calibScope').value = 'this';
+  $('calibRange').value = '';
+  $('calibRangeField').style.display = 'none';
+  setTimeout(() => $('calibValue').focus(), 50);
+}
+function closeCalibModal() {
+  $('calibModal').classList.remove('show');
+  state.inProgress = null;
+  pendingCalibration = null;
+  redraw();
+}
+$('calibScope').addEventListener('change', (e) => {
+  $('calibRangeField').style.display = e.target.value === 'custom' ? 'flex' : 'none';
+  if (e.target.value === 'custom') setTimeout(() => $('calibRange').focus(), 30);
+});
+$('calibCancel').addEventListener('click', closeCalibModal);
+$('calibOk').addEventListener('click', () => {
+  const v = parseFloat($('calibValue').value);
+  if (!isFinite(v) || v <= 0) { $('calibValue').focus(); return; }
+  const unit = $('calibUnit').value;
+  const inches = v * UNIT_TO_INCH[unit];
+  const px = distancePx(pendingCalibration.points[0], pendingCalibration.points[1]);
+  const newPxPerInch = px / inches;
+
+  // Determine which pages get this scale
+  const scope = $('calibScope').value;
+  let targetPages;
+  if (scope === 'all') {
+    targetPages = [];
+    for (let i = 1; i <= totalPages(); i++) targetPages.push(i);
+  } else if (scope === 'custom') {
+    targetPages = parsePageRange($('calibRange').value, totalPages());
+    if (targetPages.length === 0) {
+      alert('Enter at least one valid page number (e.g. "1, 3, 5-7").');
+      $('calibRange').focus();
+      return;
+    }
+  } else {
+    targetPages = [currentPage()];
+  }
+
+  for (const p of targetPages) {
+    state.pageScales[p] = newPxPerInch;
+    recomputeLengthsForPage(p);
+  }
+  // Update current page's mirror
+  if (targetPages.includes(currentPage())) {
+    state.pxPerInch = newPxPerInch;
+  }
+  updateScaleLabel();
+
+  state.inProgress = null;
+  pendingCalibration = null;
+  $('calibModal').classList.remove('show');
+  setMode('measure');
+  renderList();
+  // refresh page label dot
+  const dot = state.pxPerInch ? ' <span style="color:var(--accent)">●</span>' : '';
+  $('pageLabel').innerHTML = `${currentPage()} / ${totalPages()}${dot}`;
+  redraw();
+  showStatus(`Scale set on ${targetPages.length} page${targetPages.length > 1 ? 's' : ''}: ${v} ${unit} reference`, 2400);
+});
+$('calibValue').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('calibOk').click(); });
+
+// Reset calibration on current page only
+$('resetScale').addEventListener('click', () => {
+  const p = currentPage();
+  if (!state.pageScales[p]) return;
+  if (!confirm(`Reset calibration for page ${p}? Lengths on this page will be cleared. Other pages keep their scales.`)) return;
+  delete state.pageScales[p];
+  state.pxPerInch = null;
+  // Clear lengths on this page only
+  for (const m of state.measurements) {
+    if (m.page === p) m.lengthInches = null;
+  }
+  updateScaleLabel();
+  $('pageLabel').innerHTML = `${currentPage()} / ${totalPages()}`;
+  renderList();
+  redraw();
+  showStatus(`Page ${p} calibration cleared.`, 1800);
+});
+
+// Sidebar tab switching
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b === btn));
+    state.sidebarTab = btn.dataset.tab;
+    $('totalHeading').textContent = state.sidebarTab === 'page' ? 'This Page Total' : 'Grand Total';
+    renderList();
+  });
+});
+
+// ------- Unit + clear -------
+$('unitSelect').addEventListener('change', (e) => {
+  state.unit = e.target.value;
+  $('totalUnit').textContent = UNIT_LABEL[state.unit];
+  if (state.pxPerInch) $('scaleLabel').innerHTML = `Scale: <strong>1 ${UNIT_LABEL[state.unit]} = ${ (UNIT_TO_INCH[state.unit] * state.pxPerInch).toFixed(2) } px</strong>`;
+  renderList();
+});
+$('clearAll').addEventListener('click', () => {
+  if (state.measurements.length === 0) return;
+  if (!confirm('Delete all measurements?')) return;
+  state.measurements = [];
+  renderList();
+  redraw();
+});
+
+// ------- Rendering measurements -------
+function redraw(previewTo) {
+  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+
+  // existing measurements (filtered to current page)
+  for (const m of measurementsOnCurrentPage()) {
+    const isEraseHover = state.hoverId === m.id && state.mode === 'erase';
+    const isSelected = state.selectedId === m.id;
+    const isSelHover = state.hoverId === m.id && state.mode === 'selection' && !isSelected;
+    const baseColor = m.color || '#b6ff3c';
+    const color = isEraseHover ? '#ff5b5b' : baseColor;
+    drawPolyline(m.points, {
+      color,
+      width: isSelected ? 4 : 3,
+      dots: true,
+      emphasizeDots: isSelected,
+      glow: isSelected || isSelHover,
+      label: m.lengthInches != null ? `${formatLen(m.lengthInches)} ${UNIT_LABEL[state.unit]}` : 'no scale',
+      labelColor: color,
+    });
+  }
+
+  // in-progress
+  if (state.inProgress) {
+    const pts = state.inProgress.points.slice();
+    if (previewTo) pts.push(previewTo);
+    const isCalib = state.inProgress.type === 'calib';
+    drawPolyline(pts, {
+      color: isCalib ? '#ffb13c' : '#b6ff3c',
+      width: 2,
+      dashed: true,
+      dots: true,
+      labelColor: isCalib ? '#ffb13c' : '#b6ff3c',
+      label: !isCalib && state.pxPerInch
+        ? `${formatLen(pxToInches(polylineLengthPx(pts)))} ${UNIT_LABEL[state.unit]}`
+        : null,
+    });
+  }
+}
+
+function drawPolyline(points, opts) {
+  if (points.length < 1) return;
+  const ctx = drawCtx;
+  ctx.save();
+  ctx.lineWidth = (opts.width || 2) / state.zoom;
+  ctx.strokeStyle = opts.color;
+  ctx.fillStyle = opts.color;
+  if (opts.dashed) ctx.setLineDash([8 / state.zoom, 6 / state.zoom]);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (opts.glow) {
+    ctx.shadowColor = opts.color;
+    ctx.shadowBlur = 12 / state.zoom;
+  }
+
+  if (points.length >= 2) {
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.shadowBlur = 0;
+
+  if (opts.dots) {
+    const r = (opts.emphasizeDots ? 6 : 4) / state.zoom;
+    for (const p of points) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+      if (opts.emphasizeDots) {
+        ctx.fillStyle = opts.color;
+        ctx.fill();
+        ctx.lineWidth = 2 / state.zoom;
+        ctx.strokeStyle = '#0b0d0e';
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = '#0b0d0e';
+        ctx.fill();
+        ctx.lineWidth = 2 / state.zoom;
+        ctx.strokeStyle = opts.color;
+        ctx.stroke();
+      }
+    }
+  }
+
+  if (opts.label && points.length >= 2) {
+    const last = points[points.length - 1];
+    const prev = points[points.length - 2];
+    const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+    const offX = -Math.sin(angle) * 14 / state.zoom;
+    const offY = Math.cos(angle) * 14 / state.zoom;
+    const lx = last.x + offX;
+    const ly = last.y + offY;
+    ctx.font = `${500} ${14 / state.zoom}px 'JetBrains Mono', monospace`;
+    const tw = ctx.measureText(opts.label).width;
+    const pad = 6 / state.zoom;
+    ctx.fillStyle = 'rgba(11,13,14,0.92)';
+    ctx.strokeStyle = opts.labelColor;
+    ctx.lineWidth = 1 / state.zoom;
+    const bx = lx - tw/2 - pad, by = ly - 10/state.zoom, bw = tw + pad*2, bh = 20/state.zoom;
+    roundRect(ctx, bx, by, bw, bh, 4 / state.zoom);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = opts.labelColor;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(opts.label, lx, ly);
+  }
+  ctx.restore();
+}
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// ------- Sidebar list -------
+function buildMeasItem(m) {
+  const item = document.createElement('div');
+  const onOtherPage = m.page !== currentPage();
+  item.className = 'meas-item' + (state.selectedId === m.id ? ' selected' : '');
+  item.dataset.measId = m.id;
+  item.innerHTML = `
+    <div class="row head">
+      <div class="swatch" style="background:${m.color}; color:${m.color}"></div>
+      <input class="name" value="${escapeHtml(m.name)}" readonly title="Double-click to rename" />
+      <span class="len">${m.lengthInches != null ? formatLen(m.lengthInches) : '—'} <span style="color:var(--muted); font-size: 12px">${UNIT_LABEL[state.unit]}</span></span>
+    </div>
+    <div class="meta">
+      <span>${m.points.length} pts${onOtherPage ? ' · pg ' + m.page : ''}</span>
+      <button class="del" data-id="${m.id}" title="Delete">×</button>
+    </div>
+  `;
+  const nameInput = item.querySelector('.name');
+  nameInput.addEventListener('input', (e) => { m.name = e.target.value; });
+  nameInput.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    nameInput.removeAttribute('readonly');
+    nameInput.focus();
+    nameInput.select();
+  });
+  nameInput.addEventListener('keydown', (e) => {
+    if (!nameInput.hasAttribute('readonly') && (e.key === 'Enter' || e.key === 'Escape')) {
+      e.target.blur();
+      e.preventDefault();
+    }
+  });
+  nameInput.addEventListener('blur', () => { nameInput.setAttribute('readonly', ''); });
+  item.querySelector('.del').addEventListener('click', (e) => {
+    e.stopPropagation();
+    state.measurements = state.measurements.filter(x => x.id !== m.id);
+    if (state.selectedId === m.id) state.selectedId = null;
+    renderList();
+    redraw();
+  });
+  item.addEventListener('click', async (e) => {
+    const tag = e.target.tagName;
+    if (tag === 'INPUT' || e.target.classList.contains('del')) return;
+    if (onOtherPage) await goToPage(m.page);
+    setMode('selection');
+    state.selectedId = m.id;
+    renderList();
+    redraw();
+  });
+  return item;
+}
+
+function renderList() {
+  measList.innerHTML = '';
+  const pageMs = measurementsOnCurrentPage();
+  const grandTotal = state.measurements.reduce((s, m) => s + (m.lengthInches || 0), 0);
+  const pageTotal = pageMs.reduce((s, m) => s + (m.lengthInches || 0), 0);
+
+  if (state.sidebarTab === 'page') {
+    for (const m of pageMs) measList.appendChild(buildMeasItem(m));
+    $('totalLen').textContent = inchesToUnit(pageTotal).toFixed(2);
+    $('runCount').textContent = pageMs.length;
+  } else {
+    // Group by page
+    const byPage = new Map();
+    for (const m of state.measurements) {
+      if (!byPage.has(m.page)) byPage.set(m.page, []);
+      byPage.get(m.page).push(m);
+    }
+    const pagesSorted = [...byPage.keys()].sort((a, b) => a - b);
+    for (const p of pagesSorted) {
+      const list = byPage.get(p);
+      const subtotal = list.reduce((s, m) => s + (m.lengthInches || 0), 0);
+      const hasScale = !!state.pageScales[p];
+      const header = document.createElement('div');
+      header.className = 'page-group';
+      header.innerHTML = `
+        <span>Page <strong>${p}</strong> ${hasScale ? '· ' + inchesToUnit(subtotal).toFixed(2) + ' ' + UNIT_LABEL[state.unit] : '<span class="no-scale">· no scale</span>'}</span>
+        <button class="jump" data-page="${p}">Go</button>
+      `;
+      header.querySelector('.jump').addEventListener('click', () => goToPage(p));
+      measList.appendChild(header);
+      for (const m of list) measList.appendChild(buildMeasItem(m));
+    }
+    $('totalLen').textContent = inchesToUnit(grandTotal).toFixed(2);
+    $('runCount').textContent = state.measurements.length;
+  }
+
+  $('totalUnit').textContent = UNIT_LABEL[state.unit];
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+// init
+applyTransform();
+updateStatus();
+</script>
+</body>
+</html>
