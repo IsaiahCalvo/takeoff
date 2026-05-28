@@ -92,6 +92,14 @@
     overflow: hidden;
     flex: 0 1 auto;
   }
+  .tab-strip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
   .doc-tab {
     position: relative;
     min-width: 0;
@@ -152,6 +160,27 @@
     background: transparent;
   }
   .add-doc-tab:hover {
+    color: var(--text);
+    border-color: var(--line);
+    background: var(--panel-2);
+  }
+  .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+  .top-action {
+    width: 30px;
+    min-height: 30px;
+    padding: 0;
+    justify-content: center;
+    color: var(--muted);
+    border-color: transparent;
+    background: transparent;
+  }
+  .top-action:hover:not(:disabled) {
     color: var(--text);
     border-color: var(--line);
     background: var(--panel-2);
@@ -250,15 +279,15 @@
     line-height: 0.9;
   }
   .left-rail .fit-control {
-    width: 34px;
-    min-width: 34px;
-    min-height: 24px;
+    width: 36px;
+    min-width: 36px;
+    min-height: 32px;
     padding: 0;
     font-size: 0;
     justify-content: center;
   }
-  .left-rail .fit-control svg:first-child { width: 12px; height: 12px; }
-  .left-rail .fit-control svg:last-child { display: block; width: 8px; height: 8px; }
+  .left-rail .fit-control svg:first-child { width: 19px; height: 19px; }
+  .left-rail .fit-menu-toggle svg { display: block; width: 8px; height: 8px; }
   .left-rail #resetScale {
     width: 36px;
     min-height: 24px;
@@ -372,23 +401,60 @@
     color: var(--muted);
   }
   .fit-control {
-    min-width: 68px;
-    min-height: 28px;
-    gap: 5px;
-    padding: 0 8px;
     border-color: transparent;
     background: transparent;
     color: var(--muted);
   }
-  .fit-control:hover {
-    border-color: transparent;
-    background: var(--panel-2);
+  .fit-control:hover,
+  .fit-menu-toggle:hover {
+    border-color: var(--accent);
+    background: transparent;
     color: var(--text);
+    box-shadow: 0 0 0 1px rgba(177, 255, 64, 0.24);
   }
   .fit-split {
     position: relative;
     display: inline-flex;
+    align-items: center;
     flex: 0 0 auto;
+    width: 36px;
+    height: 32px;
+    min-height: 32px;
+    justify-content: center;
+  }
+  .left-rail .fit-split:hover {
+    border-radius: 7px;
+    box-shadow: 0 0 0 1px rgba(177, 255, 64, 0.55), 0 0 0 2px rgba(177, 255, 64, 0.14);
+    background: rgba(182,255,60,0.035);
+  }
+  .left-rail .fit-split:hover #zoomFit,
+  .left-rail .fit-split:hover #zoomFit:hover,
+  .left-rail .fit-split:hover .fit-menu-toggle,
+  .left-rail .fit-split:hover .fit-menu-toggle:hover {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--text);
+  }
+  .fit-split #zoomFit {
+    position: relative;
+    z-index: 1;
+  }
+  .fit-menu-toggle {
+    position: absolute;
+    left: 25px;
+    top: 63%;
+    transform: translateY(-50%);
+    width: 11px;
+    min-width: 11px;
+    min-height: 18px;
+    padding: 0;
+    justify-content: center;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--muted);
+    z-index: 2;
   }
   .fit-menu {
     position: fixed;
@@ -441,11 +507,17 @@
     color: var(--text);
   }
   .left-rail .measure-split:hover {
-    border-radius: 6px;
+    border-radius: 7px;
     box-shadow: 0 0 0 1px rgba(177, 255, 64, 0.55), 0 0 0 2px rgba(177, 255, 64, 0.14);
+    background: rgba(182,255,60,0.035);
   }
-  .left-rail .measure-split:hover .tool-btn,
-  .left-rail .measure-split:hover .measure-menu-toggle {
+  .left-rail .measure-split:hover #btn-measure,
+  .left-rail .measure-split:hover #btn-measure:hover,
+  .left-rail .measure-split:hover #btn-measure.active,
+  .left-rail .measure-split:hover #btn-measure.active:hover,
+  .left-rail .measure-split:hover .measure-menu-toggle,
+  .left-rail .measure-split:hover .measure-menu-toggle:hover {
+    background: transparent;
     border-color: transparent;
     box-shadow: none;
     color: var(--text);
@@ -469,29 +541,33 @@
   .measure-split {
     position: relative;
     display: inline-flex;
-    flex-direction: column;
     align-items: center;
-    gap: 0;
     flex: 0 0 auto;
+    width: 36px;
+    height: 32px;
+    min-height: 32px;
+    justify-content: center;
   }
   .measure-split .tool-btn {
     width: 36px;
   }
   .measure-split #btn-measure {
-    border-bottom-right-radius: 0;
-    border-bottom-left-radius: 0;
+    position: relative;
+    z-index: 1;
   }
   .measure-menu-toggle {
-    width: 36px;
-    min-width: 36px;
-    min-height: 14px;
+    position: absolute;
+    left: 25px;
+    top: 63%;
+    transform: translateY(-50%);
+    width: 11px;
+    min-width: 11px;
+    min-height: 18px;
     padding: 0;
     justify-content: center;
-    border-top: 0;
-    border-top-left-radius: 0;
-    border-top-right-radius: 0;
-    border-bottom-left-radius: 6px;
-    border-bottom-right-radius: 6px;
+    border: 0;
+    border-radius: 6px;
+    z-index: 2;
   }
   .measure-menu-toggle svg {
     width: 8px;
@@ -1062,10 +1138,20 @@
     <div class="dot"></div>
     <div>Cable<small>&nbsp;Run</small></div>
   </div>
-  <div id="docTabs" class="doc-tabs" role="tablist" aria-label="Open documents"></div>
-  <button id="uploadButton" class="add-doc-tab" type="button" title="Upload Image/PDF" aria-label="Upload Image/PDF">
-    <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2v8M2 6h8"/></svg>
-  </button>
+  <div class="tab-strip">
+    <div id="docTabs" class="doc-tabs" role="tablist" aria-label="Open documents"></div>
+    <button id="uploadButton" class="add-doc-tab" type="button" title="Upload Image/PDF" aria-label="Upload Image/PDF">
+      <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2v8M2 6h8"/></svg>
+    </button>
+  </div>
+  <div class="top-actions" aria-label="Edit history">
+    <button id="undoButton" class="top-action" type="button" title="Undo" aria-label="Undo" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>
+    </button>
+    <button id="redoButton" class="top-action" type="button" title="Redo" aria-label="Redo" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h2"/></svg>
+    </button>
+  </div>
   <input type="file" id="fileInput" class="file-picker" accept="application/pdf,image/*" aria-label="Upload Image/PDF" />
 </header>
 
@@ -1132,9 +1218,10 @@
       <div class="control-divider"></div>
 
       <div id="fitSplit" class="fit-split">
-        <button id="zoomFit" class="fit-control" type="button" title="Fit options" aria-haspopup="true" aria-expanded="false">
+        <button id="zoomFit" class="fit-control" type="button" title="Fit page" aria-label="Fit page">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
-          Fit
+        </button>
+        <button id="fitMenuToggle" class="fit-menu-toggle" type="button" title="Fit options" aria-label="Fit options" aria-haspopup="true" aria-expanded="false">
           <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg>
         </button>
       </div>
@@ -1223,6 +1310,8 @@
 </aside>
 
 <div id="contextMenu" class="context-menu" role="menu">
+  <button type="button" data-action="add-anchor">Add anchor</button>
+  <button type="button" data-action="remove-anchor">Remove anchor</button>
   <button type="button" data-action="cut">Cut</button>
   <button type="button" data-action="copy">Copy</button>
   <button type="button" data-action="paste">Paste</button>
@@ -1239,7 +1328,7 @@
     <h3>Set scale</h3>
     <p>How long is the line you just drew, in real-world units?</p>
     <div class="field">
-      <input type="number" id="calibValue" step="any" min="0" placeholder="e.g. 10" autofocus />
+      <input type="text" id="calibValue" inputmode="decimal" autocomplete="off" placeholder="e.g. 10" autofocus />
       <select id="calibUnit">
         <option value="ft">ft</option>
         <option value="yd">yd</option>
@@ -1300,6 +1389,7 @@ const state = {
   baseW: 0, baseH: 0,
   zoom: 1,
   panX: 0, panY: 0,
+  activeFitMode: null,
   isPanning: false,
   panStart: null,
   // Calibration: pageScales[pageNum] = px-per-inch for that page.
@@ -1321,6 +1411,10 @@ const state = {
   rotationInputVisible: false,
   pendingPaste: null,
   copiedMeasurement: null,
+  contextTarget: null,
+  undoStack: [],
+  redoStack: [],
+  historyLimit: 100,
   onboardingStatusSeen: false,
   shiftHeld: false,
   unit: 'ft',
@@ -1425,6 +1519,8 @@ const toolTip = $('toolTip');
 const contextMenu = $('contextMenu');
 const rotationPill = $('rotationPill');
 const rotationInput = $('rotationInput');
+const undoButton = $('undoButton');
+const redoButton = $('redoButton');
 let toolTipTarget = null;
 
 function setDocumentLoaded(loaded) {
@@ -1445,6 +1541,7 @@ function snapshotActiveDocument(nameOverride = null) {
     zoom: state.zoom,
     panX: state.panX,
     panY: state.panY,
+    activeFitMode: state.activeFitMode,
     pxPerInch: state.pxPerInch,
     pageScales: { ...state.pageScales },
     measurements: state.measurements,
@@ -1460,6 +1557,87 @@ function saveActiveDocument(nameOverride = null) {
   if (idx >= 0) state.documents[idx] = doc;
   else state.documents.push(doc);
   renderDocumentTabs();
+}
+
+function cloneHistoryValue(value) {
+  return value == null ? null : JSON.parse(JSON.stringify(value));
+}
+
+function createHistorySnapshot() {
+  return {
+    measurements: cloneHistoryValue(state.measurements) || [],
+    selectedId: state.selectedId,
+    copiedMeasurement: cloneHistoryValue(state.copiedMeasurement),
+    rotateModeId: state.rotateModeId,
+  };
+}
+
+function snapshotsEqual(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+function recordHistory(before, label = 'Edit') {
+  if (!before) return false;
+  const after = createHistorySnapshot();
+  if (snapshotsEqual(before, after)) return false;
+  state.undoStack.push({ label, before, after });
+  if (state.undoStack.length > state.historyLimit) state.undoStack.shift();
+  state.redoStack = [];
+  updateHistoryButtons();
+  saveActiveDocument();
+  return true;
+}
+
+function applyHistorySnapshot(snapshot) {
+  state.measurements = cloneHistoryValue(snapshot.measurements) || [];
+  state.selectedId = snapshot.selectedId ?? null;
+  state.copiedMeasurement = cloneHistoryValue(snapshot.copiedMeasurement);
+  state.rotateModeId = snapshot.rotateModeId ?? null;
+  state.inProgress = null;
+  state.freehandDraft = null;
+  state.dragVertex = null;
+  state.dragMeasurement = null;
+  state.dragLabel = null;
+  state.rotationDrag = null;
+  state.rotationInputVisible = false;
+  state.pendingPaste = null;
+  state.contextTarget = null;
+  closeContextMenu();
+  updateRotationPill();
+  renderList();
+  redraw();
+  saveActiveDocument();
+}
+
+function undoHistory() {
+  const entry = state.undoStack.pop();
+  if (!entry) return false;
+  state.redoStack.push(entry);
+  applyHistorySnapshot(entry.before);
+  updateHistoryButtons();
+  showStatus(`Undid ${entry.label}`);
+  return true;
+}
+
+function redoHistory() {
+  const entry = state.redoStack.pop();
+  if (!entry) return false;
+  state.undoStack.push(entry);
+  applyHistorySnapshot(entry.after);
+  updateHistoryButtons();
+  showStatus(`Redid ${entry.label}`);
+  return true;
+}
+
+function clearHistory() {
+  state.undoStack = [];
+  state.redoStack = [];
+  updateHistoryButtons();
+}
+
+function updateHistoryButtons() {
+  undoButton.disabled = state.undoStack.length === 0;
+  redoButton.disabled = state.redoStack.length === 0;
 }
 
 function renderDocumentTabs() {
@@ -1500,9 +1678,11 @@ async function restoreDocument(doc) {
   state.zoom = doc.zoom || 1;
   state.panX = doc.panX || 0;
   state.panY = doc.panY || 0;
+  state.activeFitMode = doc.activeFitMode || null;
   state.pxPerInch = doc.pxPerInch || null;
   state.pageScales = { ...(doc.pageScales || {}) };
   state.measurements = doc.measurements || [];
+  clearHistory();
   state.sidebarTab = doc.sidebarTab || 'page';
   state.pageCache = new Map(doc.pageCache || []);
   state.inProgress = null;
@@ -1561,6 +1741,7 @@ document.querySelectorAll('[data-tooltip]').forEach(btn => {
 
 window.addEventListener('resize', () => {
   if (toolTipTarget) positionToolTip(toolTipTarget);
+  requestAnimationFrame(refitActiveView);
 });
 
 // ------- Helpers -------
@@ -1609,17 +1790,25 @@ function showStatus(text, ms = 1800, opts = {}) {
 
 function closeContextMenu() {
   contextMenu.classList.remove('show');
+  state.contextTarget = null;
 }
 
-function openContextMenu(clientX, clientY, measurementId = null) {
+function openContextMenu(clientX, clientY, measurementId = null, target = null) {
   if (measurementId != null) state.selectedId = measurementId;
+  state.contextTarget = target;
   const canActOnRun = state.selectedId != null;
+  const addButton = contextMenu.querySelector('[data-action="add-anchor"]');
+  const removeButton = contextMenu.querySelector('[data-action="remove-anchor"]');
+  const canAddAnchor = !!(target && target.kind === 'path-hit');
+  const canRemoveAnchor = !!(target && target.kind === 'anchor-hit' && canRemoveAnchorFromTarget(target));
+  addButton.disabled = !canAddAnchor;
+  removeButton.disabled = !canRemoveAnchor;
   contextMenu.querySelector('[data-action="cut"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="copy"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="rotate"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
-  contextMenu.style.left = `${Math.min(clientX, window.innerWidth - 150)}px`;
-  contextMenu.style.top = `${Math.min(clientY, window.innerHeight - 150)}px`;
+  contextMenu.style.left = `${Math.min(clientX, window.innerWidth - 170)}px`;
+  contextMenu.style.top = `${Math.min(clientY, window.innerHeight - 220)}px`;
   contextMenu.classList.add('show');
 }
 
@@ -1671,11 +1860,19 @@ function screenToImage(clientX, clientY) {
   const rect = stage.getBoundingClientRect();
   const sx = clientX - rect.left;
   const sy = clientY - rect.top;
-  return { x: (sx - state.panX) / state.zoom, y: (sy - state.panY) / state.zoom };
+  return clampImagePoint({ x: (sx - state.panX) / state.zoom, y: (sy - state.panY) / state.zoom });
 }
 
 function imageToScreen(x, y) {
   return { x: x * state.zoom + state.panX, y: y * state.zoom + state.panY };
+}
+
+function clampImagePoint(point) {
+  if (!point || !state.baseW || !state.baseH) return point;
+  return {
+    x: Math.max(0, Math.min(state.baseW, point.x)),
+    y: Math.max(0, Math.min(state.baseH, point.y)),
+  };
 }
 
 function distancePx(a, b) {
@@ -1917,6 +2114,10 @@ function rotatePoint(p, center, degrees) {
 
 function measurementBounds(m) {
   const points = measurementDisplayPoints(m);
+  return pointsBounds(points);
+}
+
+function pointsBounds(points) {
   if (!points.length) return null;
   const xs = points.map(p => p.x);
   const ys = points.map(p => p.y);
@@ -1931,6 +2132,33 @@ function measurementBounds(m) {
     height: maxY - minY,
     cx: (minX + maxX) / 2,
     cy: (minY + maxY) / 2,
+  };
+}
+
+function constrainDeltaToPage(bounds, dx, dy) {
+  if (!bounds || !state.baseW || !state.baseH) return { dx, dy };
+  const minDx = -bounds.x;
+  const maxDx = state.baseW - (bounds.x + bounds.width);
+  const minDy = -bounds.y;
+  const maxDy = state.baseH - (bounds.y + bounds.height);
+  return {
+    dx: minDx <= maxDx ? Math.max(minDx, Math.min(maxDx, dx)) : (minDx + maxDx) / 2,
+    dy: minDy <= maxDy ? Math.max(minDy, Math.min(maxDy, dy)) : (minDy + maxDy) / 2,
+  };
+}
+
+function translatePoints(points, dx, dy) {
+  return (points || []).map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
+}
+
+function constrainGeometryToPage(points, segments = null) {
+  const displayPoints = segments ? flattenSegments(segments, 18) : points;
+  const bounds = pointsBounds(displayPoints);
+  const constrained = constrainDeltaToPage(bounds, 0, 0);
+  if (!constrained.dx && !constrained.dy) return { points, segments };
+  return {
+    points: translatePoints(points, constrained.dx, constrained.dy),
+    segments: segments ? translateSegments(segments, constrained.dx, constrained.dy) : null,
   };
 }
 
@@ -2000,6 +2228,7 @@ function rotateSegmentsAround(segments, center, degrees) {
 function fitToView(fitMode = 'page') {
   const rect = stage.getBoundingClientRect();
   if (!state.baseW || !state.baseH) return;
+  state.activeFitMode = fitMode;
   const padding = 32;
   const availableW = Math.max(1, rect.width - padding);
   const availableH = Math.max(1, rect.height - padding);
@@ -2012,6 +2241,17 @@ function fitToView(fitMode = 'page') {
   state.panX = (rect.width - state.baseW * z) / 2;
   state.panY = (rect.height - state.baseH * z) / 2;
   applyTransform();
+}
+
+function clearActiveFitMode() {
+  state.activeFitMode = null;
+}
+
+function refitActiveView() {
+  if (!state.activeFitMode || !state.baseW || !state.baseH) return;
+  fitToView(state.activeFitMode);
+  redrawActivePreview();
+  schedulePdfRerenderForZoom();
 }
 
 // ------- File loading -------
@@ -2033,6 +2273,8 @@ $('uploadButton').addEventListener('click', () => {
 $('emptyUploadButton').addEventListener('click', () => {
   $('fileInput').click();
 });
+undoButton.addEventListener('click', undoHistory);
+redoButton.addEventListener('click', redoHistory);
 
 stage.addEventListener('dragover', (e) => {
   e.preventDefault();
@@ -2108,6 +2350,7 @@ function resetDocState() {
   state.panX = 0;
   state.panY = 0;
   state.measurements = [];
+  clearHistory();
   state.pageScales = {};
   state.pxPerInch = null;
   state.inProgress = null;
@@ -2286,8 +2529,8 @@ function closeMeasureModeMenu() {
   $('measureModeMenu').classList.remove('show');
 }
 function closeFitMenu() {
-  $('zoomFit').setAttribute('aria-expanded', 'false');
-  $('zoomFit').querySelector('svg:last-child path').setAttribute('d', 'M4.5 3 7.5 6 4.5 9');
+  $('fitMenuToggle').setAttribute('aria-expanded', 'false');
+  $('fitMenuToggle').querySelector('path').setAttribute('d', 'M4.5 3 7.5 6 4.5 9');
   $('fitMenu').classList.remove('show');
 }
 function positionMeasureModeMenu() {
@@ -2302,7 +2545,7 @@ function positionMeasureModeMenu() {
   menu.style.top = `${top}px`;
 }
 function positionFitMenu() {
-  const button = $('zoomFit');
+  const button = $('fitSplit');
   const menu = $('fitMenu');
   const rect = button.getBoundingClientRect();
   const menuWidth = 124;
@@ -2341,9 +2584,13 @@ $('zoomIn').addEventListener('click', () => zoomAt(stageCenter(), 1.25));
 $('zoomOut').addEventListener('click', () => zoomAt(stageCenter(), 0.8));
 $('zoomFit').addEventListener('click', (e) => {
   e.stopPropagation();
+  fitToView('page');
+});
+$('fitMenuToggle').addEventListener('click', (e) => {
+  e.stopPropagation();
   const open = !$('fitMenu').classList.contains('show');
-  $('zoomFit').setAttribute('aria-expanded', open ? 'true' : 'false');
-  $('zoomFit').querySelector('svg:last-child path').setAttribute('d', open ? 'M7.5 3 4.5 6 7.5 9' : 'M4.5 3 7.5 6 4.5 9');
+  $('fitMenuToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+  $('fitMenuToggle').querySelector('path').setAttribute('d', open ? 'M7.5 3 4.5 6 7.5 9' : 'M4.5 3 7.5 6 4.5 9');
   $('fitMenu').classList.toggle('show', open);
   if (open) positionFitMenu();
 });
@@ -2356,6 +2603,7 @@ document.querySelectorAll('.fit-menu-option').forEach(option => {
 });
 function stageCenter() { const r = stage.getBoundingClientRect(); return { clientX: r.left + r.width/2, clientY: r.top + r.height/2 }; }
 function zoomAt(pt, factor) {
+  clearActiveFitMode();
   const img = screenToImage(pt.clientX, pt.clientY);
   state.zoom *= factor;
   state.zoom = Math.min(Math.max(state.zoom, 0.05), 20);
@@ -2400,6 +2648,7 @@ stage.addEventListener('wheel', (e) => {
     const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
     zoomAt({ clientX: e.clientX, clientY: e.clientY }, factor);
   } else {
+    clearActiveFitMode();
     // Browsers translate Shift+wheel into deltaX on many systems; respect both axes.
     state.panX -= e.deltaX;
     state.panY -= e.deltaY;
@@ -2419,8 +2668,13 @@ stage.addEventListener('contextmenu', (e) => {
   const p = screenToImage(e.clientX, e.clientY);
   state.cursorImg = p;
   const labelHit = findLabelHit(p);
-  const hitId = labelHit?.measurementId ?? findNearestMeasurement(p, 10 / state.zoom);
-  openContextMenu(e.clientX, e.clientY, hitId);
+  const anchorHit = findNearestAnchor(p, 10 / state.zoom);
+  const pathHit = anchorHit ? null : findNearestPathPoint(p, 10 / state.zoom);
+  const hitId = labelHit?.measurementId ?? anchorHit?.measurementId ?? pathHit?.measurementId ?? null;
+  const target = anchorHit
+    ? { ...anchorHit, kind: 'anchor-hit', anchorKind: anchorHit.kind }
+    : (pathHit ? { kind: 'path-hit', ...pathHit } : null);
+  openContextMenu(e.clientX, e.clientY, hitId, target);
   renderList();
   redraw();
 });
@@ -2435,9 +2689,11 @@ stage.addEventListener('mousedown', (e) => {
     const m = state.measurements.find(x => x.id === state.rotateModeId);
     const frame = getRotationFrame(m);
     if (m && frame) {
+      clearActiveFitMode();
       const center = { x: frame.cx, y: frame.cy };
       state.rotationDrag = {
         measurementId: m.id,
+        historyBefore: createHistorySnapshot(),
         center,
         startPointerAngle: angleDegFromCenter(center, p),
         originalPoints: m.points.map(pt => ({ ...pt })),
@@ -2467,8 +2723,9 @@ stage.addEventListener('mousedown', (e) => {
   if (e.button !== 0) return;
   const labelHit = state.mode === 'selection' ? null : findLabelHit(p);
   if (labelHit && state.mode !== 'erase') {
+    clearActiveFitMode();
     state.selectedId = labelHit.measurementId;
-    state.dragLabel = { measurementId: labelHit.measurementId };
+    state.dragLabel = { measurementId: labelHit.measurementId, historyBefore: createHistorySnapshot() };
     stage.classList.add('dragging');
     renderList();
     redraw();
@@ -2480,8 +2737,9 @@ stage.addEventListener('mousedown', (e) => {
     // Vertex hit first — clicking a node selects its run AND starts drag
     const v = findNearestVertex(p, 10 / state.zoom);
     if (v) {
+      clearActiveFitMode();
       state.selectedId = v.measurementId;
-      state.dragVertex = v;
+      state.dragVertex = { ...v, historyBefore: createHistorySnapshot() };
       stage.classList.add('dragging');
       renderList();
       redraw();
@@ -2489,8 +2747,9 @@ stage.addEventListener('mousedown', (e) => {
     }
     const selectedLabelHit = findLabelHit(p);
     if (selectedLabelHit) {
+      clearActiveFitMode();
       state.selectedId = selectedLabelHit.measurementId;
-      state.dragLabel = { measurementId: selectedLabelHit.measurementId };
+      state.dragLabel = { measurementId: selectedLabelHit.measurementId, historyBefore: createHistorySnapshot() };
       stage.classList.add('dragging');
       renderList();
       redraw();
@@ -2503,8 +2762,10 @@ stage.addEventListener('mousedown', (e) => {
     if (hitId != null) {
       const m = state.measurements.find(x => x.id === hitId);
       if (m) {
+        clearActiveFitMode();
         state.dragMeasurement = {
           measurementId: hitId,
+          historyBefore: createHistorySnapshot(),
           start: p,
           originalPoints: m.points.map(pt => ({ ...pt })),
           originalSegments: isCurveMeasurement(m) ? m.segments.map(seg => ({
@@ -2515,6 +2776,7 @@ stage.addEventListener('mousedown', (e) => {
             to: { ...seg.to },
           })) : null,
           originalFrame: m.rotationFrame ? { ...m.rotationFrame } : null,
+          originalBounds: measurementBounds(m),
         };
         stage.classList.add('dragging');
       }
@@ -2522,6 +2784,7 @@ stage.addEventListener('mousedown', (e) => {
     renderList();
     redraw();
   } else if (state.mode === 'calibrate') {
+    clearActiveFitMode();
     if (shouldSuppressPointPlacement(e)) {
       redraw(getEffectiveCursor());
       return;
@@ -2536,6 +2799,7 @@ stage.addEventListener('mousedown', (e) => {
     }
     redraw();
   } else if (state.mode === 'measure') {
+    clearActiveFitMode();
     if (shouldSuppressPointPlacement(e)) {
       redraw(getEffectiveCursor());
       return;
@@ -2565,7 +2829,9 @@ stage.addEventListener('mousedown', (e) => {
   } else if (state.mode === 'erase') {
     const hitId = findNearestMeasurement(p, 8 / state.zoom);
     if (hitId != null) {
+      const historyBefore = createHistorySnapshot();
       state.measurements = state.measurements.filter(m => m.id !== hitId);
+      recordHistory(historyBefore, 'run deletion');
       renderList();
       redraw();
     }
@@ -2577,6 +2843,7 @@ stage.addEventListener('mousemove', (e) => {
     finishPointerDrag();
   }
   if (state.isPanning) {
+    clearActiveFitMode();
     state.panX = e.clientX - state.panStart.x;
     state.panY = e.clientY - state.panStart.y;
     applyTransform();
@@ -2644,9 +2911,10 @@ stage.addEventListener('mousemove', (e) => {
   if (state.dragMeasurement) {
     const m = state.measurements.find(x => x.id === state.dragMeasurement.measurementId);
     if (m) {
-      const dx = state.cursorImg.x - state.dragMeasurement.start.x;
-      const dy = state.cursorImg.y - state.dragMeasurement.start.y;
-      m.points = state.dragMeasurement.originalPoints.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
+      const rawDx = state.cursorImg.x - state.dragMeasurement.start.x;
+      const rawDy = state.cursorImg.y - state.dragMeasurement.start.y;
+      const { dx, dy } = constrainDeltaToPage(state.dragMeasurement.originalBounds, rawDx, rawDy);
+      m.points = translatePoints(state.dragMeasurement.originalPoints, dx, dy);
       if (isCurveMeasurement(m) && state.dragMeasurement.originalSegments) {
         m.segments = state.dragMeasurement.originalSegments.map(seg => ({
           ...seg,
@@ -2736,10 +3004,15 @@ function updateRotationDrag(clientX, clientY, shiftKey = false) {
     m.segments = rotateSegmentsAround(state.rotationDrag.originalSegments, state.rotationDrag.center, rotateDelta);
     updateCurveAnchors(m);
   }
-  m.rotationAngle = nextAngle;
-  if (state.rotationDrag.originalFrame) {
-    m.rotationFrame = { ...state.rotationDrag.originalFrame, angle: nextAngle };
+  const constrainedGeometry = constrainGeometryToPage(m.points, isCurveMeasurement(m) ? m.segments : null);
+  m.points = constrainedGeometry.points;
+  if (isCurveMeasurement(m) && constrainedGeometry.segments) {
+    m.segments = constrainedGeometry.segments;
+    updateCurveAnchors(m);
   }
+  m.rotationAngle = nextAngle;
+  m.rotationFrame = createRotationFrame(m);
+  if (m.rotationFrame) m.rotationFrame.angle = nextAngle;
   m.lengthPx = measurementLengthPx(m);
   m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
   renderList();
@@ -2753,18 +3026,22 @@ function finishPointerDrag() {
     stage.classList.remove('dragging');
   }
   if (state.dragVertex) {
+    recordHistory(state.dragVertex.historyBefore, 'anchor move');
     state.dragVertex = null;
     stage.classList.remove('dragging');
   }
   if (state.dragMeasurement) {
+    recordHistory(state.dragMeasurement.historyBefore, 'run move');
     state.dragMeasurement = null;
     stage.classList.remove('dragging');
   }
   if (state.dragLabel) {
+    recordHistory(state.dragLabel.historyBefore, 'length tag move');
     state.dragLabel = null;
     stage.classList.remove('dragging');
   }
   if (state.rotationDrag) {
+    recordHistory(state.rotationDrag.historyBefore, 'run rotation');
     state.rotationDrag = null;
     state.rotationInputVisible = true;
     stage.classList.remove('dragging');
@@ -2793,11 +3070,26 @@ stage.addEventListener('dblclick', (e) => {
 
 window.addEventListener('keydown', (e) => {
   // Skip hotkeys when typing into inputs
-  const t = e.target;
-  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+  if (isTextEntryTarget(e.target)) return;
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    const didAct = e.shiftKey ? redoHistory() : undoHistory();
+    if (didAct) e.preventDefault();
+    return;
+  }
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') {
+    if (redoHistory()) e.preventDefault();
+    return;
+  }
 
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
     if (copySelectedMeasurement()) e.preventDefault();
+    return;
+  }
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'x') {
+    if (cutSelectedMeasurement()) e.preventDefault();
     return;
   }
 
@@ -2826,6 +3118,7 @@ window.addEventListener('keydown', (e) => {
   }
 
   if (e.key === 'Escape') {
+    clearActiveFitMode();
     state.inProgress = null;
     state.freehandDraft = null;
     closeMeasureModeMenu();
@@ -2835,8 +3128,10 @@ window.addEventListener('keydown', (e) => {
     finishMeasurement();
   }
   else if ((e.key === 'Delete' || e.key === 'Backspace') && state.mode === 'selection' && state.selectedId != null) {
+    const historyBefore = createHistorySnapshot();
     state.measurements = state.measurements.filter(m => m.id !== state.selectedId);
     state.selectedId = null;
+    recordHistory(historyBefore, 'run deletion');
     renderList(); redraw();
     e.preventDefault();
   }
@@ -2848,10 +3143,23 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'f' || e.key === 'F') fitToView();
 });
 
+function isTextEntryTarget(target) {
+  if (!target || !target.tagName) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (tag !== 'INPUT') return false;
+  return !target.readOnly && !target.disabled;
+}
+
 contextMenu.addEventListener('click', (e) => {
   const action = e.target.closest('button')?.dataset.action;
   if (!action) return;
+  let handledAnchorAction = false;
+  if (action === 'add-anchor') handledAnchorAction = addAnchorFromContext();
+  if (action === 'remove-anchor') handledAnchorAction = removeAnchorFromContext();
   closeContextMenu();
+  if (handledAnchorAction) return;
   if (action === 'cut') cutSelectedMeasurement();
   if (action === 'copy') copySelectedMeasurement();
   if (action === 'paste') pasteCopiedMeasurement();
@@ -2895,6 +3203,7 @@ window.addEventListener('keyup', (e) => {
 });
 
 function finishMeasurement() {
+  const historyBefore = createHistorySnapshot();
   const pts = state.inProgress.points;
   const lenPx = polylineLengthPx(pts);
   const lengthInches = state.pxPerInch ? pxToInches(lenPx) : null;
@@ -2911,6 +3220,7 @@ function finishMeasurement() {
     labelT: defaultLabelT(pts),
   });
   state.inProgress = null;
+  recordHistory(historyBefore, 'run creation');
   renderList();
   redraw();
   // Auto-focus the name input on the just-added run with text selected.
@@ -2930,6 +3240,7 @@ function finishMeasurement() {
 function finishFreehandMeasurement() {
   const draft = state.freehandDraft;
   if (!draft) return;
+  const historyBefore = createHistorySnapshot();
   const raw = draft.rawPoints || [];
   state.freehandDraft = null;
   $('liveLen').style.display = 'none';
@@ -2937,12 +3248,15 @@ function finishFreehandMeasurement() {
     redraw();
     return;
   }
-  const segments = buildFreehandSegments(raw, 8);
+  let segments = buildFreehandSegments(raw, 8);
   if (!segments.length) {
     redraw();
     return;
   }
-  const points = anchorsFromSegments(segments);
+  let points = anchorsFromSegments(segments);
+  const constrainedGeometry = constrainGeometryToPage(points, segments);
+  points = constrainedGeometry.points;
+  segments = constrainedGeometry.segments || segments;
   const lenPx = segments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0);
   const lengthInches = state.pxPerInch ? pxToInches(lenPx) : null;
   const id = Date.now();
@@ -2959,6 +3273,7 @@ function finishFreehandMeasurement() {
     labelT: defaultLabelT(flattenSegments(segments, 18)),
   });
   state.selectedId = id;
+  recordHistory(historyBefore, 'run creation');
   setMode('selection');
   renderList();
   redraw();
@@ -2976,7 +3291,7 @@ function snapAngle(from, to) {
   const angle = Math.atan2(dy, dx);
   const step = Math.PI / 12; // 15 degrees
   const snapped = Math.round(angle / step) * step;
-  return { x: from.x + Math.cos(snapped) * dist, y: from.y + Math.sin(snapped) * dist };
+  return clampImagePoint({ x: from.x + Math.cos(snapped) * dist, y: from.y + Math.sin(snapped) * dist });
 }
 
 function getEffectiveCursor() {
@@ -3018,6 +3333,7 @@ function blurActiveMeasurementName(target) {
   if (!active || !active.classList || !active.classList.contains('name')) return;
   if (active === target) return;
   if (target && target.closest && target.closest('input.name')) return;
+  if (active.setSelectionRange) active.setSelectionRange(0, 0);
   active.blur();
 }
 
@@ -3047,10 +3363,12 @@ function copySelectedMeasurement() {
 }
 
 function cutSelectedMeasurement() {
+  const historyBefore = createHistorySnapshot();
   if (!copySelectedMeasurement()) return false;
   state.measurements = state.measurements.filter(m => m.id !== state.selectedId);
   state.selectedId = null;
   endRotateMode();
+  recordHistory(historyBefore, 'run cut');
   renderList();
   redraw();
   return true;
@@ -3065,6 +3383,7 @@ function pasteCopiedMeasurement(mode = null) {
     openPasteChoice();
     return true;
   }
+  const historyBefore = createHistorySnapshot();
   const source = state.copiedMeasurement;
   const bounds = source.points.reduce((acc, pt) => ({
     minX: Math.min(acc.minX, pt.x),
@@ -3090,6 +3409,9 @@ function pasteCopiedMeasurement(mode = null) {
       if (segments) segments = scaleSegmentsAround(segments, pasteAt, scale);
     }
   }
+  const constrainedGeometry = constrainGeometryToPage(points, segments);
+  points = constrainedGeometry.points;
+  segments = constrainedGeometry.segments;
   const pasted = {
     ...source,
     id: Date.now(),
@@ -3105,6 +3427,7 @@ function pasteCopiedMeasurement(mode = null) {
   pasted.lengthInches = state.pxPerInch ? pxToInches(pasted.lengthPx) : null;
   state.measurements.push(pasted);
   state.selectedId = pasted.id;
+  recordHistory(historyBefore, 'run paste');
   renderList();
   redraw();
   showStatus(`Pasted ${pasted.name}`);
@@ -3144,6 +3467,24 @@ function findNearestVertex(p, tol) {
     for (let i = 0; i < m.points.length; i++) {
       const d = Math.hypot(p.x - m.points[i].x, p.y - m.points[i].y);
       if (d <= tol) return { measurementId: m.id, kind: 'line-anchor', vertexIndex: i };
+    }
+  }
+  return null;
+}
+
+function findNearestAnchor(p, tol) {
+  for (const m of measurementsOnCurrentPage()) {
+    if (isCurveMeasurement(m)) {
+      const handles = curveEditHandles(m).filter(handle => handle.kind === 'curve-anchor');
+      for (const handle of handles) {
+        if (distancePx(p, handle.point) <= tol) return { measurementId: m.id, ...handle };
+      }
+      continue;
+    }
+    for (let i = 0; i < m.points.length; i++) {
+      if (distancePx(p, m.points[i]) <= tol) {
+        return { measurementId: m.id, kind: 'line-anchor', vertexIndex: i, point: m.points[i] };
+      }
     }
   }
   return null;
@@ -3197,6 +3538,181 @@ function applyVertexDrag(m, drag, point) {
   updateCurveAnchors(m);
 }
 
+function canRemoveAnchorFromTarget(target) {
+  if (!target || target.kind !== 'anchor-hit') return false;
+  const m = state.measurements.find(x => x.id === target.measurementId);
+  if (!m) return false;
+  const anchorCount = isCurveMeasurement(m) ? anchorsFromSegments(m.segments).length : (m.points || []).length;
+  return anchorCount > 2;
+}
+
+function addAnchorFromContext() {
+  const target = state.contextTarget;
+  if (!target || target.kind !== 'path-hit') return false;
+  const m = state.measurements.find(x => x.id === target.measurementId);
+  if (!m) return false;
+  const historyBefore = createHistorySnapshot();
+  const labelPoint = currentMeasurementLabelPoint(m);
+  if (isCurveMeasurement(m)) {
+    const seg = m.segments[target.segmentIndex];
+    if (!seg) return false;
+    const [left, right] = splitCubicSegment(seg, target.localT);
+    m.segments.splice(target.segmentIndex, 1, left, right);
+    updateCurveAnchors(m);
+  } else {
+    const insertIndex = target.segmentIndex + 1;
+    m.points.splice(insertIndex, 0, { ...target.point });
+  }
+  finalizeMeasurementGeometry(m, labelPoint);
+  recordHistory(historyBefore, 'anchor add');
+  showStatus('Anchor added');
+  return true;
+}
+
+function removeAnchorFromContext() {
+  const target = state.contextTarget;
+  if (!target || target.kind !== 'anchor-hit' || !canRemoveAnchorFromTarget(target)) return false;
+  const m = state.measurements.find(x => x.id === target.measurementId);
+  if (!m) return false;
+  const historyBefore = createHistorySnapshot();
+  const labelPoint = currentMeasurementLabelPoint(m);
+  if (isCurveMeasurement(m)) {
+    const anchorIndex = curveAnchorIndexFromHandle(target);
+    removeCurveAnchor(m, anchorIndex);
+  } else {
+    m.points.splice(target.vertexIndex, 1);
+  }
+  finalizeMeasurementGeometry(m, labelPoint);
+  recordHistory(historyBefore, 'anchor removal');
+  showStatus('Anchor removed');
+  return true;
+}
+
+function finalizeMeasurementGeometry(m, preservedLabelPoint = null) {
+  if (isCurveMeasurement(m)) updateCurveAnchors(m);
+  m.lengthPx = measurementLengthPx(m);
+  m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
+  const displayPoints = measurementDisplayPoints(m);
+  if (preservedLabelPoint) {
+    const projection = projectPointToPolyline(preservedLabelPoint, displayPoints);
+    m.labelT = projection ? projection.t : defaultLabelT(displayPoints);
+  } else if (!Number.isFinite(m.labelT)) {
+    m.labelT = defaultLabelT(displayPoints);
+  }
+  state.selectedId = m.id;
+  if (state.rotateModeId === m.id) endRotateMode();
+  renderList();
+  redraw();
+}
+
+function currentMeasurementLabelPoint(m) {
+  const points = measurementDisplayPoints(m);
+  const position = pointAtPolylineT(points, m.labelT);
+  if (!position) return null;
+  return position.point;
+}
+
+function curveAnchorIndexFromHandle(handle) {
+  if (handle.anchor === 'from') return handle.segmentIndex;
+  return handle.segmentIndex + 1;
+}
+
+function removeCurveAnchor(m, anchorIndex) {
+  if (!isCurveMeasurement(m) || anchorsFromSegments(m.segments).length <= 2) return false;
+  if (anchorIndex <= 0) {
+    m.segments.shift();
+  } else if (anchorIndex >= m.segments.length) {
+    m.segments.pop();
+  } else {
+    const prev = m.segments[anchorIndex - 1];
+    const next = m.segments[anchorIndex];
+    m.segments.splice(anchorIndex - 1, 2, {
+      type: 'cubic',
+      from: { ...prev.from },
+      c1: { ...prev.c1 },
+      c2: { ...next.c2 },
+      to: { ...next.to },
+    });
+  }
+  updateCurveAnchors(m);
+  return true;
+}
+
+function splitCubicSegment(seg, t) {
+  const clamped = Math.max(0.02, Math.min(0.98, Number.isFinite(t) ? t : 0.5));
+  const p01 = lerpPoint(seg.from, seg.c1, clamped);
+  const p12 = lerpPoint(seg.c1, seg.c2, clamped);
+  const p23 = lerpPoint(seg.c2, seg.to, clamped);
+  const p012 = lerpPoint(p01, p12, clamped);
+  const p123 = lerpPoint(p12, p23, clamped);
+  const p0123 = lerpPoint(p012, p123, clamped);
+  return [
+    { type: 'cubic', from: { ...seg.from }, c1: p01, c2: p012, to: p0123 },
+    { type: 'cubic', from: { ...p0123 }, c1: p123, c2: p23, to: { ...seg.to } },
+  ];
+}
+
+function lerpPoint(a, b, t) {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+function findNearestPathPoint(p, tol) {
+  let best = null;
+  for (const m of measurementsOnCurrentPage()) {
+    const hit = isCurveMeasurement(m)
+      ? projectPointToCurveMeasurement(p, m)
+      : projectPointToLineMeasurement(p, m);
+    if (hit && hit.distance <= tol && (!best || hit.distance < best.distance)) {
+      best = { measurementId: m.id, ...hit };
+    }
+  }
+  return best;
+}
+
+function projectPointToLineMeasurement(p, m) {
+  const points = m.points || [];
+  let best = null;
+  for (let i = 1; i < points.length; i++) {
+    const projected = projectPointToSegment(p, points[i - 1], points[i]);
+    if (!best || projected.distance < best.distance) {
+      best = {
+        type: 'line',
+        segmentIndex: i - 1,
+        point: projected.point,
+        localT: projected.t,
+        distance: projected.distance,
+      };
+    }
+  }
+  return best;
+}
+
+function projectPointToCurveMeasurement(p, m) {
+  let best = null;
+  const steps = 60;
+  for (let segmentIndex = 0; segmentIndex < m.segments.length; segmentIndex++) {
+    const seg = m.segments[segmentIndex];
+    let prev = cubicPoint(seg, 0);
+    for (let step = 1; step <= steps; step++) {
+      const t1 = step / steps;
+      const curr = cubicPoint(seg, t1);
+      const projected = projectPointToSegment(p, prev, curr);
+      if (!best || projected.distance < best.distance) {
+        const t0 = (step - 1) / steps;
+        best = {
+          type: 'curve',
+          segmentIndex,
+          point: projected.point,
+          localT: t0 + (t1 - t0) * projected.t,
+          distance: projected.distance,
+        };
+      }
+      prev = curr;
+    }
+  }
+  return best;
+}
+
 function findNearestMeasurement(p, tol) {
   for (const m of measurementsOnCurrentPage()) {
     const points = measurementDisplayPoints(m);
@@ -3208,12 +3724,17 @@ function findNearestMeasurement(p, tol) {
   return null;
 }
 function pointToSegmentDist(p, a, b) {
+  return projectPointToSegment(p, a, b).distance;
+}
+
+function projectPointToSegment(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const len2 = dx*dx + dy*dy;
   let t = 0;
   if (len2 > 0) t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
   const x = a.x + t * dx, y = a.y + t * dy;
-  return Math.hypot(p.x - x, p.y - y);
+  const point = { x, y };
+  return { point, t, distance: distancePx(p, point) };
 }
 
 function projectPointToPolyline(p, points) {
@@ -3401,6 +3922,7 @@ function commitRotationInput() {
   }
   const nextAngle = normalizeDegrees(parsed);
   const delta = nextAngle - normalizeDegrees(m.rotationAngle || 0);
+  const historyBefore = createHistorySnapshot();
   const frame = getRotationFrame(m);
   if (!frame) return;
   const center = { x: frame.cx, y: frame.cy };
@@ -3409,11 +3931,19 @@ function commitRotationInput() {
     m.segments = rotateSegmentsAround(m.segments, center, delta);
     updateCurveAnchors(m);
   }
+  const constrainedGeometry = constrainGeometryToPage(m.points, isCurveMeasurement(m) ? m.segments : null);
+  m.points = constrainedGeometry.points;
+  if (isCurveMeasurement(m) && constrainedGeometry.segments) {
+    m.segments = constrainedGeometry.segments;
+    updateCurveAnchors(m);
+  }
   m.rotationAngle = nextAngle;
-  m.rotationFrame = { ...frame, angle: nextAngle };
+  m.rotationFrame = createRotationFrame(m);
+  if (m.rotationFrame) m.rotationFrame.angle = nextAngle;
   m.lengthPx = measurementLengthPx(m);
   m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
   rotationInput.blur();
+  recordHistory(historyBefore, 'run rotation');
   renderList();
   redraw();
 }
@@ -3423,6 +3953,7 @@ let pendingCalibration = null;
 function openCalibModal() {
   $('calibModal').classList.add('show');
   $('calibValue').value = '';
+  updateCalibValueValidity();
   $('calibUnit').value = state.unit;
   $('calibScope').value = 'this';
   $('calibRange').value = '';
@@ -3442,7 +3973,11 @@ $('calibScope').addEventListener('change', (e) => {
 $('calibCancel').addEventListener('click', closeCalibModal);
 $('calibOk').addEventListener('click', () => {
   const v = parseFloat($('calibValue').value);
-  if (!isFinite(v) || v <= 0) { $('calibValue').focus(); return; }
+  if (!isFinite(v) || v <= 0) {
+    updateCalibValueValidity();
+    $('calibValue').focus();
+    return;
+  }
   const unit = $('calibUnit').value;
   const inches = v * UNIT_TO_INCH[unit];
   const px = distancePx(pendingCalibration.points[0], pendingCalibration.points[1]);
@@ -3484,7 +4019,29 @@ $('calibOk').addEventListener('click', () => {
   redraw();
   showStatus(`Scale set on ${targetPages.length} page${targetPages.length > 1 ? 's' : ''}: ${v} ${unit} reference`, 2400);
 });
-$('calibValue').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('calibOk').click(); });
+$('calibValue').addEventListener('beforeinput', (e) => {
+  if (e.inputType && !e.inputType.startsWith('insert')) return;
+  if (e.data && !/^[0-9.]+$/.test(e.data)) e.preventDefault();
+});
+$('calibValue').addEventListener('input', () => {
+  const input = $('calibValue');
+  let value = input.value.replace(/[^0-9.]/g, '');
+  const dotIndex = value.indexOf('.');
+  if (dotIndex !== -1) {
+    value = value.slice(0, dotIndex + 1) + value.slice(dotIndex + 1).replace(/\./g, '');
+  }
+  if (/^0+$/.test(value)) value = '';
+  if (input.value !== value) input.value = value;
+  updateCalibValueValidity();
+});
+$('calibValue').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !$('calibOk').disabled) $('calibOk').click();
+});
+
+function updateCalibValueValidity() {
+  const value = parseFloat($('calibValue').value);
+  $('calibOk').disabled = !isFinite(value) || value <= 0;
+}
 
 // Reset calibration on current page only
 $('resetScale').addEventListener('click', () => {
@@ -3561,7 +4118,9 @@ $('unitSelect').addEventListener('change', (e) => {
 $('clearAll').addEventListener('click', () => {
   if (state.measurements.length === 0) return;
   if (!confirm('Delete all measurements?')) return;
+  const historyBefore = createHistorySnapshot();
   state.measurements = [];
+  recordHistory(historyBefore, 'clear all');
   renderList();
   redraw();
 });
@@ -3840,10 +4399,8 @@ function drawPathLabel(group, points, opts) {
     const labelPosition = pointAtPolylineT(points, opts.labelT);
     if (!labelPosition) return;
     const { point, angle } = labelPosition;
-    const offX = -Math.sin(angle) * overlayPageSize(18);
-    const offY = Math.cos(angle) * overlayPageSize(18);
-    const lx = point.x + offX;
-    const ly = point.y + offY;
+    const lx = point.x - Math.sin(angle) * overlayPageSize(18);
+    const ly = point.y + Math.cos(angle) * overlayPageSize(18);
     const fontSize = overlayPageSize(13);
     drawCtx.font = `${700} ${fontSize}px 'JetBrains Mono', monospace`;
     const tw = drawCtx.measureText(opts.label).width;
@@ -3880,8 +4437,8 @@ function drawPathLabel(group, points, opts) {
       rx: overlayPageSize(5),
       ry: overlayPageSize(5),
       fill: 'rgba(11,13,14,0.96)',
-      stroke: 'rgba(255,255,255,0.72)',
-      'stroke-width': overlayPageSize(0.75),
+      stroke: opts.labelColor,
+      'stroke-width': overlayPageSize(1.25),
     }));
     group.appendChild(svgNode('rect', {
       x: bx + overlayPageSize(4),
@@ -3943,6 +4500,7 @@ function buildMeasItem(m) {
     m.name = cleanMeasurementName(nameInput.value, m);
     nameInput.value = m.name;
     nameInput.setAttribute('readonly', '');
+    nameInput.setSelectionRange(0, 0);
   };
   nameInput.addEventListener('dblclick', (e) => {
     e.stopPropagation();
@@ -3954,10 +4512,13 @@ function buildMeasItem(m) {
       m.name = cleanMeasurementName(nameInput.dataset.originalName, m);
       nameInput.value = m.name;
       nameInput.setAttribute('readonly', '');
+      nameInput.setSelectionRange(0, 0);
+      nameInput.blur();
       e.stopPropagation();
       e.preventDefault();
     } else if (e.key === 'Enter') {
       commitNameEdit();
+      nameInput.blur();
       e.stopPropagation();
       e.preventDefault();
     }
@@ -3966,8 +4527,10 @@ function buildMeasItem(m) {
   item.startNameEdit = startNameEdit;
   item.querySelector('.del').addEventListener('click', (e) => {
     e.stopPropagation();
+    const historyBefore = createHistorySnapshot();
     state.measurements = state.measurements.filter(x => x.id !== m.id);
     if (state.selectedId === m.id) state.selectedId = null;
+    recordHistory(historyBefore, 'run deletion');
     renderList();
     redraw();
   });
