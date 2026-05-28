@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Takeoff Export Preview</title>
+  <style>
+    :root {
+      --bg: #f4f6f8;
+      --panel: #ffffff;
+      --ink: #1f2933;
+      --muted: #65717d;
+      --grid: #8ea9db;
+      --header: #4472c4;
+      --band: #d9e2f3;
+      --scaled: #006100;
+      --unscaled: #9c0006;
+      --soft: #e8eef8;
+      --code: #202124;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1160px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 34px 0 48px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      align-items: end;
+      padding-bottom: 22px;
+      border-bottom: 1px solid #c6ccd2;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 46px);
+      line-height: 1;
+      letter-spacing: 0;
+      max-width: 720px;
+    }
+
+    .meta {
+      min-width: 220px;
+      text-align: right;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      padding: 6px 10px;
+      border: 1px solid #b7c2ce;
+      background: var(--soft);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 0.88fr 1.12fr;
+      gap: 18px;
+      margin-top: 24px;
+      align-items: start;
+    }
+
+    section {
+      border: 1px solid #c6ccd2;
+      background: var(--panel);
+      box-shadow: 0 12px 34px rgba(31, 41, 51, 0.08);
+    }
+
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      border-bottom: 1px solid #c6ccd2;
+      padding: 14px 16px;
+      background: #f8fafc;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--header);
+      background: var(--header);
+      color: white;
+      min-height: 34px;
+      padding: 0 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    button.secondary {
+      background: white;
+      color: var(--header);
+    }
+
+    button:active { transform: translate(1px, 1px); }
+
+    .content { padding: 18px; }
+
+    .summary {
+      white-space: pre-wrap;
+      margin: 0;
+      padding: 18px;
+      min-height: 430px;
+      background: var(--code);
+      color: #f7f1df;
+      border: 1px solid #111;
+      font: 14px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .warning {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding: 11px 12px;
+      border: 1px solid #bf9000;
+      background: #fff2cc;
+      color: #53370e;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .warning strong { color: #2b1b07; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 16px;
+      table-layout: fixed;
+    }
+
+    th, td {
+      border: 1px solid var(--grid);
+      padding: 10px 12px;
+      vertical-align: middle;
+      overflow-wrap: anywhere;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: var(--header);
+      color: white;
+      font-size: 17px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    tbody tr:nth-child(odd) { background: var(--band); }
+
+    td.text { text-align: left; }
+    td.center { text-align: center; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.status-scaled { color: var(--scaled); font-weight: 800; }
+    td.status-unscaled { color: var(--unscaled); font-weight: 800; }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--grid);
+      max-height: 380px;
+    }
+
+    .raw {
+      margin-top: 14px;
+      padding: 14px;
+      overflow: auto;
+      background: var(--code);
+      color: #f7f1df;
+      border: 1px solid #111;
+      font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre;
+    }
+
+    .note {
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      padding: 10px 12px;
+      background: var(--ink);
+      color: white;
+      font-size: 13px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity .16s ease, transform .16s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 900px) {
+      header { display: block; }
+      .meta { margin-top: 16px; text-align: left; }
+      .grid { grid-template-columns: 1fr; }
+      .summary { min-height: 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <div class="badge">KAL-93 Preview</div>
+        <h1>Export CSV and Copy Summary</h1>
+      </div>
+      <div class="meta">
+        Local-only output mockup<br />
+        One source of truth, two formats
+      </div>
+    </header>
+
+    <div class="grid">
+      <section>
+        <div class="section-head">
+          <h2>Copyable Summary</h2>
+          <button type="button" data-copy="summary">Copy Summary</button>
+        </div>
+        <div class="content">
+          <div class="warning"><strong>Warning:</strong> 1 unscaled measurement is included in the list but excluded from totals.</div>
+          <pre id="summary" class="summary">Takeoff summary
+
+Page 1
+- Main corridor: 42.35 ft
+- Lobby return: 18.10 ft
+Page total: 60.45 ft
+
+Page 2
+- East wing run: 27.80 ft
+- Future camera path: Unscaled
+Page total: 27.80 ft
+
+Grand total: 88.25 ft
+Unscaled measurements: 1
+
+Note: Unscaled measurements are not included in totals.</pre>
+          <p class="note">This is meant for email, notes, quote drafts, or quick handoff to someone who does not need the raw spreadsheet rows.</p>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-head">
+          <h2>CSV / Spreadsheet</h2>
+          <div class="button-row">
+            <button class="secondary" type="button" data-copy="csv">Copy CSV</button>
+            <button type="button" data-download>Download CSV</button>
+          </div>
+        </div>
+        <div class="content">
+          <div class="table-wrap" aria-label="CSV spreadsheet preview">
+            <table>
+              <thead>
+                <tr>
+                  <th>Page</th>
+                  <th>Name</th>
+                  <th>Type</th>
+                  <th>Length</th>
+                  <th>Unit</th>
+                  <th>Scaled</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="center">1</td>
+                  <td class="text">Main corridor</td>
+                  <td class="text">line</td>
+                  <td class="num">42.35</td>
+                  <td class="center">ft</td>
+                  <td class="center status-scaled">Y</td>
+                </tr>
+                <tr>
+                  <td class="center">1</td>
+                  <td class="text">Lobby return</td>
+                  <td class="text">freehand</td>
+                  <td class="num">18.10</td>
+                  <td class="center">ft</td>
+                  <td class="center"></td>
+                </tr>
+                <tr>
+                  <td class="center">2</td>
+                  <td class="text">East wing run</td>
+                  <td class="text">line</td>
+                  <td class="num">27.80</td>
+                  <td class="center">ft</td>
+                  <td class="center"></td>
+                </tr>
+                <tr>
+                  <td class="center">2</td>
+                  <td class="text">Future camera path</td>
+                  <td class="text">line</td>
+                  <td></td>
+                  <td class="center">ft</td>
+                  <td class="center status-unscaled">N</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <pre id="csv" class="raw">Page,Name,Type,Length,Unit,Scaled
+1,Main corridor,line,42.35,ft,Y
+1,Lobby return,freehand,18.10,ft,
+2,East wing run,line,27.80,ft,
+2,Future camera path,line,,ft,N</pre>
+          <p class="note">This mirrors the workbook you shared: a real Excel table with title-cased headers, banded rows, centered Page/Unit/Scaled cells, right-aligned Length values, and conditional color on Y/N.</p>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite">Copied</div>
+
+  <script>
+    const csvText = document.getElementById('csv').textContent;
+    const summaryText = document.getElementById('summary').textContent;
+    const toast = document.getElementById('toast');
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove('show'), 1300);
+    }
+
+    async function copyText(text, label) {
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast(`${label} copied`);
+      } catch (_) {
+        showToast('Copy blocked by browser');
+      }
+    }
+
+    document.querySelector('[data-copy="summary"]').addEventListener('click', () => {
+      copyText(summaryText, 'Summary');
+    });
+
+    document.querySelector('[data-copy="csv"]').addEventListener('click', () => {
+      copyText(csvText, 'CSV');
+    });
+
+    document.querySelector('[data-download]').addEventListener('click', () => {
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'takeoff-measurements.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast('CSV download started');
+    });
+  </script>
+</body>
+</html>

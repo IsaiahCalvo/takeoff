@@ -1,6 +1,6 @@
-# Cable Measure
+# Takeoff
 
-A browser app for measuring cable runs from PDFs or images.
+A browser app for takeoff measurements from PDFs or images.
 
 ## Run locally
 

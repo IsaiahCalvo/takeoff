@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>Cable Run — Measurement Tool</title>
+<title>Takeoff — Plan Measurement Tool</title>
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -839,6 +839,13 @@
   .side-h {
     padding: 14px 18px 12px;
     border-bottom: 1px solid var(--line);
+    position: relative;
+  }
+  .side-h-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
   }
   .side-h h3 {
     font-size: 10px; font-family: 'JetBrains Mono', monospace;
@@ -854,6 +861,46 @@
   }
   .side-h .total .unit { font-size: 13px; color: var(--muted); margin-left: 6px; }
   .side-h .sub { color: var(--muted); font-size: 11px; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+  .export-wrap {
+    position: relative;
+    flex: 0 0 auto;
+  }
+  .export-trigger {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 7px;
+    justify-content: center;
+  }
+  .export-trigger svg {
+    width: 15px;
+    height: 15px;
+  }
+  .export-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    display: none;
+    min-width: 160px;
+    padding: 6px;
+    background: #111619;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+    z-index: 12;
+  }
+  .export-wrap.open .export-menu { display: grid; gap: 2px; }
+  .export-menu button {
+    width: 100%;
+    min-height: 32px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    justify-content: flex-start;
+    padding: 0 10px;
+  }
+  .export-menu button:hover { background: var(--panel-2); }
 
   .tabs {
     display: flex;
@@ -933,6 +980,10 @@
   }
   .meas-item:hover { border-color: #38434a; }
   .meas-item.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(182,255,60,0.12); }
+  .meas-item.unscaled {
+    border-color: rgba(255,177,60,0.34);
+    background: rgba(255,177,60,0.045);
+  }
   .meas-item .swatch {
     width: 10px; height: 10px; border-radius: 3px;
     flex-shrink: 0;
@@ -979,6 +1030,7 @@
     text-align: right;
   }
   .meas-item .len .unit { color: var(--muted); font-size: 10px; font-weight: 500; }
+  .meas-item.unscaled .len { color: var(--calib); max-width: none; }
   .meas-item .point-count {
     color: var(--muted);
     font-family: 'JetBrains Mono', monospace;
@@ -1136,7 +1188,7 @@
 <header>
   <div class="brand">
     <div class="dot"></div>
-    <div>Cable<small>&nbsp;Run</small></div>
+    <div>Takeoff</div>
   </div>
   <div class="tab-strip">
     <div id="docTabs" class="doc-tabs" role="tablist" aria-label="Open documents"></div>
@@ -1250,11 +1302,11 @@
     </div>
     <div class="empty" id="empty">
       <h2>Drop in a floor plan to begin.</h2>
-      <p>Upload a PDF or image, calibrate the scale against a known dimension, then trace your cable runs.</p>
+      <p>Upload a PDF or image, calibrate the scale against a known dimension, then trace your takeoff measurements.</p>
       <ol>
         <li>Click <span class="key">Upload Image/PDF</span> and pick a file.</li>
         <li>Click <span class="key">Calibrate</span>, draw a line on a known dimension, enter its real length.</li>
-        <li>Click <span class="key">Measure</span>, click point-to-point to trace a run. Double-click to finish.</li>
+        <li>Click <span class="key">Measure</span>, click point-to-point to trace a path. Double-click to finish.</li>
       </ol>
       <button id="emptyUploadButton" class="empty-upload" type="button" title="Upload Image/PDF">
         <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
@@ -1268,14 +1320,25 @@
         <span class="hud-part">x: <strong>—</strong></span>
         <span class="hud-part">y: <strong>—</strong></span>
       </span>
-      <span class="pill" id="liveLen" style="display:none">live: <strong>—</strong></span>
     </div>
   </div>
 </main>
 
 <aside>
   <div class="side-h">
-    <h3 id="totalHeading">This Page Total</h3>
+    <div class="side-h-top">
+      <h3 id="totalHeading">This Page Total</h3>
+      <div class="export-wrap" id="exportWrap">
+        <button id="exportButton" class="export-trigger" type="button" title="Export" aria-label="Export" aria-haspopup="menu" aria-expanded="false" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        </button>
+        <div id="exportMenu" class="export-menu" role="menu" aria-label="Export">
+          <button id="exportXlsx" type="button" role="menuitem" disabled>Excel</button>
+          <button id="copySummary" type="button" role="menuitem" disabled>Copy summary</button>
+          <button id="exportCsv" type="button" role="menuitem" disabled>CSV</button>
+        </div>
+      </div>
+    </div>
     <div class="total"><span id="totalLen">0.00</span><span class="unit" id="totalUnit">ft</span></div>
     <div class="sub"><span id="runCount">0</span> runs</div>
   </div>
@@ -1368,6 +1431,8 @@
   </div>
 </div>
 
+<script src="/export-utils.js"></script>
+<script src="/calibration-utils.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -1521,6 +1586,11 @@ const rotationPill = $('rotationPill');
 const rotationInput = $('rotationInput');
 const undoButton = $('undoButton');
 const redoButton = $('redoButton');
+const exportWrap = $('exportWrap');
+const exportButton = $('exportButton');
+const exportXlsxButton = $('exportXlsx');
+const exportCsvButton = $('exportCsv');
+const copySummaryButton = $('copySummary');
 let toolTipTarget = null;
 
 function setDocumentLoaded(loaded) {
@@ -1566,6 +1636,8 @@ function cloneHistoryValue(value) {
 function createHistorySnapshot() {
   return {
     measurements: cloneHistoryValue(state.measurements) || [],
+    pageScales: cloneHistoryValue(state.pageScales) || {},
+    pxPerInch: state.pxPerInch,
     selectedId: state.selectedId,
     copiedMeasurement: cloneHistoryValue(state.copiedMeasurement),
     rotateModeId: state.rotateModeId,
@@ -1590,6 +1662,8 @@ function recordHistory(before, label = 'Edit') {
 
 function applyHistorySnapshot(snapshot) {
   state.measurements = cloneHistoryValue(snapshot.measurements) || [];
+  state.pageScales = cloneHistoryValue(snapshot.pageScales) || {};
+  state.pxPerInch = snapshot.pxPerInch ?? (state.pageScales[currentPage()] || null);
   state.selectedId = snapshot.selectedId ?? null;
   state.copiedMeasurement = cloneHistoryValue(snapshot.copiedMeasurement);
   state.rotateModeId = snapshot.rotateModeId ?? null;
@@ -1603,6 +1677,8 @@ function applyHistorySnapshot(snapshot) {
   state.pendingPaste = null;
   state.contextTarget = null;
   closeContextMenu();
+  updateScaleLabel();
+  updatePageLabel();
   updateRotationPill();
   renderList();
   redraw();
@@ -1849,7 +1925,7 @@ function configureDrawCanvas() {
 }
 
 function overlayScreenScale() {
-  return Math.min(1.9, Math.max(0.68, Math.pow(Math.max(state.zoom, 0.05), 0.32)));
+  return Math.min(1.55, Math.max(0.38, Math.pow(Math.max(state.zoom, 0.05), 0.42)));
 }
 
 function overlayPageSize(screenPx) {
@@ -2860,28 +2936,12 @@ stage.addEventListener('mousemove', (e) => {
       const previewRaw = [...raw, previewPoint];
       state.freehandDraft.previewSegments = previewRaw.length > 2 ? buildFreehandSegments(previewRaw, 8) : [];
       redraw();
-      const len = state.freehandDraft.previewSegments.length
-        ? state.freehandDraft.previewSegments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0)
-        : polylineLengthPx(previewRaw);
-      const liveEl = $('liveLen');
-      liveEl.style.display = 'inline-block';
-      liveEl.innerHTML = state.pxPerInch
-        ? `live: <strong>${formatLen(pxToInches(len))} ${UNIT_LABEL[state.unit]}</strong>`
-        : 'live: <strong>no scale</strong>';
     }
     const last = raw[raw.length - 1];
     if (!last || distancePx(last, state.cursorImg) >= Math.max(1.5, 2.5 / state.zoom)) {
       raw.push({ ...state.cursorImg });
       state.freehandDraft.previewSegments = raw.length > 2 ? buildFreehandSegments(raw, 8) : [];
       redraw();
-      const len = state.freehandDraft.previewSegments.length
-        ? state.freehandDraft.previewSegments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0)
-        : polylineLengthPx(raw);
-      const liveEl = $('liveLen');
-      liveEl.style.display = 'inline-block';
-      liveEl.innerHTML = state.pxPerInch
-        ? `live: <strong>${formatLen(pxToInches(len))} ${UNIT_LABEL[state.unit]}</strong>`
-        : 'live: <strong>no scale</strong>';
     }
     return;
   }
@@ -2960,16 +3020,6 @@ stage.addEventListener('mousemove', (e) => {
     // live preview (snapped to 45° when Shift is held)
     const preview = getEffectiveCursor();
     redraw(preview);
-    if (state.pxPerInch) {
-      const pts = [...state.inProgress.points, preview];
-      const len = polylineLengthPx(pts);
-      const liveEl = $('liveLen');
-      liveEl.style.display = 'inline-block';
-      const snapTag = state.shiftHeld ? ' <span style="color:var(--accent)">⊾ snap</span>' : '';
-      liveEl.innerHTML = `live: <strong>${formatLen(pxToInches(len))} ${UNIT_LABEL[state.unit]}</strong>${snapTag}`;
-    }
-  } else {
-    $('liveLen').style.display = 'none';
   }
 
   if (state.mode === 'erase' || state.mode === 'selection') {
@@ -3243,7 +3293,6 @@ function finishFreehandMeasurement() {
   const historyBefore = createHistorySnapshot();
   const raw = draft.rawPoints || [];
   state.freehandDraft = null;
-  $('liveLen').style.display = 'none';
   if (raw.length < 2 || polylineLengthPx(raw) < 2) {
     redraw();
     return;
@@ -3340,7 +3389,7 @@ function blurActiveMeasurementName(target) {
 function copySelectedMeasurement() {
   const selected = state.measurements.find(m => m.id === state.selectedId);
   if (!selected) {
-    showStatus('Select a cable run before copying.');
+    showStatus('Select a measurement before copying.');
     return false;
   }
   state.copiedMeasurement = {
@@ -3376,7 +3425,7 @@ function cutSelectedMeasurement() {
 
 function pasteCopiedMeasurement(mode = null) {
   if (!state.copiedMeasurement) {
-    showStatus('Copy a cable run before pasting.');
+    showStatus('Copy a measurement before pasting.');
     return false;
   }
   if (!mode && shouldAskPasteMode(state.copiedMeasurement)) {
@@ -4047,18 +4096,21 @@ function updateCalibValueValidity() {
 $('resetScale').addEventListener('click', () => {
   const p = currentPage();
   if (!state.pageScales[p]) return;
-  if (!confirm(`Reset calibration for page ${p}? Lengths on this page will be cleared. Other pages keep their scales.`)) return;
+  const affectedCount = state.measurements.filter(m => m.page === p).length;
+  if (!confirm(`Reset calibration for page ${p}? ${affectedCount} run${affectedCount === 1 ? '' : 's'} on this page will be marked unscaled and excluded from totals. You can undo this.`)) return;
+  const historyBefore = createHistorySnapshot();
   delete state.pageScales[p];
   state.pxPerInch = null;
   // Clear lengths on this page only
   for (const m of state.measurements) {
     if (m.page === p) m.lengthInches = null;
   }
+  recordHistory(historyBefore, 'scale reset');
   updateScaleLabel();
   updatePageLabel();
   renderList();
   redraw();
-  showStatus(`Page ${p} calibration cleared.`, 1800);
+  showStatus(`Page ${p} calibration cleared. Undo is available.`, 2200);
 });
 
 // Sidebar tab switching
@@ -4087,6 +4139,99 @@ function setUnit(value) {
   renderList();
 }
 
+function activeDocumentName() {
+  const doc = state.documents.find(d => d.id === state.activeDocId);
+  return doc?.name || 'takeoff';
+}
+
+function exportBaseName() {
+  const cleaned = activeDocumentName()
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-z0-9_-]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+  return cleaned || 'takeoff-measurements';
+}
+
+function getExportRows() {
+  const utils = window.TakeoffExportUtils;
+  if (!utils) return [];
+  return utils.buildExportRows(state.measurements, { unit: state.unit });
+}
+
+function downloadBytes(bytes, filename, type) {
+  const blob = window.TakeoffExportUtils.makeDownloadBlob(bytes, type);
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function downloadText(text, filename, type) {
+  downloadBytes(new TextEncoder().encode(text), filename, type);
+}
+
+function updateExportButtons() {
+  const disabled = state.measurements.length === 0;
+  exportButton.disabled = disabled;
+  exportButton.setAttribute('aria-expanded', exportWrap.classList.contains('open') ? 'true' : 'false');
+  exportXlsxButton.disabled = disabled;
+  exportCsvButton.disabled = disabled;
+  copySummaryButton.disabled = disabled;
+  if (disabled) closeExportMenu();
+}
+
+function closeExportMenu() {
+  exportWrap.classList.remove('open');
+  exportButton.setAttribute('aria-expanded', 'false');
+}
+
+function toggleExportMenu() {
+  if (exportButton.disabled) return;
+  const isOpen = exportWrap.classList.toggle('open');
+  exportButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+function exportExcel() {
+  const rows = getExportRows();
+  if (!rows.length) return;
+  const bytes = window.TakeoffExportUtils.generateXlsxPackage(rows);
+  downloadBytes(
+    bytes,
+    `${exportBaseName()}-measurements.xlsx`,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+  const unscaled = rows.filter(row => row.scaled === 'N').length;
+  showStatus(unscaled ? `Excel export downloaded. ${unscaled} unscaled run${unscaled === 1 ? '' : 's'} marked N.` : 'Excel export downloaded.', 2400);
+}
+
+function exportCsv() {
+  const rows = getExportRows();
+  if (!rows.length) return;
+  downloadText(
+    window.TakeoffExportUtils.generateCsv(rows),
+    `${exportBaseName()}-measurements.csv`,
+    'text/csv;charset=utf-8'
+  );
+  showStatus('CSV export downloaded.', 1800);
+}
+
+async function copyMeasurementSummary() {
+  const rows = getExportRows();
+  if (!rows.length) return;
+  const summary = window.TakeoffExportUtils.generateSummary(rows);
+  try {
+    await navigator.clipboard.writeText(summary);
+    showStatus('Measurement summary copied.', 1800);
+  } catch (_) {
+    showStatus('Clipboard copy was blocked by the browser.', 2200);
+  }
+}
+
 function closeUnitMenu() {
   document.querySelector('.select-wrap').classList.remove('open');
   $('unitSelectButton').setAttribute('aria-expanded', 'false');
@@ -4107,9 +4252,28 @@ document.querySelectorAll('.unit-option').forEach(option => {
   });
 });
 
-document.addEventListener('click', closeUnitMenu);
+exportXlsxButton.addEventListener('click', exportExcel);
+exportCsvButton.addEventListener('click', exportCsv);
+copySummaryButton.addEventListener('click', copyMeasurementSummary);
+exportButton.addEventListener('click', (e) => {
+  e.stopPropagation();
+  closeUnitMenu();
+  toggleExportMenu();
+});
+
+for (const button of [exportXlsxButton, exportCsvButton, copySummaryButton]) {
+  button.addEventListener('click', closeExportMenu);
+}
+
+document.addEventListener('click', (e) => {
+  closeUnitMenu();
+  if (!exportWrap.contains(e.target)) closeExportMenu();
+});
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeUnitMenu();
+  if (e.key === 'Escape') {
+    closeUnitMenu();
+    closeExportMenu();
+  }
 });
 
 $('unitSelect').addEventListener('change', (e) => {
@@ -4414,21 +4578,12 @@ function drawPathLabel(group, points, opts) {
     if (opts.measurementId != null) {
       state.labelHitboxes.push({
         measurementId: opts.measurementId,
-        x: bx - overlayPageSize(2),
-        y: by - overlayPageSize(2),
-        width: bw + overlayPageSize(4),
-        height: bh + overlayPageSize(4),
+        x: bx - overlayPageSize(3),
+        y: by - overlayPageSize(3),
+        width: bw + overlayPageSize(6),
+        height: bh + overlayPageSize(6),
       });
     }
-    group.appendChild(svgNode('rect', {
-      x: bx - overlayPageSize(2),
-      y: by - overlayPageSize(2),
-      width: bw + overlayPageSize(4),
-      height: bh + overlayPageSize(4),
-      rx: overlayPageSize(7),
-      ry: overlayPageSize(7),
-      fill: 'rgba(0,0,0,0.38)',
-    }));
     group.appendChild(svgNode('rect', {
       x: bx,
       y: by,
@@ -4448,20 +4603,18 @@ function drawPathLabel(group, points, opts) {
       rx: overlayPageSize(1.5),
       ry: overlayPageSize(1.5),
       fill: opts.labelColor,
+      stroke: 'none',
     }));
     const text = svgNode('text', {
       x: lx + accentW / 2,
       y: ly,
       fill: '#f7fbfc',
+      stroke: 'none',
       'font-family': "'JetBrains Mono', monospace",
       'font-size': fontSize,
       'font-weight': 700,
       'text-anchor': 'middle',
       'dominant-baseline': 'middle',
-      'paint-order': 'stroke',
-      stroke: 'rgba(0,0,0,0.56)',
-      'stroke-width': overlayPageSize(2),
-      'stroke-linejoin': 'round',
     });
     text.textContent = opts.label;
     group.appendChild(text);
@@ -4478,14 +4631,15 @@ function buildMeasItem(m) {
   const item = document.createElement('div');
   const onOtherPage = m.page !== currentPage();
   m.name = cleanMeasurementName(m.name, m);
-  item.className = 'meas-item' + (state.selectedId === m.id ? ' selected' : '');
+  const isUnscaled = m.lengthInches == null;
+  item.className = 'meas-item' + (state.selectedId === m.id ? ' selected' : '') + (isUnscaled ? ' unscaled' : '');
   item.dataset.measId = m.id;
   item.innerHTML = `
     <div class="row head">
       <div class="swatch" style="background:${m.color}; color:${m.color}"></div>
       <input class="name" value="${escapeHtml(m.name)}" readonly title="Double-click to rename" />
       <span class="point-count" title="${m.points.length} anchors${onOtherPage ? ' · page ' + m.page : ''}">${m.points.length}</span>
-      <span class="len">${m.lengthInches != null ? formatLen(m.lengthInches) : '—'} <span class="unit">${UNIT_LABEL[state.unit]}</span></span>
+      <span class="len" title="${isUnscaled ? 'No page scale; excluded from totals.' : ''}">${isUnscaled ? 'unscaled' : `${formatLen(m.lengthInches)} <span class="unit">${UNIT_LABEL[state.unit]}</span>`}</span>
       <button class="del" data-id="${m.id}" title="Delete">×</button>
     </div>
   `;
@@ -4548,14 +4702,21 @@ function buildMeasItem(m) {
 
 function renderList() {
   measList.innerHTML = '';
+  updateExportButtons();
   const pageMs = measurementsOnCurrentPage();
-  const grandTotal = state.measurements.reduce((s, m) => s + (m.lengthInches || 0), 0);
-  const pageTotal = pageMs.reduce((s, m) => s + (m.lengthInches || 0), 0);
+  const summary = window.TakeoffCalibrationUtils
+    ? window.TakeoffCalibrationUtils.summarizeMeasurements(state.measurements, currentPage())
+    : null;
+  const pageSummary = summary?.page || { totalInches: pageMs.reduce((s, m) => s + (m.lengthInches || 0), 0), count: pageMs.length, scaledCount: pageMs.length, unscaledCount: 0, totalDisplayAvailable: true };
+  const allSummary = summary?.all || { totalInches: state.measurements.reduce((s, m) => s + (m.lengthInches || 0), 0), count: state.measurements.length, scaledCount: state.measurements.length, unscaledCount: 0, totalDisplayAvailable: true };
+  const activeSummary = state.sidebarTab === 'page' ? pageSummary : allSummary;
 
   if (state.sidebarTab === 'page') {
     for (const m of pageMs) measList.appendChild(buildMeasItem(m));
-    $('totalLen').textContent = inchesToUnit(pageTotal).toFixed(2);
-    $('runCount').textContent = pageMs.length;
+    $('totalLen').textContent = activeSummary.totalDisplayAvailable ? inchesToUnit(activeSummary.totalInches).toFixed(2) : '—';
+    $('runCount').textContent = activeSummary.unscaledCount
+      ? `${activeSummary.count} runs · ${activeSummary.unscaledCount} unscaled excluded`
+      : `${activeSummary.count} runs`;
   } else {
     // Group by page
     const byPage = new Map();
@@ -4566,20 +4727,28 @@ function renderList() {
     const pagesSorted = [...byPage.keys()].sort((a, b) => a - b);
     for (const p of pagesSorted) {
       const list = byPage.get(p);
-      const subtotal = list.reduce((s, m) => s + (m.lengthInches || 0), 0);
+      const pageListSummary = window.TakeoffCalibrationUtils
+        ? window.TakeoffCalibrationUtils.summarizeMeasurements(state.measurements, p).page
+        : { totalInches: list.reduce((s, m) => s + (m.lengthInches || 0), 0), unscaledCount: 0, totalDisplayAvailable: true };
       const hasScale = !!state.pageScales[p];
       const header = document.createElement('div');
       header.className = 'page-group';
+      const pageTotalText = pageListSummary.totalDisplayAvailable
+        ? `${inchesToUnit(pageListSummary.totalInches).toFixed(2)} ${UNIT_LABEL[state.unit]}`
+        : 'no measured total';
+      const excludedText = pageListSummary.unscaledCount ? ` · ${pageListSummary.unscaledCount} unscaled excluded` : '';
       header.innerHTML = `
-        <span>Page <strong>${p}</strong> ${hasScale ? '· ' + inchesToUnit(subtotal).toFixed(2) + ' ' + UNIT_LABEL[state.unit] : '<span class="no-scale">· no scale</span>'}</span>
+        <span>Page <strong>${p}</strong> ${hasScale ? '· ' + pageTotalText : '<span class="no-scale">· no scale</span>'}${excludedText}</span>
         <button class="jump" data-page="${p}">Go</button>
       `;
       header.querySelector('.jump').addEventListener('click', () => goToPage(p));
       measList.appendChild(header);
       for (const m of list) measList.appendChild(buildMeasItem(m));
     }
-    $('totalLen').textContent = inchesToUnit(grandTotal).toFixed(2);
-    $('runCount').textContent = state.measurements.length;
+    $('totalLen').textContent = activeSummary.totalDisplayAvailable ? inchesToUnit(activeSummary.totalInches).toFixed(2) : '—';
+    $('runCount').textContent = activeSummary.unscaledCount
+      ? `${activeSummary.count} runs · ${activeSummary.unscaledCount} unscaled excluded`
+      : `${activeSummary.count} runs`;
   }
 
   $('totalUnit').textContent = UNIT_LABEL[state.unit];
@@ -4590,6 +4759,8 @@ function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&':'&am
 try { state.onboardingStatusSeen = localStorage.getItem(ONBOARDING_STATUS_KEY) === '1'; } catch (_) { /* ignore */ }
 applyTransform();
 updateStatus();
+updateExportButtons();
+updateScaleLabel();
 if (!state.onboardingStatusSeen) markOnboardingStatusSeen();
 </script>
 </body>
