@@ -20,66 +20,305 @@
     --accent-soft: #b6ff3c22;
     --danger: #ff5b5b;
     --calib: #ffb13c;
+    --topbar-height: 44px;
+    --side-width: clamp(240px, 22vw, 300px);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; overflow: hidden; font-family: 'Sora', sans-serif; color: var(--text); background: var(--bg); }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: 'Sora', sans-serif; color: var(--text); background: var(--bg); }
 
   body {
+    width: 100vw;
+    min-width: 0;
+    min-height: 100vh;
     display: grid;
-    grid-template-rows: 56px 1fr;
-    grid-template-columns: 1fr 320px;
+    grid-template-rows: var(--topbar-height) 1fr;
+    grid-template-columns: minmax(0, 1fr) var(--side-width);
     grid-template-areas: "top top" "stage side";
   }
+  body.no-document {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "top" "stage";
+  }
+  body.no-document aside { display: none; }
 
   /* Top toolbar */
   header {
     grid-area: top;
     background: var(--panel);
     border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; gap: 18px;
-    padding: 0 18px;
+    position: relative;
+    display: flex; align-items: center; gap: 8px;
+    padding: 0 10px;
     z-index: 5;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scrollbar-width: none;
   }
+  header::-webkit-scrollbar { display: none; }
   .brand {
     display: flex; align-items: center; gap: 10px;
     font-weight: 600; letter-spacing: 0.02em;
+    flex: 0 0 auto;
   }
-  .brand .dot { width: 10px; height: 10px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
-  .brand small { color: var(--muted); font-weight: 400; font-family: 'JetBrains Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .brand .dot { width: 9px; height: 9px; border-radius: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+  .brand small { color: var(--muted); font-weight: 400; font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.09em; }
 
-  .toolbar { display: flex; gap: 6px; align-items: center; }
-  .divider { width: 1px; height: 28px; background: var(--line); margin: 0 6px; }
+  .toolbar { display: flex; gap: 4px; align-items: center; min-width: 0; }
+  .toolbar.primary { flex: 0 0 auto; }
+  .toolbar.utility { flex: 0 0 auto; }
+  .toolbar.tools-center {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    flex: 0 0 auto;
+    z-index: 6;
+  }
+  .toolbar-spacer { flex: 1 1 14px; min-width: 8px; }
+  .divider { width: 1px; height: 24px; background: var(--line); margin: 0 3px; flex: 0 0 auto; }
 
   button, label.btn {
     background: var(--panel-2);
     border: 1px solid var(--line);
     color: var(--text);
-    padding: 7px 12px;
+    min-height: 32px;
+    padding: 4px 9px;
     border-radius: 6px;
     font-family: inherit;
-    font-size: 13px;
+    font-size: 11px;
+    line-height: 1;
     cursor: pointer;
     display: inline-flex; align-items: center; gap: 6px;
     transition: all .12s ease;
     user-select: none;
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
   button:hover, label.btn:hover { border-color: #38434a; background: #232a2e; }
   button.active { background: var(--accent); color: #0b0d0e; border-color: var(--accent); font-weight: 600; }
   button.ghost { background: transparent; }
   button.danger:hover { border-color: var(--danger); color: var(--danger); }
   button:disabled { opacity: 0.4; cursor: not-allowed; }
-
   .pill {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
+    font-size: 11px;
     color: var(--muted);
-    padding: 4px 10px;
+    min-height: 28px;
+    padding: 5px 9px;
     border: 1px solid var(--line);
     border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
   .pill strong { color: var(--text); font-weight: 500; }
+  #pageLabel {
+    min-width: 58px;
+    gap: 4px;
+  }
+  #pageLabel .page-current { color: var(--accent); }
+  #pageLabel .page-sep { color: var(--muted); font-size: 14px; line-height: 1; }
+  #pageLabel .calib-dot { color: var(--accent); font-size: 10px; margin-left: 1px; }
+  #zoomLabel {
+    min-width: 6ch;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+  .viewer-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    min-height: 34px;
+    padding: 2px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #111619;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.28);
+  }
+  .control-cluster {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 28px;
+    padding: 0 2px;
+  }
+  .control-cluster.zoom-group { min-width: 104px; }
+  .control-cluster.page-group-control { min-width: 110px; }
+  .control-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--line);
+    margin: 0 2px;
+  }
+  .control-btn {
+    width: 26px;
+    min-height: 26px;
+    padding-left: 0;
+    padding-right: 0;
+    justify-content: center;
+    border-color: transparent;
+    background: transparent;
+    color: var(--muted);
+  }
+  .control-btn:hover {
+    border-color: transparent;
+    background: var(--panel-2);
+    color: var(--text);
+  }
+  .control-btn:disabled {
+    pointer-events: none;
+    opacity: 0.35;
+  }
+  .control-value {
+    min-height: 18px;
+    padding: 0 4px;
+    border: 0;
+    background: transparent;
+    border-radius: 4px;
+    color: var(--muted);
+  }
+  .fit-control {
+    min-width: 68px;
+    min-height: 28px;
+    gap: 5px;
+    padding: 0 8px;
+    border-color: transparent;
+    background: transparent;
+    color: var(--muted);
+  }
+  .fit-control:hover {
+    border-color: transparent;
+    background: var(--panel-2);
+    color: var(--text);
+  }
+  .tool-btn {
+    width: 36px;
+    padding-left: 0;
+    padding-right: 0;
+    justify-content: center;
+  }
+  .tool-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  .measure-split {
+    position: relative;
+    display: inline-flex;
+    align-items: stretch;
+    gap: 0;
+    flex: 0 0 auto;
+  }
+  .measure-split .tool-btn {
+    width: 34px;
+  }
+  .measure-split #btn-measure {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .measure-menu-toggle {
+    width: 22px;
+    min-width: 22px;
+    min-height: 32px;
+    padding: 0;
+    justify-content: center;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-left: 0;
+  }
+  .measure-menu-toggle svg {
+    width: 10px;
+    height: 10px;
+  }
+  .measure-mode-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: none;
+    min-width: 116px;
+    padding: 6px;
+    background: #111619;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+    z-index: 40;
+  }
+  .measure-mode-menu.show {
+    display: grid;
+    gap: 2px;
+  }
+  .measure-mode-option {
+    width: 100%;
+    min-height: 30px;
+    border: 0;
+    background: transparent;
+    justify-content: flex-start;
+    color: var(--muted);
+    padding: 0 9px;
+  }
+  .measure-mode-option:hover {
+    color: var(--text);
+    background: var(--panel-2);
+  }
+  .measure-mode-option.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .mask-icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+    background: currentColor;
+    mask: var(--icon) center / contain no-repeat;
+    -webkit-mask: var(--icon) center / contain no-repeat;
+  }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .tool-tip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    transform: translate(-50%, 0);
+    z-index: 50;
+    display: none;
+    pointer-events: none;
+    background: #111619;
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 11px;
+    line-height: 1;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.42);
+    white-space: nowrap;
+  }
+  .tool-tip.show { display: block; }
 
-  input[type=file] { display: none; }
+  input[type=file].file-picker { display: none; }
+
+  @media (max-width: 1180px) {
+    #scaleLabel, #resetScale { display: none; }
+  }
+  @media (max-width: 900px) {
+    .brand .brand-tag { display: none; }
+    button { padding-left: 8px; padding-right: 8px; }
+    .toolbar.tools-center {
+      position: static;
+      transform: none;
+    }
+  }
 
   /* Stage */
   main {
@@ -105,9 +344,14 @@
     transform-origin: 0 0;
     will-change: transform;
   }
-  #baseCanvas, #drawCanvas {
+  #baseCanvas, #drawCanvas, #drawSvg {
     position: absolute; top: 0; left: 0;
     display: block;
+  }
+  #drawCanvas { display: none; }
+  #drawSvg {
+    overflow: visible;
+    pointer-events: none;
   }
 
   .empty {
@@ -135,20 +379,84 @@
 
   .status {
     position: absolute;
-    top: 16px; left: 50%; transform: translateX(-50%);
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    max-width: min(760px, calc(100% - 32px));
     background: rgba(20,24,26,0.92);
     backdrop-filter: blur(8px);
     border: 1px solid var(--line);
     color: var(--text);
-    padding: 8px 16px;
+    padding: 8px 14px;
     border-radius: 999px;
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1;
     z-index: 4;
     box-shadow: 0 8px 24px rgba(0,0,0,0.4);
     display: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .status.show { display: block; }
   .status .key { font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+
+  .context-menu {
+    position: fixed;
+    display: none;
+    min-width: 136px;
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #111619;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.48);
+    z-index: 80;
+  }
+  .context-menu.show { display: grid; gap: 2px; }
+  .context-menu button {
+    width: 100%;
+    justify-content: flex-start;
+    min-height: 30px;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    padding: 0 9px;
+  }
+  .context-menu button:hover { background: var(--panel-2); }
+  .context-menu button:disabled { color: var(--muted); opacity: 0.45; }
+
+  .rotation-pill {
+    position: fixed;
+    display: none;
+    width: 64px;
+    height: 28px;
+    z-index: 75;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 0 8px;
+    border: 1px solid #3a444b;
+    border-radius: 6px;
+    background: #111619;
+    box-shadow: 0 10px 24px rgba(0,0,0,0.42);
+  }
+  .rotation-pill.show { display: flex; }
+  .rotation-pill input {
+    width: 38px;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: right;
+  }
+  .rotation-pill span {
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
 
   /* Side panel */
   aside {
@@ -156,29 +464,32 @@
     background: var(--panel);
     border-left: 1px solid var(--line);
     display: flex; flex-direction: column;
+    min-width: 0;
     overflow: hidden;
   }
   .side-h {
-    padding: 16px 18px 12px;
+    padding: 14px 18px 12px;
     border-bottom: 1px solid var(--line);
   }
   .side-h h3 {
-    font-size: 11px; font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted);
     font-weight: 500;
   }
   .side-h .total {
     margin-top: 8px;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 28px;
+    font-size: 25px;
     font-weight: 500;
     letter-spacing: -0.01em;
   }
-  .side-h .total .unit { font-size: 14px; color: var(--muted); margin-left: 6px; }
-  .side-h .sub { color: var(--muted); font-size: 12px; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+  .side-h .total .unit { font-size: 13px; color: var(--muted); margin-left: 6px; }
+  .side-h .sub { color: var(--muted); font-size: 11px; margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
 
   .tabs {
     display: flex;
+    gap: 8px;
+    padding: 0 18px;
     border-bottom: 1px solid var(--line);
     background: var(--panel);
   }
@@ -189,15 +500,17 @@
     border-radius: 0;
     border-bottom: 2px solid transparent;
     color: var(--muted);
-    padding: 10px 0;
-    font-size: 12px;
+    min-height: 34px;
+    padding: 0 4px;
+    font-size: 11px;
     font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase;
     letter-spacing: 0.1em;
+    justify-content: center;
     cursor: pointer;
     transition: all .15s;
   }
-  .tab:hover { color: var(--text); background: var(--panel-2); }
+  .tab:hover { color: var(--text); background: transparent; }
   .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: transparent; }
 
   .page-group {
@@ -222,7 +535,13 @@
   .page-group .jump:hover { color: var(--accent); border-color: var(--accent); }
   .page-group .no-scale { color: var(--calib); }
 
-  .meas-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .meas-list {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 10px 12px;
+  }
   .meas-list:empty::before {
     content: 'No runs measured yet.';
     display: block;
@@ -234,53 +553,153 @@
   .meas-item {
     background: var(--panel-2);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 12px;
-    margin-bottom: 8px;
+    border-radius: 6px;
+    padding: 7px 8px;
+    margin-bottom: 6px;
     transition: border-color .15s ease;
     position: relative;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
   }
   .meas-item:hover { border-color: #38434a; }
   .meas-item.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(182,255,60,0.12); }
   .meas-item .swatch {
-    width: 12px; height: 12px; border-radius: 3px;
+    width: 10px; height: 10px; border-radius: 3px;
     flex-shrink: 0;
     box-shadow: 0 0 8px currentColor;
   }
   .meas-item .row.head { cursor: pointer; }
-  .meas-item .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .meas-item .row {
+    display: grid;
+    grid-template-columns: 10px minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
   .meas-item input.name {
     background: transparent;
     border: none;
     color: var(--text);
     font-family: inherit;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
-    flex: 1;
+    min-width: 0;
+    width: 100%;
     outline: none;
-    padding: 2px 0;
+    padding: 0;
     border-bottom: 1px solid transparent;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .meas-item input.name { cursor: default; }
   .meas-item input.name:not([readonly]) { cursor: text; }
   .meas-item input.name:focus:not([readonly]) { border-bottom-color: var(--accent); }
   .meas-item input.name:focus[readonly] { outline: none; }
-  .meas-item .len { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 500; color: var(--accent); }
-  .meas-item .meta { color: var(--muted); font-size: 11px; margin-top: 6px; font-family: 'JetBrains Mono', monospace; display: flex; justify-content: space-between; }
+  .meas-item .len {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    white-space: nowrap;
+    max-width: 9ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    justify-self: end;
+    text-align: right;
+  }
+  .meas-item .len .unit { color: var(--muted); font-size: 10px; font-weight: 500; }
+  .meas-item .point-count {
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    min-width: 28px;
+    min-height: 20px;
+    padding: 0 6px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
   .meas-item .del {
     background: transparent; border: none; color: var(--muted);
-    cursor: pointer; padding: 4px; border-radius: 4px;
-    font-size: 16px;
+    cursor: pointer; padding: 0; border-radius: 4px;
+    width: 20px;
+    min-height: 18px;
+    justify-content: center;
+    font-size: 13px;
     line-height: 1;
+    flex: 0 0 auto;
   }
   .meas-item .del:hover { color: var(--danger); background: rgba(255,91,91,0.1); }
 
   .footer {
-    padding: 12px 18px;
+    padding: 12px 20px;
     border-top: 1px solid var(--line);
     display: flex; gap: 8px;
   }
-  .footer button { flex: 1; }
+  .select-wrap {
+    position: relative;
+    min-width: 0;
+    flex: 1.1;
+  }
+  .select-wrap::after {
+    content: '';
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    border-right: 1.5px solid var(--muted);
+    border-bottom: 1.5px solid var(--muted);
+    transform: translateY(-65%) rotate(45deg);
+    pointer-events: none;
+  }
+  .unit-select-native { display: none; }
+  .unit-select-button {
+    width: 100%;
+    min-height: 34px;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    color: var(--text);
+    justify-content: flex-start;
+    padding: 0 34px 0 12px;
+  }
+  .unit-select-button:hover { border-color: #38434a; background: #232a2e; }
+  .unit-select-button:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+  .unit-menu {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: calc(100% + 8px);
+    display: none;
+    padding: 6px;
+    background: #111619;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+    z-index: 8;
+  }
+  .select-wrap.open .unit-menu { display: grid; gap: 2px; }
+  .unit-option {
+    width: 100%;
+    min-height: 30px;
+    border: 0;
+    background: transparent;
+    justify-content: flex-start;
+    color: var(--muted);
+    padding: 0 8px;
+  }
+  .unit-option:hover { color: var(--text); background: var(--panel-2); }
+  .unit-option.active { color: var(--accent); background: var(--accent-soft); }
+  .footer button { flex: 1; justify-content: center; }
 
   /* Modal */
   .modal-bg {
@@ -331,62 +750,90 @@
   .modal button.primary:hover { filter: brightness(1.1); }
 
   /* SVG icons sized inline */
-  svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+  .control-btn svg, .fit-control svg { width: 13px; height: 13px; }
 </style>
 </head>
-<body>
+<body class="no-document">
 
 <header>
   <div class="brand">
     <div class="dot"></div>
     <div>Cable<small>&nbsp;Run</small></div>
-    <small style="margin-left:8px">measurement</small>
   </div>
 
-  <div class="toolbar">
-    <label class="btn" for="fileInput">
+  <div class="toolbar primary">
+    <button id="uploadButton" type="button" title="Upload Image/PDF">
       <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-      Open PDF / Image
-    </label>
-    <input type="file" id="fileInput" accept="application/pdf,image/*" />
-
-    <div class="divider"></div>
-
-    <button id="btn-selection" title="Select tool (V)">
-      <svg viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6-6-15z"/></svg>
-      Select
+      Upload Image/PDF
     </button>
-    <button id="btn-calibrate" title="Set scale by drawing a line of known length (C)">
+    <input type="file" id="fileInput" class="file-picker" accept="application/pdf,image/*" aria-label="Upload Image/PDF" />
+  </div>
+
+  <div class="toolbar tools-center" aria-label="Drawing tools">
+    <button id="btn-pan" class="tool-btn" aria-label="Pan" data-tooltip="Pan">
+      <span class="mask-icon" style="--icon:url('/toolbar-pan.svg')" aria-hidden="true"></span>
+      <span class="sr-only">Pan</span>
+    </button>
+    <button id="btn-selection" class="tool-btn" aria-label="Select" data-tooltip="Select">
+      <span class="mask-icon" style="--icon:url('/toolbar-select.svg')" aria-hidden="true"></span>
+      <span class="sr-only">Select</span>
+    </button>
+    <button id="btn-calibrate" class="tool-btn" aria-label="Calibrate" data-tooltip="Calibrate">
       <svg viewBox="0 0 24 24"><path d="M3 12h18M3 8v8M21 8v8"/></svg>
-      Calibrate
+      <span class="sr-only">Calibrate</span>
     </button>
-    <button id="btn-measure" title="Click to add points. Double-click or Enter to finish. (M)">
-      <svg viewBox="0 0 24 24"><path d="M4 20l6-6 4 4 6-10"/><circle cx="4" cy="20" r="1.5"/><circle cx="10" cy="14" r="1.5"/><circle cx="14" cy="18" r="1.5"/><circle cx="20" cy="8" r="1.5"/></svg>
-      Measure
-    </button>
-    <button id="btn-pan" title="Drag to pan (P, or hold Space)">
-      <svg viewBox="0 0 24 24"><path d="M5 9l-2 3 2 3M9 5l3-2 3 2M15 19l-3 2-3-2M19 9l2 3-2 3M12 5v14M5 12h14"/></svg>
-      Pan
-    </button>
-    <button id="btn-erase" title="Click a measurement to remove (E)">
-      <svg viewBox="0 0 24 24"><path d="M3 21h18M6 21l3-12 6 6-3 6M9 9l8-8 6 6-8 8"/></svg>
-      Erase
+    <div id="measureSplit" class="measure-split">
+      <button id="btn-measure" class="tool-btn" aria-label="Measure" data-tooltip="Measure">
+        <svg viewBox="0 0 24 24"><path d="M4 20l6-6 4 4 6-10"/><circle cx="4" cy="20" r="1.5"/><circle cx="10" cy="14" r="1.5"/><circle cx="14" cy="18" r="1.5"/><circle cx="20" cy="8" r="1.5"/></svg>
+        <span class="sr-only">Measure</span>
+      </button>
+      <button id="measureModeToggle" class="measure-menu-toggle" type="button" aria-label="Measure mode" aria-haspopup="true" aria-expanded="false" title="Measure mode">
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+      </button>
+    </div>
+    <button id="btn-erase" class="tool-btn" aria-label="Erase" data-tooltip="Erase">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <g transform="rotate(-90 12 12)">
+          <g transform="rotate(-45 12 12)">
+            <rect x="7" y="4" width="10" height="16" rx="2" />
+            <line x1="7" y1="10" x2="17" y2="10" />
+          </g>
+        </g>
+      </svg>
+      <span class="sr-only">Erase</span>
     </button>
   </div>
 
-  <div style="flex:1"></div>
+  <div class="toolbar-spacer"></div>
 
-  <div class="toolbar">
-    <button id="prevPage" disabled>‹</button>
-    <span class="pill" id="pageLabel">— / —</span>
-    <button id="nextPage" disabled>›</button>
+  <div class="toolbar utility">
+    <div class="viewer-controls" aria-label="View controls">
+      <div class="control-cluster zoom-group">
+        <button id="zoomOut" class="control-btn" aria-label="Zoom out">−</button>
+        <span class="pill control-value" id="zoomLabel"><strong>100%</strong></span>
+        <button id="zoomIn" class="control-btn" aria-label="Zoom in">+</button>
+      </div>
 
-    <div class="divider"></div>
+      <div class="control-divider"></div>
 
-    <button id="zoomOut">−</button>
-    <span class="pill" id="zoomLabel"><strong>100%</strong></span>
-    <button id="zoomIn">+</button>
-    <button id="zoomFit" title="Fit to view">Fit</button>
+      <div class="control-cluster page-group-control">
+        <button id="prevPage" class="control-btn" disabled aria-label="Previous page">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 2.5 4 6l3.5 3.5"/></svg>
+        </button>
+        <span class="pill control-value" id="pageLabel"><span class="page-current">—</span><span class="page-sep">·</span><span>—</span></span>
+        <button id="nextPage" class="control-btn" disabled aria-label="Next page">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6 4.5 9.5"/></svg>
+        </button>
+      </div>
+
+      <div class="control-divider"></div>
+
+      <button id="zoomFit" class="fit-control" title="Fit to view">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+        Fit
+      </button>
+    </div>
 
     <div class="divider"></div>
 
@@ -394,20 +841,26 @@
     <button id="resetScale" disabled title="Reset calibration for the current page only">Reset</button>
   </div>
 </header>
+<div id="toolTip" class="tool-tip" role="tooltip"></div>
+<div id="measureModeMenu" class="measure-mode-menu" role="menu" aria-label="Measure mode">
+  <button class="measure-mode-option active" type="button" role="menuitemradio" aria-checked="true" data-value="line">Line</button>
+  <button class="measure-mode-option" type="button" role="menuitemradio" aria-checked="false" data-value="freehand">Free hand</button>
+</div>
 
 <main>
   <div id="stage">
     <div id="viewport">
       <canvas id="baseCanvas"></canvas>
       <canvas id="drawCanvas"></canvas>
+      <svg id="drawSvg" aria-hidden="true"></svg>
     </div>
     <div class="empty" id="empty">
       <h2>Drop in a floor plan to begin.</h2>
       <p>Upload a PDF or image, calibrate the scale against a known dimension, then trace your cable runs.</p>
       <ol>
-        <li>Click <span class="key">Open PDF / Image</span> and pick a file.</li>
-        <li>Hit <span class="key">Calibrate</span>, draw a line on a known dimension, enter its real length.</li>
-        <li>Hit <span class="key">Measure</span>, click point-to-point to trace a run. Double-click to finish.</li>
+        <li>Click <span class="key">Upload Image/PDF</span> and pick a file.</li>
+        <li>Click <span class="key">Calibrate</span>, draw a line on a known dimension, enter its real length.</li>
+        <li>Click <span class="key">Measure</span>, click point-to-point to trace a run. Double-click to finish.</li>
       </ol>
     </div>
     <div class="status" id="status"></div>
@@ -433,16 +886,38 @@
   <div class="meas-list" id="measList"></div>
 
   <div class="footer">
-    <select id="unitSelect" class="btn" style="cursor:pointer">
-      <option value="ft">feet (ft)</option>
-      <option value="yd">yards (yd)</option>
-      <option value="in">inches (in)</option>
-      <option value="m">meters (m)</option>
-      <option value="cm">centimeters (cm)</option>
-    </select>
+    <div class="select-wrap">
+      <button id="unitSelectButton" class="unit-select-button" type="button" aria-haspopup="listbox" aria-expanded="false">feet (ft)</button>
+      <div id="unitMenu" class="unit-menu" role="listbox" aria-label="Measurement unit">
+        <button class="unit-option active" type="button" role="option" data-value="ft" aria-selected="true">feet (ft)</button>
+        <button class="unit-option" type="button" role="option" data-value="yd" aria-selected="false">yards (yd)</button>
+        <button class="unit-option" type="button" role="option" data-value="in" aria-selected="false">inches (in)</button>
+        <button class="unit-option" type="button" role="option" data-value="m" aria-selected="false">meters (m)</button>
+        <button class="unit-option" type="button" role="option" data-value="cm" aria-selected="false">centimeters (cm)</button>
+      </div>
+      <select id="unitSelect" class="unit-select-native" aria-label="Measurement unit">
+        <option value="ft">feet (ft)</option>
+        <option value="yd">yards (yd)</option>
+        <option value="in">inches (in)</option>
+        <option value="m">meters (m)</option>
+        <option value="cm">centimeters (cm)</option>
+      </select>
+    </div>
     <button id="clearAll" class="danger">Clear All</button>
   </div>
 </aside>
+
+<div id="contextMenu" class="context-menu" role="menu">
+  <button type="button" data-action="cut">Cut</button>
+  <button type="button" data-action="copy">Copy</button>
+  <button type="button" data-action="paste">Paste</button>
+  <button type="button" data-action="rotate">Rotate</button>
+</div>
+
+<div id="rotationPill" class="rotation-pill">
+  <input id="rotationInput" type="text" inputmode="numeric" aria-label="Rotation degrees" />
+  <span>°</span>
+</div>
 
 <div class="modal-bg" id="calibModal">
   <div class="modal">
@@ -477,19 +952,34 @@
   </div>
 </div>
 
+<div class="modal-bg" id="pasteChoiceModal">
+  <div class="modal">
+    <h3>Paste run</h3>
+    <p>This run came from a page with a different calibration. Choose how it should land on this page.</p>
+    <div class="actions" style="display:grid; gap:8px; grid-template-columns:1fr; justify-content:stretch">
+      <button id="pasteVisualSize" class="primary">Keep visual size</button>
+      <button id="pasteRealLength">Keep measured length</button>
+      <button id="pasteCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
 // ------- State -------
+const ONBOARDING_STATUS_KEY = 'cableRunStatusSeen';
 const state = {
-  mode: 'selection', // 'selection' | 'calibrate' | 'measure' | 'pan' | 'erase'
-  prevMode: 'selection',     // mode to return to after a space-pan
+  mode: 'pan', // 'selection' | 'calibrate' | 'measure' | 'pan' | 'erase'
+  prevMode: 'pan',     // mode to return to after a space-pan
   spaceHeld: false,
   pdf: null,
   pdfPage: 1,
   pdfPages: 0,
   imageBitmap: null,        // for image uploads
-  pageRenderScale: 2,       // resolution multiplier for rendered PDF/image
+  minPdfRenderScale: 2,     // minimum PDF bitmap multiplier
+  maxPdfRenderScale: 12,    // upper fidelity cap before canvas memory gets risky
+  maxPdfBitmapEdge: 15000,  // stay under Chrome's 16,384px canvas edge limit
   baseW: 0, baseH: 0,
   zoom: 1,
   panX: 0, panY: 0,
@@ -500,10 +990,21 @@ const state = {
   pxPerInch: null,
   pageScales: {},
   inProgress: null,         // current polyline being drawn: { points: [{x,y}], type }
-  measurements: [],         // { id, name, points: [{x,y}], lengthInches, page }
+  drawMode: 'line',         // 'line' | 'freehand'
+  freehandDraft: null,      // current freehand stroke: { rawPoints, previewSegments }
+  measurements: [],         // line: { points }, freehand: { points, segments }
   hoverId: null,
   selectedId: null,
   dragVertex: null,         // { measurementId, vertexIndex }
+  dragMeasurement: null,    // { measurementId, start, originalPoints }
+  dragLabel: null,          // { measurementId }
+  rotationDrag: null,        // { measurementId, center, startPointerAngle, originalPoints, originalAngle }
+  rotateModeId: null,
+  rotationHandleHitbox: null,
+  rotationInputVisible: false,
+  pendingPaste: null,
+  copiedMeasurement: null,
+  onboardingStatusSeen: false,
   shiftHeld: false,
   unit: 'ft',
   cursorImg: null,          // current mouse position in image coords
@@ -514,6 +1015,9 @@ const state = {
   preRenderQueue: [],
   preRenderRunning: false,
   navToken: 0,
+  zoomRenderTimer: null,
+  suppressPointUntil: 0,
+  labelHitboxes: [],
 };
 
 function currentPage() { return state.pdf ? state.pdfPage : 1; }
@@ -549,11 +1053,18 @@ function updateScaleLabel() {
   }
 }
 
+function updatePageLabel() {
+  const current = state.baseW ? currentPage() : '—';
+  const total = state.baseW ? totalPages() : '—';
+  const dot = state.pxPerInch ? '<span class="calib-dot">●</span>' : '';
+  $('pageLabel').innerHTML = `<span class="page-current">${current}</span><span class="page-sep">·</span><span>${total}</span>${dot}`;
+}
+
 function recomputeLengthsForPage(p) {
   const scale = state.pageScales[p] || null;
   for (const m of state.measurements) {
     if (m.page !== p) continue;
-    m.lengthPx = polylineLengthPx(m.points);
+    m.lengthPx = measurementLengthPx(m);
     m.lengthInches = scale ? (m.lengthPx / scale) : null;
   }
 }
@@ -575,11 +1086,50 @@ const stage = $('stage');
 const viewport = $('viewport');
 const baseCanvas = $('baseCanvas');
 const drawCanvas = $('drawCanvas');
+const drawSvg = $('drawSvg');
 const baseCtx = baseCanvas.getContext('2d');
 const drawCtx = drawCanvas.getContext('2d');
 const empty = $('empty');
 const statusEl = $('status');
 const measList = $('measList');
+const toolTip = $('toolTip');
+const contextMenu = $('contextMenu');
+const rotationPill = $('rotationPill');
+const rotationInput = $('rotationInput');
+let toolTipTarget = null;
+
+function setDocumentLoaded(loaded) {
+  document.body.classList.toggle('no-document', !loaded);
+}
+
+function positionToolTip(target) {
+  const rect = target.getBoundingClientRect();
+  toolTip.style.left = `${rect.left + rect.width / 2}px`;
+  toolTip.style.top = `${rect.bottom + 8}px`;
+}
+
+function showToolTip(target) {
+  toolTipTarget = target;
+  toolTip.textContent = target.dataset.tooltip;
+  positionToolTip(target);
+  toolTip.classList.add('show');
+}
+
+function hideToolTip() {
+  toolTipTarget = null;
+  toolTip.classList.remove('show');
+}
+
+document.querySelectorAll('[data-tooltip]').forEach(btn => {
+  btn.addEventListener('mouseenter', () => showToolTip(btn));
+  btn.addEventListener('focus', () => showToolTip(btn));
+  btn.addEventListener('mouseleave', hideToolTip);
+  btn.addEventListener('blur', hideToolTip);
+});
+
+window.addEventListener('resize', () => {
+  if (toolTipTarget) positionToolTip(toolTipTarget);
+});
 
 // ------- Helpers -------
 function setMode(m, opts = {}) {
@@ -592,34 +1142,97 @@ function setMode(m, opts = {}) {
   stage.classList.toggle('selection', m === 'selection');
   stage.classList.toggle('pan', m === 'pan');
   stage.classList.toggle('erase', m === 'erase');
-  if (m !== 'measure' && m !== 'calibrate') state.inProgress = null;
+  if (m !== 'measure' && m !== 'calibrate') {
+    state.inProgress = null;
+    state.freehandDraft = null;
+  }
   if (m !== 'selection') state.selectedId = null;
-  redraw();
+  if (m !== 'selection') endRotateMode();
+  redrawActivePreview();
   updateStatus();
 }
 function updateStatus() {
-  const map = {
-    selection: 'SELECT — click a run to select it. Delete to remove. Hold Space to pan, Ctrl+Wheel to zoom.',
-    calibrate: 'CALIBRATE — click two points spanning a known distance.',
-    measure: state.pxPerInch
-      ? 'MEASURE — click to add points. Double-click or press Enter to finish. Esc to cancel.'
-      : 'MEASURE — calibrate first to get accurate lengths.',
-    pan: 'PAN — drag to move. Release Space to exit.',
-    erase: 'ERASE — click a measurement line to delete it.',
-  };
-  statusEl.textContent = map[state.mode];
-  statusEl.classList.toggle('show', !!state.baseW);
+  if (state.baseW || state.onboardingStatusSeen) {
+    statusEl.classList.remove('show');
+    return;
+  }
+  statusEl.textContent = 'Upload Image/PDF to begin.';
+  statusEl.classList.add('show');
 }
-function showStatus(text, ms = 1800) {
+function markOnboardingStatusSeen() {
+  if (state.onboardingStatusSeen) return;
+  state.onboardingStatusSeen = true;
+  try { localStorage.setItem(ONBOARDING_STATUS_KEY, '1'); } catch (_) { /* ignore */ }
+}
+function showStatus(text, ms = 1800, opts = {}) {
+  if (state.baseW && !opts.force) {
+    statusEl.classList.remove('show');
+    return;
+  }
   statusEl.textContent = text;
   statusEl.classList.add('show');
   clearTimeout(showStatus._t);
   if (ms) showStatus._t = setTimeout(() => updateStatus(), ms);
 }
 
+function closeContextMenu() {
+  contextMenu.classList.remove('show');
+}
+
+function openContextMenu(clientX, clientY, measurementId = null) {
+  if (measurementId != null) state.selectedId = measurementId;
+  const canActOnRun = state.selectedId != null;
+  contextMenu.querySelector('[data-action="cut"]').disabled = !canActOnRun;
+  contextMenu.querySelector('[data-action="copy"]').disabled = !canActOnRun;
+  contextMenu.querySelector('[data-action="rotate"]').disabled = !canActOnRun;
+  contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
+  contextMenu.style.left = `${Math.min(clientX, window.innerWidth - 150)}px`;
+  contextMenu.style.top = `${Math.min(clientY, window.innerHeight - 150)}px`;
+  contextMenu.classList.add('show');
+}
+
 function applyTransform() {
   viewport.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
   $('zoomLabel').innerHTML = `<strong>${Math.round(state.zoom * 100)}%</strong>`;
+  updateRotationPill();
+}
+
+function devicePixelRatioCap() {
+  return Math.min(window.devicePixelRatio || 1, 2);
+}
+
+function desiredPdfRenderScale() {
+  if (!state.pdf) return 1;
+  let target = Math.max(state.minPdfRenderScale, state.zoom * devicePixelRatioCap());
+  if (state.baseW && state.baseH) {
+    target = Math.min(target, state.maxPdfBitmapEdge / Math.max(state.baseW, state.baseH));
+  }
+  return Math.min(target, state.maxPdfRenderScale);
+}
+
+function configureCanvasCssSize(canvas, cssW, cssH) {
+  canvas.style.width = `${cssW}px`;
+  canvas.style.height = `${cssH}px`;
+}
+
+function configureDrawCanvas() {
+  if (!state.baseW || !state.baseH) return 1;
+  drawCanvas.width = 1;
+  drawCanvas.height = 1;
+  configureCanvasCssSize(drawCanvas, state.baseW, state.baseH);
+  drawSvg.setAttribute('width', state.baseW);
+  drawSvg.setAttribute('height', state.baseH);
+  drawSvg.setAttribute('viewBox', `0 0 ${state.baseW} ${state.baseH}`);
+  configureCanvasCssSize(drawSvg, state.baseW, state.baseH);
+  return 1;
+}
+
+function overlayScreenScale() {
+  return Math.min(1.9, Math.max(0.68, Math.pow(Math.max(state.zoom, 0.05), 0.32)));
+}
+
+function overlayPageSize(screenPx) {
+  return (screenPx * overlayScreenScale()) / Math.max(state.zoom, 0.05);
 }
 
 function screenToImage(clientX, clientY) {
@@ -641,6 +1254,196 @@ function polylineLengthPx(points) {
   for (let i = 1; i < points.length; i++) d += distancePx(points[i - 1], points[i]);
   return d;
 }
+function isCurveMeasurement(m) {
+  return !!(m && Array.isArray(m.segments) && m.segments.length);
+}
+function cubicPoint(seg, t) {
+  const mt = 1 - t;
+  const mt2 = mt * mt;
+  const t2 = t * t;
+  return {
+    x: mt2 * mt * seg.from.x + 3 * mt2 * t * seg.c1.x + 3 * mt * t2 * seg.c2.x + t2 * t * seg.to.x,
+    y: mt2 * mt * seg.from.y + 3 * mt2 * t * seg.c1.y + 3 * mt * t2 * seg.c2.y + t2 * t * seg.to.y,
+  };
+}
+function flattenSegments(segments, steps = 20) {
+  const points = [];
+  for (const seg of segments || []) {
+    if (seg.type === 'line') {
+      if (!points.length) points.push(seg.from);
+      points.push(seg.to);
+      continue;
+    }
+    for (let i = 0; i <= steps; i++) {
+      if (points.length && i === 0) continue;
+      points.push(cubicPoint(seg, i / steps));
+    }
+  }
+  return points;
+}
+function cubicLengthPx(seg) {
+  return polylineLengthPx(flattenSegments([seg], 28));
+}
+function measurementLengthPx(m) {
+  if (isCurveMeasurement(m)) return m.segments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0);
+  return polylineLengthPx(m.points || []);
+}
+function measurementDisplayPoints(m) {
+  return isCurveMeasurement(m) ? flattenSegments(m.segments, 18) : (m.points || []);
+}
+function buildFreehandSegments(rawPoints, error = 8) {
+  const points = rawPoints.filter((pt, i, arr) => i === 0 || distancePx(pt, arr[i - 1]) > 0.5);
+  if (points.length < 2) return [];
+  return fitCurve(points, error).map(curve => ({
+    type: 'cubic',
+    from: curve[0],
+    c1: curve[1],
+    c2: curve[2],
+    to: curve[3],
+  }));
+}
+function anchorsFromSegments(segments) {
+  if (!segments || !segments.length) return [];
+  return [segments[0].from, ...segments.map(seg => seg.to)];
+}
+function updateCurveAnchors(m) {
+  if (isCurveMeasurement(m)) m.points = anchorsFromSegments(m.segments).map(pt => ({ ...pt }));
+}
+function vectorAdd(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
+function vectorSub(a, b) { return { x: a.x - b.x, y: a.y - b.y }; }
+function vectorScale(v, s) { return { x: v.x * s, y: v.y * s }; }
+function vectorDot(a, b) { return a.x * b.x + a.y * b.y; }
+function vectorLen(v) { return Math.hypot(v.x, v.y); }
+function vectorNormalize(v) {
+  const len = vectorLen(v);
+  return len ? { x: v.x / len, y: v.y / len } : { x: 0, y: 0 };
+}
+function fitCurve(points, maxError) {
+  if (points.length < 2) return [];
+  const leftTangent = vectorNormalize(vectorSub(points[1], points[0]));
+  const rightTangent = vectorNormalize(vectorSub(points[points.length - 2], points[points.length - 1]));
+  return fitCubic(points, leftTangent, rightTangent, maxError);
+}
+function fitCubic(points, leftTangent, rightTangent, error) {
+  if (points.length === 2) {
+    const dist = distancePx(points[0], points[1]) / 3;
+    return [[
+      points[0],
+      vectorAdd(points[0], vectorScale(leftTangent, dist)),
+      vectorAdd(points[1], vectorScale(rightTangent, dist)),
+      points[1],
+    ]];
+  }
+  let u = chordLengthParameterize(points);
+  let curve = generateBezier(points, u, leftTangent, rightTangent);
+  let max = computeMaxError(points, curve, u);
+  if (max.error < error) return [curve];
+  if (max.error < error * error) {
+    for (let i = 0; i < 4; i++) {
+      u = reparameterize(points, curve, u);
+      curve = generateBezier(points, u, leftTangent, rightTangent);
+      max = computeMaxError(points, curve, u);
+      if (max.error < error) return [curve];
+    }
+  }
+  const split = Math.max(1, Math.min(points.length - 2, max.index));
+  const centerTangent = vectorNormalize(vectorSub(points[split - 1], points[split + 1]));
+  return [
+    ...fitCubic(points.slice(0, split + 1), leftTangent, centerTangent, error),
+    ...fitCubic(points.slice(split), vectorScale(centerTangent, -1), rightTangent, error),
+  ];
+}
+function chordLengthParameterize(points) {
+  const u = [0];
+  for (let i = 1; i < points.length; i++) u[i] = u[i - 1] + distancePx(points[i], points[i - 1]);
+  const total = u[u.length - 1] || 1;
+  return u.map(v => v / total);
+}
+function bernsteinBasis(t) {
+  const mt = 1 - t;
+  return [mt * mt * mt, 3 * t * mt * mt, 3 * t * t * mt, t * t * t];
+}
+function generateBezier(points, uPrime, leftTangent, rightTangent) {
+  const first = points[0];
+  const last = points[points.length - 1];
+  const C = [[0, 0], [0, 0]];
+  const X = [0, 0];
+  for (let i = 0; i < points.length; i++) {
+    const u = uPrime[i];
+    const b = bernsteinBasis(u);
+    const a1 = vectorScale(leftTangent, b[1]);
+    const a2 = vectorScale(rightTangent, b[2]);
+    C[0][0] += vectorDot(a1, a1);
+    C[0][1] += vectorDot(a1, a2);
+    C[1][0] = C[0][1];
+    C[1][1] += vectorDot(a2, a2);
+    const tmp = vectorSub(points[i], vectorAdd(vectorScale(first, b[0] + b[1]), vectorScale(last, b[2] + b[3])));
+    X[0] += vectorDot(a1, tmp);
+    X[1] += vectorDot(a2, tmp);
+  }
+  const detC0C1 = C[0][0] * C[1][1] - C[1][0] * C[0][1];
+  const detC0X = C[0][0] * X[1] - C[1][0] * X[0];
+  const detXC1 = X[0] * C[1][1] - X[1] * C[0][1];
+  let alphaL = detC0C1 === 0 ? 0 : detXC1 / detC0C1;
+  let alphaR = detC0C1 === 0 ? 0 : detC0X / detC0C1;
+  const segLength = distancePx(first, last);
+  const epsilon = 1e-6 * segLength;
+  if (alphaL < epsilon || alphaR < epsilon) {
+    alphaL = segLength / 3;
+    alphaR = segLength / 3;
+  }
+  const maxAlpha = Math.max(segLength, 1);
+  alphaL = Math.min(alphaL, maxAlpha);
+  alphaR = Math.min(alphaR, maxAlpha);
+  return [
+    first,
+    vectorAdd(first, vectorScale(leftTangent, alphaL)),
+    vectorAdd(last, vectorScale(rightTangent, alphaR)),
+    last,
+  ];
+}
+function evaluateCubic(curve, t) {
+  return cubicPoint({ from: curve[0], c1: curve[1], c2: curve[2], to: curve[3] }, t);
+}
+function cubicDerivative(curve, t) {
+  const mt = 1 - t;
+  return vectorAdd(
+    vectorAdd(vectorScale(vectorSub(curve[1], curve[0]), 3 * mt * mt), vectorScale(vectorSub(curve[2], curve[1]), 6 * mt * t)),
+    vectorScale(vectorSub(curve[3], curve[2]), 3 * t * t)
+  );
+}
+function cubicSecondDerivative(curve, t) {
+  return vectorAdd(
+    vectorScale(vectorAdd(vectorSub(curve[2], vectorScale(curve[1], 2)), curve[0]), 6 * (1 - t)),
+    vectorScale(vectorAdd(vectorSub(curve[3], vectorScale(curve[2], 2)), curve[1]), 6 * t)
+  );
+}
+function reparameterize(points, curve, u) {
+  return u.map((value, i) => newtonRaphsonRootFind(curve, points[i], value));
+}
+function newtonRaphsonRootFind(curve, point, u) {
+  const q = evaluateCubic(curve, u);
+  const q1 = cubicDerivative(curve, u);
+  const q2 = cubicSecondDerivative(curve, u);
+  const diff = vectorSub(q, point);
+  const numerator = vectorDot(diff, q1);
+  const denominator = vectorDot(q1, q1) + vectorDot(diff, q2);
+  if (!denominator) return u;
+  return Math.max(0, Math.min(1, u - numerator / denominator));
+}
+function computeMaxError(points, curve, u) {
+  let index = Math.floor(points.length / 2);
+  let maxDist = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const p = evaluateCubic(curve, u[i]);
+    const dist = distancePx(p, points[i]);
+    if (dist > maxDist) {
+      maxDist = dist;
+      index = i;
+    }
+  }
+  return { error: maxDist, index };
+}
 function pxToInches(px) {
   if (!state.pxPerInch) return null;
   return px / state.pxPerInch;
@@ -652,6 +1455,114 @@ function formatLen(inches) {
   if (inches == null) return '—';
   const v = inchesToUnit(inches);
   return v.toFixed(2);
+}
+
+function normalizeDegrees(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return ((n % 360) + 360) % 360;
+}
+
+function snapDegrees15(value) {
+  return normalizeDegrees(Math.round(value / 15) * 15);
+}
+
+function angleDegFromCenter(center, p) {
+  return Math.atan2(p.y - center.y, p.x - center.x) * 180 / Math.PI;
+}
+
+function rotatePoint(p, center, degrees) {
+  const rad = degrees * Math.PI / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = p.x - center.x;
+  const dy = p.y - center.y;
+  return {
+    x: center.x + dx * cos - dy * sin,
+    y: center.y + dx * sin + dy * cos,
+  };
+}
+
+function measurementBounds(m) {
+  const points = measurementDisplayPoints(m);
+  if (!points.length) return null;
+  const xs = points.map(p => p.x);
+  const ys = points.map(p => p.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const maxX = Math.max(...xs);
+  const maxY = Math.max(...ys);
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+    cx: (minX + maxX) / 2,
+    cy: (minY + maxY) / 2,
+  };
+}
+
+function createRotationFrame(m) {
+  const bounds = measurementBounds(m);
+  if (!bounds) return null;
+  const pad = overlayPageSize(12);
+  return {
+    x: bounds.x - pad,
+    y: bounds.y - pad,
+    width: Math.max(bounds.width + pad * 2, overlayPageSize(36)),
+    height: Math.max(bounds.height + pad * 2, overlayPageSize(36)),
+    cx: bounds.cx,
+    cy: bounds.cy,
+    angle: normalizeDegrees(m.rotationAngle || 0),
+  };
+}
+
+function getRotationFrame(m) {
+  if (!m) return null;
+  if (!m.rotationFrame) m.rotationFrame = createRotationFrame(m);
+  return m.rotationFrame;
+}
+
+function rotateAround(point, center, degrees) {
+  return rotatePoint(point, center, degrees);
+}
+
+function rotatedFramePoint(frame, localX, localY) {
+  return rotateAround({ x: localX, y: localY }, { x: frame.cx, y: frame.cy }, frame.angle || 0);
+}
+
+function scalePointsAround(points, center, scale) {
+  return points.map(pt => ({
+    x: center.x + (pt.x - center.x) * scale,
+    y: center.y + (pt.y - center.y) * scale,
+  }));
+}
+function translateSegments(segments, dx, dy) {
+  return (segments || []).map(seg => ({
+    ...seg,
+    from: { x: seg.from.x + dx, y: seg.from.y + dy },
+    c1: { x: seg.c1.x + dx, y: seg.c1.y + dy },
+    c2: { x: seg.c2.x + dx, y: seg.c2.y + dy },
+    to: { x: seg.to.x + dx, y: seg.to.y + dy },
+  }));
+}
+function scaleSegmentsAround(segments, center, scale) {
+  return (segments || []).map(seg => ({
+    ...seg,
+    from: scalePointsAround([seg.from], center, scale)[0],
+    c1: scalePointsAround([seg.c1], center, scale)[0],
+    c2: scalePointsAround([seg.c2], center, scale)[0],
+    to: scalePointsAround([seg.to], center, scale)[0],
+  }));
+}
+function rotateSegmentsAround(segments, center, degrees) {
+  return (segments || []).map(seg => ({
+    ...seg,
+    from: rotatePoint(seg.from, center, degrees),
+    c1: rotatePoint(seg.c1, center, degrees),
+    c2: rotatePoint(seg.c2, center, degrees),
+    to: rotatePoint(seg.to, center, degrees),
+  }));
 }
 
 function fitToView() {
@@ -666,38 +1577,80 @@ function fitToView() {
 }
 
 // ------- File loading -------
+function isPdfFile(file) {
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
+}
+function isImageFile(file) {
+  return file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|avif|heic|heif)$/i.test(file.name || '');
+}
+
 $('fileInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
-  if (!file) return;
-  resetDocState();
-  if (file.type === 'application/pdf') {
-    const buf = await file.arrayBuffer();
-    state.pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-    state.pdfPages = state.pdf.numPages;
-    state.pdfPage = 1;
-    state.imageBitmap = null;
-    await renderPdfPage();
-  } else if (file.type.startsWith('image/')) {
-    const img = await createImageBitmap(file);
-    state.imageBitmap = img;
-    state.pdf = null;
-    state.pdfPages = 1;
-    state.pdfPage = 1;
-    state.baseW = img.width;
-    state.baseH = img.height;
-    baseCanvas.width = drawCanvas.width = img.width;
-    baseCanvas.height = drawCanvas.height = img.height;
-    baseCtx.drawImage(img, 0, 0);
-    onPageReady();
-  }
+  await loadFile(file);
+  e.target.value = '';
+});
+$('uploadButton').addEventListener('click', () => {
+  $('fileInput').click();
 });
 
+stage.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'copy';
+});
+stage.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  await loadFile(file);
+});
+
+async function loadFile(file) {
+  if (!file) return;
+  if (!isPdfFile(file) && !isImageFile(file)) {
+    showStatus('Unsupported file. Use a PDF or image.');
+    return;
+  }
+
+  try {
+    resetDocState();
+    if (isPdfFile(file)) {
+      const buf = await file.arrayBuffer();
+      state.pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      state.pdfPages = state.pdf.numPages;
+      state.pdfPage = 1;
+      state.imageBitmap = null;
+      await renderPdfPage();
+      showStatus(`Loaded ${file.name || 'PDF'}`);
+    } else {
+      const img = await createImageBitmap(file);
+      state.imageBitmap = img;
+      state.pdf = null;
+      state.pdfPages = 1;
+      state.pdfPage = 1;
+      state.baseW = img.width;
+      state.baseH = img.height;
+      baseCanvas.width = img.width;
+      baseCanvas.height = img.height;
+      configureCanvasCssSize(baseCanvas, img.width, img.height);
+      configureDrawCanvas();
+      baseCtx.drawImage(img, 0, 0);
+      onPageReady();
+      showStatus(`Loaded ${file.name || 'image'}`);
+    }
+  } catch (err) {
+    console.error('Failed to load file', err);
+    showStatus('Could not load that file. Try another PDF or image.');
+  }
+}
+
 function resetDocState() {
+  setDocumentLoaded(false);
   state.measurements = [];
   state.pageScales = {};
   state.pxPerInch = null;
   state.inProgress = null;
+  state.freehandDraft = null;
   state.selectedId = null;
+  state.dragLabel = null;
   state.pageCache.clear();
   state.preRenderQueue = [];
   state.preRenderRunning = false;
@@ -705,18 +1658,26 @@ function resetDocState() {
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'page'));
   $('totalHeading').textContent = 'This Page Total';
   updateScaleLabel();
+  updatePageLabel();
 }
 
-function cacheGet(p) {
+function cacheGet(p, minRenderScale = 0) {
   if (!state.pageCache.has(p)) return null;
   // touch for LRU
   const c = state.pageCache.get(p);
+  if ((c.renderScale || 1) + 0.01 < minRenderScale) return null;
   state.pageCache.delete(p);
   state.pageCache.set(p, c);
   return c;
 }
-function cacheSet(p, canvas) {
-  state.pageCache.set(p, canvas);
+function cacheHasUsable(p, minRenderScale = 0) {
+  const c = state.pageCache.get(p);
+  return !!c && (c.renderScale || 1) + 0.01 >= minRenderScale;
+}
+function cacheSet(p, entry) {
+  const existing = state.pageCache.get(p);
+  if (existing && (existing.renderScale || 1) > (entry.renderScale || 1)) return;
+  state.pageCache.set(p, entry);
   // Evict least-recently-used, but never the current page
   while (state.pageCache.size > state.MAX_CACHE) {
     let oldest = null;
@@ -726,46 +1687,64 @@ function cacheSet(p, canvas) {
   }
 }
 
-async function renderPageToCanvas(pageNum) {
+async function renderPageToCanvas(pageNum, requestedScale = state.minPdfRenderScale) {
   const page = await state.pdf.getPage(pageNum);
-  const viewport_ = page.getViewport({ scale: state.pageRenderScale });
+  const baseViewport = page.getViewport({ scale: 1 });
+  const maxScaleForPage = Math.min(
+    state.maxPdfRenderScale,
+    state.maxPdfBitmapEdge / Math.max(baseViewport.width, baseViewport.height)
+  );
+  const renderScale = Math.max(
+    state.minPdfRenderScale,
+    Math.min(requestedScale, maxScaleForPage)
+  );
+  const viewport_ = page.getViewport({ scale: renderScale });
   const c = document.createElement('canvas');
-  c.width = viewport_.width;
-  c.height = viewport_.height;
+  c.width = Math.max(1, Math.ceil(viewport_.width));
+  c.height = Math.max(1, Math.ceil(viewport_.height));
   await page.render({ canvasContext: c.getContext('2d'), viewport: viewport_ }).promise;
-  cacheSet(pageNum, c);
-  return c;
+  const entry = {
+    canvas: c,
+    cssWidth: baseViewport.width,
+    cssHeight: baseViewport.height,
+    renderScale,
+  };
+  cacheSet(pageNum, entry);
+  return entry;
 }
 
-function blitToBase(cached) {
-  baseCanvas.width = drawCanvas.width = cached.width;
-  baseCanvas.height = drawCanvas.height = cached.height;
-  state.baseW = cached.width;
-  state.baseH = cached.height;
-  baseCtx.drawImage(cached, 0, 0);
+function blitToBase(entry) {
+  baseCanvas.width = entry.canvas.width;
+  baseCanvas.height = entry.canvas.height;
+  configureCanvasCssSize(baseCanvas, entry.cssWidth, entry.cssHeight);
+  state.baseW = entry.cssWidth;
+  state.baseH = entry.cssHeight;
+  configureDrawCanvas();
+  baseCtx.drawImage(entry.canvas, 0, 0);
 }
 
-async function renderPdfPage() {
+async function renderPdfPage({ fit = true, resetInteraction = true, minRenderScale = desiredPdfRenderScale() } = {}) {
   state.navToken++;
   const myToken = state.navToken;
   const p = state.pdfPage;
 
-  let cached = cacheGet(p);
+  let cached = cacheGet(p, minRenderScale);
   if (cached) {
     blitToBase(cached);
-    onPageReady();
+    onPageReady({ fit, resetInteraction });
     schedulePreRender();
     return;
   }
-  cached = await renderPageToCanvas(p);
+  cached = await renderPageToCanvas(p, minRenderScale);
   if (myToken !== state.navToken) return; // user navigated away mid-render
   blitToBase(cached);
-  onPageReady();
+  onPageReady({ fit, resetInteraction });
   schedulePreRender();
 }
 
 function schedulePreRender() {
   if (!state.pdf) return;
+  const targetScale = desiredPdfRenderScale();
   const desired = [];
   const p = state.pdfPage;
   // Prioritize nearest neighbors, expanding outward
@@ -773,7 +1752,7 @@ function schedulePreRender() {
     if (p + off <= state.pdfPages) desired.push(p + off);
     if (p - off >= 1) desired.push(p - off);
   }
-  state.preRenderQueue = desired.filter(n => !state.pageCache.has(n));
+  state.preRenderQueue = desired.filter(n => !cacheHasUsable(n, targetScale));
   runPreRender();
 }
 
@@ -783,8 +1762,9 @@ async function runPreRender() {
   try {
     while (state.preRenderQueue.length > 0 && state.pdf) {
       const n = state.preRenderQueue.shift();
-      if (state.pageCache.has(n)) continue;
-      try { await renderPageToCanvas(n); } catch (_) { /* ignore */ }
+      const targetScale = desiredPdfRenderScale();
+      if (cacheHasUsable(n, targetScale)) continue;
+      try { await renderPageToCanvas(n, targetScale); } catch (_) { /* ignore */ }
       // Yield to keep UI responsive
       await new Promise(r => setTimeout(r, 0));
     }
@@ -793,18 +1773,19 @@ async function runPreRender() {
   }
 }
 
-function onPageReady() {
+function onPageReady({ fit = true, resetInteraction = true } = {}) {
+  markOnboardingStatusSeen();
+  setDocumentLoaded(true);
   empty.style.display = 'none';
-  state.inProgress = null;
+  if (resetInteraction) state.inProgress = null;
   state.pxPerInch = state.pageScales[currentPage()] || null;
   $('prevPage').disabled = currentPage() <= 1;
   $('nextPage').disabled = currentPage() >= totalPages();
-  const dot = state.pxPerInch ? ' <span style="color:var(--accent)">●</span>' : '';
-  $('pageLabel').innerHTML = `${currentPage()} / ${totalPages()}${dot}`;
+  updatePageLabel();
   updateScaleLabel();
   renderList();
-  fitToView();
-  redraw();
+  if (fit) fitToView();
+  redrawActivePreview();
   updateStatus();
 }
 
@@ -823,7 +1804,53 @@ $('btn-calibrate').addEventListener('click', () => setMode('calibrate'));
 $('btn-measure').addEventListener('click', () => setMode('measure'));
 $('btn-pan').addEventListener('click', () => setMode('pan'));
 $('btn-erase').addEventListener('click', () => setMode('erase'));
-$('btn-selection').classList.add('active');
+function setDrawMode(value) {
+  state.drawMode = value === 'freehand' ? 'freehand' : 'line';
+  state.inProgress = null;
+  state.freehandDraft = null;
+  document.querySelectorAll('.measure-mode-option').forEach(option => {
+    const active = option.dataset.value === state.drawMode;
+    option.classList.toggle('active', active);
+    option.setAttribute('aria-checked', active ? 'true' : 'false');
+  });
+  setMode('measure');
+  redraw();
+}
+function closeMeasureModeMenu() {
+  $('measureSplit').classList.remove('open');
+  $('measureModeToggle').setAttribute('aria-expanded', 'false');
+  $('measureModeMenu').classList.remove('show');
+}
+function positionMeasureModeMenu() {
+  const toggle = $('measureModeToggle');
+  const menu = $('measureModeMenu');
+  const rect = toggle.getBoundingClientRect();
+  const menuWidth = 116;
+  const left = Math.max(6, Math.min(window.innerWidth - menuWidth - 6, rect.right - menuWidth));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${rect.bottom + 6}px`;
+}
+$('measureModeToggle').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const open = !$('measureSplit').classList.contains('open');
+  $('measureSplit').classList.toggle('open', open);
+  $('measureModeToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+  $('measureModeMenu').classList.toggle('show', open);
+  if (open) positionMeasureModeMenu();
+});
+document.querySelectorAll('.measure-mode-option').forEach(option => {
+  option.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setDrawMode(option.dataset.value);
+    closeMeasureModeMenu();
+  });
+});
+document.addEventListener('click', (e) => {
+  if (!$('measureSplit').contains(e.target) && !$('measureModeMenu').contains(e.target)) closeMeasureModeMenu();
+});
+window.addEventListener('resize', closeMeasureModeMenu);
+document.querySelector('header').addEventListener('scroll', closeMeasureModeMenu);
+$('btn-pan').classList.add('active');
 
 // ------- Zoom buttons -------
 $('zoomIn').addEventListener('click', () => zoomAt(stageCenter(), 1.25));
@@ -834,6 +1861,9 @@ function zoomAt(pt, factor) {
   const img = screenToImage(pt.clientX, pt.clientY);
   state.zoom *= factor;
   state.zoom = Math.min(Math.max(state.zoom, 0.05), 20);
+  if (state.inProgress) {
+    state.suppressPointUntil = performance.now() + 320;
+  }
   // re-anchor so img point stays under cursor
   const newScreen = imageToScreen(img.x, img.y);
   const rect = stage.getBoundingClientRect();
@@ -841,7 +1871,28 @@ function zoomAt(pt, factor) {
   const targetSy = pt.clientY - rect.top;
   state.panX += targetSx - newScreen.x;
   state.panY += targetSy - newScreen.y;
+  state.cursorImg = screenToImage(pt.clientX, pt.clientY);
   applyTransform();
+  redrawActivePreview();
+  schedulePdfRerenderForZoom();
+}
+
+function shouldSuppressPointPlacement(e) {
+  if (e.button !== 0) return true;
+  if (e.detail && e.detail > 1) return true;
+  return performance.now() < state.suppressPointUntil;
+}
+
+function schedulePdfRerenderForZoom() {
+  if (!state.pdf) return;
+  clearTimeout(state.zoomRenderTimer);
+  state.zoomRenderTimer = setTimeout(async () => {
+    const targetScale = desiredPdfRenderScale();
+    if (cacheHasUsable(state.pdfPage, targetScale)) return;
+    showStatus(`Sharpening PDF at ${targetScale.toFixed(1)}×…`, 0);
+    await renderPdfPage({ fit: false, resetInteraction: false, minRenderScale: targetScale });
+    showStatus(`PDF sharpened at ${targetScale.toFixed(1)}×`);
+  }, 180);
 }
 
 // ------- Wheel: Ctrl+wheel = zoom, plain wheel = scroll (deltaX horizontal, deltaY vertical) -------
@@ -855,12 +1906,59 @@ stage.addEventListener('wheel', (e) => {
     state.panX -= e.deltaX;
     state.panY -= e.deltaY;
     applyTransform();
+    redrawActivePreview();
   }
 }, { passive: false });
 
 // ------- Mouse interactions -------
+document.addEventListener('pointerdown', (e) => {
+  blurActiveMeasurementName(e.target);
+}, true);
+
+stage.addEventListener('contextmenu', (e) => {
+  if (!state.baseW) return;
+  e.preventDefault();
+  const p = screenToImage(e.clientX, e.clientY);
+  state.cursorImg = p;
+  const labelHit = findLabelHit(p);
+  const hitId = labelHit?.measurementId ?? findNearestMeasurement(p, 10 / state.zoom);
+  openContextMenu(e.clientX, e.clientY, hitId);
+  renderList();
+  redraw();
+});
+
 stage.addEventListener('mousedown', (e) => {
   if (!state.baseW) return;
+  if (e.button !== 2) closeContextMenu();
+  if (e.button !== 0 && e.button !== 1) return;
+  const p = screenToImage(e.clientX, e.clientY);
+  state.shiftHeld = e.shiftKey;
+  if (e.button === 0 && state.rotateModeId && isPointInBox(p, state.rotationHandleHitbox)) {
+    const m = state.measurements.find(x => x.id === state.rotateModeId);
+    const frame = getRotationFrame(m);
+    if (m && frame) {
+      const center = { x: frame.cx, y: frame.cy };
+      state.rotationDrag = {
+        measurementId: m.id,
+        center,
+        startPointerAngle: angleDegFromCenter(center, p),
+        originalPoints: m.points.map(pt => ({ ...pt })),
+        originalSegments: isCurveMeasurement(m) ? m.segments.map(seg => ({
+          ...seg,
+          from: { ...seg.from },
+          c1: { ...seg.c1 },
+          c2: { ...seg.c2 },
+          to: { ...seg.to },
+        })) : null,
+        originalAngle: normalizeDegrees(m.rotationAngle || 0),
+        originalFrame: { ...frame },
+      };
+      state.rotationInputVisible = true;
+      stage.classList.add('dragging');
+      e.preventDefault();
+      return;
+    }
+  }
   if (e.button === 1 || state.mode === 'pan') {
     state.isPanning = true;
     state.panStart = { x: e.clientX - state.panX, y: e.clientY - state.panY };
@@ -868,7 +1966,17 @@ stage.addEventListener('mousedown', (e) => {
     e.preventDefault();
     return;
   }
-  const p = screenToImage(e.clientX, e.clientY);
+  if (e.button !== 0) return;
+  const labelHit = state.mode === 'selection' ? null : findLabelHit(p);
+  if (labelHit && state.mode !== 'erase') {
+    state.selectedId = labelHit.measurementId;
+    state.dragLabel = { measurementId: labelHit.measurementId };
+    stage.classList.add('dragging');
+    renderList();
+    redraw();
+    e.preventDefault();
+    return;
+  }
 
   if (state.mode === 'selection') {
     // Vertex hit first — clicking a node selects its run AND starts drag
@@ -881,11 +1989,45 @@ stage.addEventListener('mousedown', (e) => {
       redraw();
       return;
     }
+    const selectedLabelHit = findLabelHit(p);
+    if (selectedLabelHit) {
+      state.selectedId = selectedLabelHit.measurementId;
+      state.dragLabel = { measurementId: selectedLabelHit.measurementId };
+      stage.classList.add('dragging');
+      renderList();
+      redraw();
+      e.preventDefault();
+      return;
+    }
     const hitId = findNearestMeasurement(p, 8 / state.zoom);
+    if (hitId !== state.rotateModeId) endRotateMode();
     state.selectedId = hitId;
+    if (hitId != null) {
+      const m = state.measurements.find(x => x.id === hitId);
+      if (m) {
+        state.dragMeasurement = {
+          measurementId: hitId,
+          start: p,
+          originalPoints: m.points.map(pt => ({ ...pt })),
+          originalSegments: isCurveMeasurement(m) ? m.segments.map(seg => ({
+            ...seg,
+            from: { ...seg.from },
+            c1: { ...seg.c1 },
+            c2: { ...seg.c2 },
+            to: { ...seg.to },
+          })) : null,
+          originalFrame: m.rotationFrame ? { ...m.rotationFrame } : null,
+        };
+        stage.classList.add('dragging');
+      }
+    }
     renderList();
     redraw();
   } else if (state.mode === 'calibrate') {
+    if (shouldSuppressPointPlacement(e)) {
+      redraw(getEffectiveCursor());
+      return;
+    }
     if (!state.inProgress) {
       state.inProgress = { type: 'calib', points: [p] };
     } else {
@@ -896,6 +2038,25 @@ stage.addEventListener('mousedown', (e) => {
     }
     redraw();
   } else if (state.mode === 'measure') {
+    if (shouldSuppressPointPlacement(e)) {
+      redraw(getEffectiveCursor());
+      return;
+    }
+    if (state.drawMode === 'freehand') {
+      if (state.freehandDraft) {
+        const raw = state.freehandDraft.rawPoints;
+        const last = raw[raw.length - 1];
+        if (!last || distancePx(last, p) > 0.5) raw.push(p);
+        finishFreehandMeasurement();
+        e.preventDefault();
+        return;
+      }
+      state.inProgress = null;
+      state.freehandDraft = { rawPoints: [p], previewSegments: [] };
+      redraw();
+      e.preventDefault();
+      return;
+    }
     if (!state.inProgress) {
       state.inProgress = { type: 'measure', points: [p] };
     } else {
@@ -914,6 +2075,9 @@ stage.addEventListener('mousedown', (e) => {
 });
 
 stage.addEventListener('mousemove', (e) => {
+  if ((state.rotationDrag || state.dragVertex || state.dragMeasurement || state.dragLabel || state.isPanning) && e.buttons === 0) {
+    finishPointerDrag();
+  }
   if (state.isPanning) {
     state.panX = e.clientX - state.panStart.x;
     state.panY = e.clientY - state.panStart.y;
@@ -924,14 +2088,102 @@ stage.addEventListener('mousemove', (e) => {
   state.cursorImg = screenToImage(e.clientX, e.clientY);
   $('cursorPos').innerHTML = `x: <strong>${state.cursorImg.x.toFixed(0)}</strong> &nbsp; y: <strong>${state.cursorImg.y.toFixed(0)}</strong>`;
 
+  if (state.freehandDraft) {
+    const raw = state.freehandDraft.rawPoints;
+    const previewPoint = state.cursorImg;
+    if (previewPoint && (!raw.length || distancePx(raw[raw.length - 1], previewPoint) > 0)) {
+      const previewRaw = [...raw, previewPoint];
+      state.freehandDraft.previewSegments = previewRaw.length > 2 ? buildFreehandSegments(previewRaw, 8) : [];
+      redraw();
+      const len = state.freehandDraft.previewSegments.length
+        ? state.freehandDraft.previewSegments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0)
+        : polylineLengthPx(previewRaw);
+      const liveEl = $('liveLen');
+      liveEl.style.display = 'inline-block';
+      liveEl.innerHTML = state.pxPerInch
+        ? `live: <strong>${formatLen(pxToInches(len))} ${UNIT_LABEL[state.unit]}</strong>`
+        : 'live: <strong>no scale</strong>';
+    }
+    const last = raw[raw.length - 1];
+    if (!last || distancePx(last, state.cursorImg) >= Math.max(1.5, 2.5 / state.zoom)) {
+      raw.push({ ...state.cursorImg });
+      state.freehandDraft.previewSegments = raw.length > 2 ? buildFreehandSegments(raw, 8) : [];
+      redraw();
+      const len = state.freehandDraft.previewSegments.length
+        ? state.freehandDraft.previewSegments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0)
+        : polylineLengthPx(raw);
+      const liveEl = $('liveLen');
+      liveEl.style.display = 'inline-block';
+      liveEl.innerHTML = state.pxPerInch
+        ? `live: <strong>${formatLen(pxToInches(len))} ${UNIT_LABEL[state.unit]}</strong>`
+        : 'live: <strong>no scale</strong>';
+    }
+    return;
+  }
+
+  if (state.rotateModeId) {
+    state.rotationInputVisible = true;
+    updateRotationPill();
+  }
+
+  if (state.rotationDrag) {
+    updateRotationDrag(e.clientX, e.clientY, e.shiftKey);
+    return;
+  }
+
   if (state.dragVertex) {
     const m = state.measurements.find(x => x.id === state.dragVertex.measurementId);
     if (m) {
-      m.points[state.dragVertex.vertexIndex] = state.cursorImg;
-      m.lengthPx = polylineLengthPx(m.points);
+      applyVertexDrag(m, state.dragVertex, state.cursorImg);
+      m.lengthPx = measurementLengthPx(m);
       m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
       renderList();
       redraw();
+    }
+    return;
+  }
+
+  if (state.dragMeasurement) {
+    const m = state.measurements.find(x => x.id === state.dragMeasurement.measurementId);
+    if (m) {
+      const dx = state.cursorImg.x - state.dragMeasurement.start.x;
+      const dy = state.cursorImg.y - state.dragMeasurement.start.y;
+      m.points = state.dragMeasurement.originalPoints.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
+      if (isCurveMeasurement(m) && state.dragMeasurement.originalSegments) {
+        m.segments = state.dragMeasurement.originalSegments.map(seg => ({
+          ...seg,
+          from: { x: seg.from.x + dx, y: seg.from.y + dy },
+          c1: { x: seg.c1.x + dx, y: seg.c1.y + dy },
+          c2: { x: seg.c2.x + dx, y: seg.c2.y + dy },
+          to: { x: seg.to.x + dx, y: seg.to.y + dy },
+        }));
+        updateCurveAnchors(m);
+      }
+      if (state.dragMeasurement.originalFrame) {
+        m.rotationFrame = {
+          ...state.dragMeasurement.originalFrame,
+          x: state.dragMeasurement.originalFrame.x + dx,
+          y: state.dragMeasurement.originalFrame.y + dy,
+          cx: state.dragMeasurement.originalFrame.cx + dx,
+          cy: state.dragMeasurement.originalFrame.cy + dy,
+        };
+      }
+      m.lengthPx = measurementLengthPx(m);
+      m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
+      renderList();
+      redraw();
+    }
+    return;
+  }
+
+  if (state.dragLabel) {
+    const m = state.measurements.find(x => x.id === state.dragLabel.measurementId);
+    if (m) {
+      const projection = projectPointToPolyline(state.cursorImg, measurementDisplayPoints(m));
+      if (projection) {
+        m.labelT = projection.t;
+        redraw();
+      }
     }
     return;
   }
@@ -962,14 +2214,42 @@ stage.addEventListener('mousemove', (e) => {
     }
     if (state.mode === 'selection') {
       const v = findNearestVertex(state.cursorImg, 10 / state.zoom);
-      stage.style.cursor = v ? 'grab' : (newHover != null ? 'pointer' : '');
+      const rotateHit = state.rotateModeId && isPointInBox(state.cursorImg, state.rotationHandleHitbox);
+      stage.style.cursor = rotateHit ? 'crosshair' : (v ? 'grab' : (newHover != null ? 'pointer' : ''));
     } else {
       stage.style.cursor = '';
     }
   }
 });
 
-stage.addEventListener('mouseup', (e) => {
+function updateRotationDrag(clientX, clientY, shiftKey = false) {
+  if (!state.rotationDrag) return false;
+  const m = state.measurements.find(x => x.id === state.rotationDrag.measurementId);
+  if (!m) return false;
+  state.cursorImg = screenToImage(clientX, clientY);
+  state.shiftHeld = !!shiftKey;
+  const pointerAngle = angleDegFromCenter(state.rotationDrag.center, state.cursorImg);
+  const delta = pointerAngle - state.rotationDrag.startPointerAngle;
+  const rawAngle = normalizeDegrees(state.rotationDrag.originalAngle + delta);
+  const nextAngle = state.shiftHeld ? snapDegrees15(rawAngle) : rawAngle;
+  const rotateDelta = nextAngle - state.rotationDrag.originalAngle;
+  m.points = state.rotationDrag.originalPoints.map(pt => rotatePoint(pt, state.rotationDrag.center, rotateDelta));
+  if (isCurveMeasurement(m) && state.rotationDrag.originalSegments) {
+    m.segments = rotateSegmentsAround(state.rotationDrag.originalSegments, state.rotationDrag.center, rotateDelta);
+    updateCurveAnchors(m);
+  }
+  m.rotationAngle = nextAngle;
+  if (state.rotationDrag.originalFrame) {
+    m.rotationFrame = { ...state.rotationDrag.originalFrame, angle: nextAngle };
+  }
+  m.lengthPx = measurementLengthPx(m);
+  m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
+  renderList();
+  redraw();
+  return true;
+}
+
+function finishPointerDrag() {
   if (state.isPanning) {
     state.isPanning = false;
     stage.classList.remove('dragging');
@@ -978,7 +2258,34 @@ stage.addEventListener('mouseup', (e) => {
     state.dragVertex = null;
     stage.classList.remove('dragging');
   }
+  if (state.dragMeasurement) {
+    state.dragMeasurement = null;
+    stage.classList.remove('dragging');
+  }
+  if (state.dragLabel) {
+    state.dragLabel = null;
+    stage.classList.remove('dragging');
+  }
+  if (state.rotationDrag) {
+    state.rotationDrag = null;
+    state.rotationInputVisible = true;
+    stage.classList.remove('dragging');
+    updateRotationPill();
+  }
+}
+
+stage.addEventListener('mouseup', finishPointerDrag);
+window.addEventListener('mousemove', (e) => {
+  if (!state.rotationDrag) return;
+  if (e.buttons === 0) {
+    finishPointerDrag();
+    return;
+  }
+  updateRotationDrag(e.clientX, e.clientY, e.shiftKey);
 });
+window.addEventListener('mouseup', finishPointerDrag);
+window.addEventListener('pointerup', finishPointerDrag);
+window.addEventListener('blur', finishPointerDrag);
 
 stage.addEventListener('dblclick', (e) => {
   if (state.mode === 'measure' && state.inProgress && state.inProgress.points.length >= 2) {
@@ -990,6 +2297,16 @@ window.addEventListener('keydown', (e) => {
   // Skip hotkeys when typing into inputs
   const t = e.target;
   if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
+    if (copySelectedMeasurement()) e.preventDefault();
+    return;
+  }
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'v') {
+    if (pasteCopiedMeasurement()) e.preventDefault();
+    return;
+  }
 
   if (e.key === ' ' || e.code === 'Space') {
     if (!state.spaceHeld) {
@@ -1006,10 +2323,16 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Shift') {
     state.shiftHeld = true;
     if (state.inProgress) redraw(getEffectiveCursor());
+    else if (state.mode === 'selection' && state.selectedId != null) redraw();
     return;
   }
 
-  if (e.key === 'Escape') { state.inProgress = null; redraw(); }
+  if (e.key === 'Escape') {
+    state.inProgress = null;
+    state.freehandDraft = null;
+    closeMeasureModeMenu();
+    redraw();
+  }
   else if (e.key === 'Enter' && state.mode === 'measure' && state.inProgress && state.inProgress.points.length >= 2) {
     finishMeasurement();
   }
@@ -1027,6 +2350,34 @@ window.addEventListener('keydown', (e) => {
   else if (e.key === 'f' || e.key === 'F') fitToView();
 });
 
+contextMenu.addEventListener('click', (e) => {
+  const action = e.target.closest('button')?.dataset.action;
+  if (!action) return;
+  closeContextMenu();
+  if (action === 'cut') cutSelectedMeasurement();
+  if (action === 'copy') copySelectedMeasurement();
+  if (action === 'paste') pasteCopiedMeasurement();
+  if (action === 'rotate') beginRotateMode(state.selectedId);
+});
+
+document.addEventListener('click', (e) => {
+  if (!contextMenu.contains(e.target)) closeContextMenu();
+});
+
+rotationInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    commitRotationInput();
+    e.preventDefault();
+    e.stopPropagation();
+  } else if (e.key === 'Escape') {
+    updateRotationPill();
+    rotationInput.blur();
+    e.preventDefault();
+    e.stopPropagation();
+  }
+});
+rotationInput.addEventListener('blur', commitRotationInput);
+
 window.addEventListener('keyup', (e) => {
   if (e.key === ' ' || e.code === 'Space') {
     state.spaceHeld = false;
@@ -1041,6 +2392,7 @@ window.addEventListener('keyup', (e) => {
   if (e.key === 'Shift') {
     state.shiftHeld = false;
     if (state.inProgress) redraw(state.cursorImg);
+    else if (state.mode === 'selection' && state.selectedId != null) redraw();
   }
 });
 
@@ -1049,18 +2401,16 @@ function finishMeasurement() {
   const lenPx = polylineLengthPx(pts);
   const lengthInches = state.pxPerInch ? pxToInches(lenPx) : null;
   const id = Date.now();
-  // pick next unused color (cycle through palette)
-  const usedColors = new Set(state.measurements.map(m => m.color));
-  let color = PALETTE.find(c => !usedColors.has(c));
-  if (!color) color = PALETTE[state.measurements.length % PALETTE.length];
   state.measurements.push({
     id,
     name: `Run ${state.measurements.length + 1}`,
-    color,
+    color: nextMeasurementColor(),
+    drawType: 'line',
     points: pts.slice(),
     lengthInches,
     lengthPx: lenPx,
     page: currentPage(),
+    labelT: defaultLabelT(pts),
   });
   state.inProgress = null;
   renderList();
@@ -1074,8 +2424,49 @@ function finishMeasurement() {
     if (item) {
       item.scrollIntoView({ block: 'nearest' });
       const input = item.querySelector('input.name');
-      if (input) { input.removeAttribute('readonly'); input.focus(); input.select(); }
+      if (input && item.startNameEdit) item.startNameEdit();
     }
+  });
+}
+
+function finishFreehandMeasurement() {
+  const draft = state.freehandDraft;
+  if (!draft) return;
+  const raw = draft.rawPoints || [];
+  state.freehandDraft = null;
+  $('liveLen').style.display = 'none';
+  if (raw.length < 2 || polylineLengthPx(raw) < 2) {
+    redraw();
+    return;
+  }
+  const segments = buildFreehandSegments(raw, 8);
+  if (!segments.length) {
+    redraw();
+    return;
+  }
+  const points = anchorsFromSegments(segments);
+  const lenPx = segments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0);
+  const lengthInches = state.pxPerInch ? pxToInches(lenPx) : null;
+  const id = Date.now();
+  state.measurements.push({
+    id,
+    name: `Run ${state.measurements.length + 1}`,
+    color: nextMeasurementColor(),
+    drawType: 'freehand',
+    points: points.map(pt => ({ ...pt })),
+    segments,
+    lengthInches,
+    lengthPx: lenPx,
+    page: currentPage(),
+    labelT: defaultLabelT(flattenSegments(segments, 18)),
+  });
+  state.selectedId = id;
+  setMode('selection');
+  renderList();
+  redraw();
+  requestAnimationFrame(() => {
+    const item = measList.querySelector(`.meas-item[data-meas-id="${id}"]`);
+    if (item) item.scrollIntoView({ block: 'nearest' });
   });
 }
 
@@ -1098,6 +2489,146 @@ function getEffectiveCursor() {
   return snapAngle(last, state.cursorImg);
 }
 
+function nextMeasurementColor() {
+  const usedColors = new Set(state.measurements.map(m => m.color));
+  let color = PALETTE.find(c => !usedColors.has(c));
+  if (!color) color = PALETTE[state.measurements.length % PALETTE.length];
+  return color;
+}
+
+function fallbackMeasurementName(m) {
+  const index = state.measurements.findIndex(x => x.id === m.id);
+  return `Run ${index >= 0 ? index + 1 : state.measurements.length + 1}`;
+}
+
+function cleanMeasurementName(value, m) {
+  const text = String(value || '').trim();
+  return text || fallbackMeasurementName(m);
+}
+
+function defaultLabelT(points) {
+  if (!points || points.length < 2) return 0.5;
+  const total = polylineLengthPx(points);
+  if (!total) return 0;
+  const anchorClearancePx = 28;
+  if (total <= anchorClearancePx * 2) return 0.5;
+  return (total - anchorClearancePx) / total;
+}
+
+function blurActiveMeasurementName(target) {
+  const active = document.activeElement;
+  if (!active || !active.classList || !active.classList.contains('name')) return;
+  if (active === target) return;
+  if (target && target.closest && target.closest('input.name')) return;
+  active.blur();
+}
+
+function copySelectedMeasurement() {
+  const selected = state.measurements.find(m => m.id === state.selectedId);
+  if (!selected) {
+    showStatus('Select a cable run before copying.');
+    return false;
+  }
+  state.copiedMeasurement = {
+    ...selected,
+    points: selected.points.map(pt => ({ ...pt })),
+    segments: isCurveMeasurement(selected) ? selected.segments.map(seg => ({
+      ...seg,
+      from: { ...seg.from },
+      c1: { ...seg.c1 },
+      c2: { ...seg.c2 },
+      to: { ...seg.to },
+    })) : null,
+    sourcePage: selected.page,
+    sourceScale: state.pageScales[selected.page] || null,
+    sourceLengthInches: selected.lengthInches,
+    sourceLengthPx: selected.lengthPx || measurementLengthPx(selected),
+  };
+  showStatus(`Copied ${selected.name}`);
+  return true;
+}
+
+function cutSelectedMeasurement() {
+  if (!copySelectedMeasurement()) return false;
+  state.measurements = state.measurements.filter(m => m.id !== state.selectedId);
+  state.selectedId = null;
+  endRotateMode();
+  renderList();
+  redraw();
+  return true;
+}
+
+function pasteCopiedMeasurement(mode = null) {
+  if (!state.copiedMeasurement) {
+    showStatus('Copy a cable run before pasting.');
+    return false;
+  }
+  if (!mode && shouldAskPasteMode(state.copiedMeasurement)) {
+    openPasteChoice();
+    return true;
+  }
+  const source = state.copiedMeasurement;
+  const bounds = source.points.reduce((acc, pt) => ({
+    minX: Math.min(acc.minX, pt.x),
+    minY: Math.min(acc.minY, pt.y),
+    maxX: Math.max(acc.maxX, pt.x),
+    maxY: Math.max(acc.maxY, pt.y),
+  }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+  const sourceCenter = {
+    x: (bounds.minX + bounds.maxX) / 2,
+    y: (bounds.minY + bounds.maxY) / 2,
+  };
+  const pasteAt = state.pendingPaste?.cursorImg || state.cursorImg || screenToImage(stageCenter().clientX, stageCenter().clientY);
+  const dx = pasteAt.x - sourceCenter.x;
+  const dy = pasteAt.y - sourceCenter.y;
+  let points = source.points.map(pt => ({ x: pt.x + dx, y: pt.y + dy }));
+  let segments = isCurveMeasurement(source) ? translateSegments(source.segments, dx, dy) : null;
+  if (mode === 'real-length' && source.sourceLengthInches != null && state.pxPerInch) {
+    const visualLength = segments ? segments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0) : polylineLengthPx(points);
+    const targetLengthPx = source.sourceLengthInches * state.pxPerInch;
+    if (visualLength > 0 && targetLengthPx > 0) {
+      const scale = targetLengthPx / visualLength;
+      points = scalePointsAround(points, pasteAt, scale);
+      if (segments) segments = scaleSegmentsAround(segments, pasteAt, scale);
+    }
+  }
+  const pasted = {
+    ...source,
+    id: Date.now(),
+    name: `${String(source.name || '').trim() || 'Run'} copy`,
+    color: nextMeasurementColor(),
+    page: currentPage(),
+    points,
+    segments,
+    labelT: Number.isFinite(source.labelT) ? source.labelT : defaultLabelT(segments ? flattenSegments(segments, 18) : points),
+  };
+  if (segments) updateCurveAnchors(pasted);
+  pasted.lengthPx = measurementLengthPx(pasted);
+  pasted.lengthInches = state.pxPerInch ? pxToInches(pasted.lengthPx) : null;
+  state.measurements.push(pasted);
+  state.selectedId = pasted.id;
+  renderList();
+  redraw();
+  showStatus(`Pasted ${pasted.name}`);
+  return true;
+}
+
+function shouldAskPasteMode(source) {
+  if (!source || source.sourcePage === currentPage()) return false;
+  if (!state.pxPerInch || !source.sourceScale || source.sourceLengthInches == null) return false;
+  return Math.abs(state.pxPerInch - source.sourceScale) > 0.0001;
+}
+
+function openPasteChoice() {
+  state.pendingPaste = { cursorImg: state.cursorImg ? { ...state.cursorImg } : null };
+  $('pasteChoiceModal').classList.add('show');
+}
+
+function closePasteChoice() {
+  state.pendingPaste = null;
+  $('pasteChoiceModal').classList.remove('show');
+}
+
 function measurementsOnCurrentPage() {
   const p = currentPage();
   return state.measurements.filter(m => m.page === p);
@@ -1105,18 +2636,74 @@ function measurementsOnCurrentPage() {
 
 function findNearestVertex(p, tol) {
   for (const m of measurementsOnCurrentPage()) {
+    if (isCurveMeasurement(m)) {
+      for (const handle of curveEditHandles(m)) {
+        if (handle.kind === 'curve-control' && !state.shiftHeld) continue;
+        if (distancePx(p, handle.point) <= tol) return { measurementId: m.id, ...handle };
+      }
+      continue;
+    }
     for (let i = 0; i < m.points.length; i++) {
       const d = Math.hypot(p.x - m.points[i].x, p.y - m.points[i].y);
-      if (d <= tol) return { measurementId: m.id, vertexIndex: i };
+      if (d <= tol) return { measurementId: m.id, kind: 'line-anchor', vertexIndex: i };
     }
   }
   return null;
 }
 
+function curveEditHandles(m) {
+  const handles = [];
+  if (!isCurveMeasurement(m)) return handles;
+  for (let i = 0; i < m.segments.length; i++) {
+    const seg = m.segments[i];
+    if (i === 0) handles.push({ kind: 'curve-anchor', segmentIndex: i, anchor: 'from', point: seg.from });
+    handles.push({ kind: 'curve-control', segmentIndex: i, control: 'c1', point: seg.c1 });
+    handles.push({ kind: 'curve-control', segmentIndex: i, control: 'c2', point: seg.c2 });
+    handles.push({ kind: 'curve-anchor', segmentIndex: i, anchor: 'to', point: seg.to });
+  }
+  return handles;
+}
+
+function applyVertexDrag(m, drag, point) {
+  if (!isCurveMeasurement(m)) {
+    m.points[drag.vertexIndex] = point;
+    return;
+  }
+  const seg = m.segments[drag.segmentIndex];
+  if (!seg) return;
+  if (drag.kind === 'curve-control') {
+    seg[drag.control] = point;
+  } else if (drag.anchor === 'from') {
+    const old = seg.from;
+    const dx = point.x - old.x;
+    const dy = point.y - old.y;
+    seg.from = point;
+    seg.c1 = { x: seg.c1.x + dx, y: seg.c1.y + dy };
+    if (drag.segmentIndex > 0) {
+      const prev = m.segments[drag.segmentIndex - 1];
+      prev.to = point;
+      prev.c2 = { x: prev.c2.x + dx, y: prev.c2.y + dy };
+    }
+  } else if (drag.anchor === 'to') {
+    const old = seg.to;
+    const dx = point.x - old.x;
+    const dy = point.y - old.y;
+    seg.to = point;
+    seg.c2 = { x: seg.c2.x + dx, y: seg.c2.y + dy };
+    if (drag.segmentIndex < m.segments.length - 1) {
+      const next = m.segments[drag.segmentIndex + 1];
+      next.from = point;
+      next.c1 = { x: next.c1.x + dx, y: next.c1.y + dy };
+    }
+  }
+  updateCurveAnchors(m);
+}
+
 function findNearestMeasurement(p, tol) {
   for (const m of measurementsOnCurrentPage()) {
-    for (let i = 1; i < m.points.length; i++) {
-      const d = pointToSegmentDist(p, m.points[i-1], m.points[i]);
+    const points = measurementDisplayPoints(m);
+    for (let i = 1; i < points.length; i++) {
+      const d = pointToSegmentDist(p, points[i-1], points[i]);
       if (d <= tol) return m.id;
     }
   }
@@ -1129,6 +2716,208 @@ function pointToSegmentDist(p, a, b) {
   if (len2 > 0) t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
   const x = a.x + t * dx, y = a.y + t * dy;
   return Math.hypot(p.x - x, p.y - y);
+}
+
+function projectPointToPolyline(p, points) {
+  if (!p || points.length < 2) return null;
+  const total = polylineLengthPx(points);
+  if (!total) return { t: 0, point: points[0], distance: distancePx(p, points[0]) };
+  let best = null;
+  let travelled = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const len2 = dx * dx + dy * dy;
+    const segLen = Math.sqrt(len2);
+    if (!segLen) continue;
+    const segT = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+    const point = { x: a.x + dx * segT, y: a.y + dy * segT };
+    const distance = distancePx(p, point);
+    const t = (travelled + segLen * segT) / total;
+    if (!best || distance < best.distance) best = { t, point, distance };
+    travelled += segLen;
+  }
+  return best;
+}
+
+function pointAtPolylineT(points, t) {
+  if (points.length < 2) return null;
+  const total = polylineLengthPx(points);
+  if (!total) return { point: points[0], angle: 0 };
+  let remaining = Math.max(0, Math.min(1, Number.isFinite(t) ? t : 1)) * total;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const segLen = distancePx(a, b);
+    if (!segLen) continue;
+    if (remaining <= segLen || i === points.length - 1) {
+      const segT = Math.max(0, Math.min(1, remaining / segLen));
+      return {
+        point: { x: a.x + (b.x - a.x) * segT, y: a.y + (b.y - a.y) * segT },
+        angle: Math.atan2(b.y - a.y, b.x - a.x),
+      };
+    }
+    remaining -= segLen;
+  }
+  const last = points[points.length - 1];
+  const prev = points[points.length - 2];
+  return { point: last, angle: Math.atan2(last.y - prev.y, last.x - prev.x) };
+}
+
+function findLabelHit(p) {
+  const pad = overlayPageSize(6);
+  for (let i = state.labelHitboxes.length - 1; i >= 0; i--) {
+    const hit = state.labelHitboxes[i];
+    if (
+      p.x >= hit.x - pad &&
+      p.x <= hit.x + hit.width + pad &&
+      p.y >= hit.y - pad &&
+      p.y <= hit.y + hit.height + pad
+    ) {
+      return hit;
+    }
+  }
+  return null;
+}
+
+function isPointInBox(p, box) {
+  return !!(p && box && p.x >= box.x && p.x <= box.x + box.width && p.y >= box.y && p.y <= box.y + box.height);
+}
+
+function beginRotateMode(id) {
+  const m = state.measurements.find(x => x.id === id);
+  if (!m) return false;
+  m.rotationFrame = createRotationFrame(m);
+  m.rotationAngle = m.rotationFrame?.angle || normalizeDegrees(m.rotationAngle || 0);
+  setMode('selection');
+  state.selectedId = id;
+  state.rotateModeId = id;
+  state.rotationInputVisible = true;
+  renderList();
+  redraw();
+  return true;
+}
+
+function endRotateMode() {
+  state.rotateModeId = null;
+  state.rotationDrag = null;
+  state.rotationHandleHitbox = null;
+  state.rotationInputVisible = false;
+  rotationPill.classList.remove('show');
+}
+
+function drawRotationOverlay(m) {
+  const frame = getRotationFrame(m);
+  if (!frame) return;
+  const { x, y, width: w, height: h, cx, cy } = frame;
+  const topY = y;
+  const handleGap = overlayPageSize(30);
+  const handleR = overlayPageSize(7);
+  const hx = cx;
+  const hy = topY - handleGap;
+  const g = svgNode('g', {
+    'data-rotation-overlay': m.id,
+    transform: frame.angle ? `rotate(${frame.angle}, ${cx}, ${cy})` : null,
+  });
+  drawSvg.appendChild(g);
+  g.appendChild(svgNode('rect', {
+    x, y, width: w, height: h,
+    fill: 'none',
+    stroke: 'rgba(182,255,60,0.9)',
+    'stroke-width': overlayPageSize(1.4),
+    'stroke-dasharray': `${overlayPageSize(6)} ${overlayPageSize(5)}`,
+  }));
+  g.appendChild(svgNode('line', {
+    x1: cx,
+    y1: topY,
+    x2: hx,
+    y2: hy,
+    stroke: 'rgba(182,255,60,0.8)',
+    'stroke-width': overlayPageSize(1.2),
+  }));
+  g.appendChild(svgNode('circle', {
+    cx: hx,
+    cy: hy,
+    r: handleR,
+    fill: '#111619',
+    stroke: '#b6ff3c',
+    'stroke-width': overlayPageSize(2),
+  }));
+  g.appendChild(svgNode('path', {
+    d: `M ${hx - handleR * 0.45} ${hy - handleR * 0.1} A ${handleR * 0.55} ${handleR * 0.55} 0 1 1 ${hx + handleR * 0.2} ${hy + handleR * 0.45}`,
+    fill: 'none',
+    stroke: '#b6ff3c',
+    'stroke-width': overlayPageSize(1.4),
+    'stroke-linecap': 'round',
+  }));
+  const handleCenter = rotatedFramePoint(frame, hx, hy);
+  state.rotationHandleHitbox = {
+    x: handleCenter.x - handleR - overlayPageSize(8),
+    y: handleCenter.y - handleR - overlayPageSize(8),
+    width: (handleR + overlayPageSize(8)) * 2,
+    height: (handleR + overlayPageSize(8)) * 2,
+    center: handleCenter,
+    shapeCenter: { x: cx, y: cy },
+  };
+  updateRotationPill();
+}
+
+function updateRotationPill() {
+  if (!state.rotateModeId || !state.rotationHandleHitbox || !state.rotationInputVisible) {
+    rotationPill.classList.remove('show');
+    return;
+  }
+  const m = state.measurements.find(x => x.id === state.rotateModeId);
+  if (!m) {
+    rotationPill.classList.remove('show');
+    return;
+  }
+  const handle = state.rotationHandleHitbox;
+  const screen = imageToScreen(handle.center.x, handle.center.y);
+  const centerScreen = imageToScreen(handle.shapeCenter.x, handle.shapeCenter.y);
+  const rect = stage.getBoundingClientRect();
+  const vecX = screen.x - centerScreen.x;
+  const vecY = screen.y - centerScreen.y;
+  const len = Math.hypot(vecX, vecY) || 1;
+  const offset = 54;
+  let left = rect.left + screen.x + (vecX / len) * offset - 32;
+  let top = rect.top + screen.y + (vecY / len) * offset - 14;
+  left = Math.max(4, Math.min(window.innerWidth - 68, left));
+  top = Math.max(4, Math.min(window.innerHeight - 32, top));
+  rotationPill.style.left = `${left}px`;
+  rotationPill.style.top = `${top}px`;
+  if (document.activeElement !== rotationInput) rotationInput.value = String(Math.round(normalizeDegrees(m.rotationAngle || 0)));
+  rotationPill.classList.add('show');
+}
+
+function commitRotationInput() {
+  const m = state.measurements.find(x => x.id === state.rotateModeId);
+  if (!m) return;
+  const raw = String(rotationInput.value || '').trim();
+  const parsed = raw === '' ? NaN : Number(raw);
+  if (!Number.isFinite(parsed)) {
+    updateRotationPill();
+    return;
+  }
+  const nextAngle = normalizeDegrees(parsed);
+  const delta = nextAngle - normalizeDegrees(m.rotationAngle || 0);
+  const frame = getRotationFrame(m);
+  if (!frame) return;
+  const center = { x: frame.cx, y: frame.cy };
+  m.points = m.points.map(pt => rotatePoint(pt, center, delta));
+  if (isCurveMeasurement(m)) {
+    m.segments = rotateSegmentsAround(m.segments, center, delta);
+    updateCurveAnchors(m);
+  }
+  m.rotationAngle = nextAngle;
+  m.rotationFrame = { ...frame, angle: nextAngle };
+  m.lengthPx = measurementLengthPx(m);
+  m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
+  rotationInput.blur();
+  renderList();
+  redraw();
 }
 
 // ------- Calibration modal -------
@@ -1193,9 +2982,7 @@ $('calibOk').addEventListener('click', () => {
   $('calibModal').classList.remove('show');
   setMode('measure');
   renderList();
-  // refresh page label dot
-  const dot = state.pxPerInch ? ' <span style="color:var(--accent)">●</span>' : '';
-  $('pageLabel').innerHTML = `${currentPage()} / ${totalPages()}${dot}`;
+  updatePageLabel();
   redraw();
   showStatus(`Scale set on ${targetPages.length} page${targetPages.length > 1 ? 's' : ''}: ${v} ${unit} reference`, 2400);
 });
@@ -1213,7 +3000,7 @@ $('resetScale').addEventListener('click', () => {
     if (m.page === p) m.lengthInches = null;
   }
   updateScaleLabel();
-  $('pageLabel').innerHTML = `${currentPage()} / ${totalPages()}`;
+  updatePageLabel();
   renderList();
   redraw();
   showStatus(`Page ${p} calibration cleared.`, 1800);
@@ -1230,11 +3017,48 @@ document.querySelectorAll('.tab').forEach(btn => {
 });
 
 // ------- Unit + clear -------
-$('unitSelect').addEventListener('change', (e) => {
-  state.unit = e.target.value;
+function setUnit(value) {
+  state.unit = value;
+  $('unitSelect').value = value;
+  const active = document.querySelector(`.unit-option[data-value="${value}"]`);
+  $('unitSelectButton').textContent = active ? active.textContent : value;
+  document.querySelectorAll('.unit-option').forEach(option => {
+    const isActive = option.dataset.value === value;
+    option.classList.toggle('active', isActive);
+    option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  });
   $('totalUnit').textContent = UNIT_LABEL[state.unit];
   if (state.pxPerInch) $('scaleLabel').innerHTML = `Scale: <strong>1 ${UNIT_LABEL[state.unit]} = ${ (UNIT_TO_INCH[state.unit] * state.pxPerInch).toFixed(2) } px</strong>`;
   renderList();
+}
+
+function closeUnitMenu() {
+  document.querySelector('.select-wrap').classList.remove('open');
+  $('unitSelectButton').setAttribute('aria-expanded', 'false');
+}
+
+$('unitSelectButton').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const wrap = document.querySelector('.select-wrap');
+  const isOpen = wrap.classList.toggle('open');
+  $('unitSelectButton').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+});
+
+document.querySelectorAll('.unit-option').forEach(option => {
+  option.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setUnit(option.dataset.value);
+    closeUnitMenu();
+  });
+});
+
+document.addEventListener('click', closeUnitMenu);
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeUnitMenu();
+});
+
+$('unitSelect').addEventListener('change', (e) => {
+  setUnit(e.target.value);
 });
 $('clearAll').addEventListener('click', () => {
   if (state.measurements.length === 0) return;
@@ -1244,9 +3068,22 @@ $('clearAll').addEventListener('click', () => {
   redraw();
 });
 
+$('pasteVisualSize').addEventListener('click', () => {
+  pasteCopiedMeasurement('visual-size');
+  closePasteChoice();
+});
+$('pasteRealLength').addEventListener('click', () => {
+  pasteCopiedMeasurement('real-length');
+  closePasteChoice();
+});
+$('pasteCancel').addEventListener('click', closePasteChoice);
+
 // ------- Rendering measurements -------
 function redraw(previewTo) {
-  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  configureDrawCanvas();
+  drawSvg.replaceChildren();
+  state.labelHitboxes = [];
+  state.rotationHandleHitbox = null;
 
   // existing measurements (filtered to current page)
   for (const m of measurementsOnCurrentPage()) {
@@ -1255,7 +3092,7 @@ function redraw(previewTo) {
     const isSelHover = state.hoverId === m.id && state.mode === 'selection' && !isSelected;
     const baseColor = m.color || '#b6ff3c';
     const color = isEraseHover ? '#ff5b5b' : baseColor;
-    drawPolyline(m.points, {
+    drawMeasurementPath(m, {
       color,
       width: isSelected ? 4 : 3,
       dots: true,
@@ -1263,8 +3100,13 @@ function redraw(previewTo) {
       glow: isSelected || isSelHover,
       label: m.lengthInches != null ? `${formatLen(m.lengthInches)} ${UNIT_LABEL[state.unit]}` : 'no scale',
       labelColor: color,
+      measurementId: m.id,
+      labelT: m.labelT,
     });
   }
+
+  const rotateMeasurement = measurementsOnCurrentPage().find(m => m.id === state.rotateModeId);
+  if (rotateMeasurement) drawRotationOverlay(rotateMeasurement);
 
   // in-progress
   if (state.inProgress) {
@@ -1282,117 +3124,348 @@ function redraw(previewTo) {
         : null,
     });
   }
+
+  if (state.freehandDraft) {
+    const raw = state.freehandDraft.rawPoints || [];
+    const livePx = state.freehandDraft.previewSegments?.length
+      ? state.freehandDraft.previewSegments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0)
+      : polylineLengthPx(raw);
+    const liveLabel = state.pxPerInch ? `${formatLen(pxToInches(livePx))} ${UNIT_LABEL[state.unit]}` : 'no scale';
+    if (state.freehandDraft.previewSegments?.length) {
+      drawBezierSegments(state.freehandDraft.previewSegments, {
+        color: '#b6ff3c',
+        width: 2,
+        dashed: true,
+        dots: false,
+        label: liveLabel,
+        labelColor: '#b6ff3c',
+        labelPoints: flattenSegments(state.freehandDraft.previewSegments, 18),
+        rawPoints: raw,
+      });
+    } else {
+      drawPolyline(raw, {
+        color: '#b6ff3c',
+        width: 2,
+        dashed: true,
+        dots: false,
+        label: liveLabel,
+        labelColor: '#b6ff3c',
+      });
+    }
+    drawEndpointAnchors(raw, '#b6ff3c');
+  }
+}
+
+function redrawActivePreview() {
+  redraw(state.inProgress ? getEffectiveCursor() : undefined);
+}
+
+function drawMeasurementPath(m, opts) {
+  if (isCurveMeasurement(m)) {
+    drawBezierSegments(m.segments, {
+      ...opts,
+      labelPoints: measurementDisplayPoints(m),
+      measurementId: m.id,
+      showControls: opts.emphasizeDots && state.shiftHeld && !state.rotationDrag && !state.rotateModeId,
+    });
+  } else {
+    drawPolyline(m.points, opts);
+  }
+}
+
+function drawBezierSegments(segments, opts) {
+  if (!segments || !segments.length) return;
+  const group = svgNode('g');
+  drawSvg.appendChild(group);
+  const strokeWidth = overlayPageSize(opts.width || 2);
+  const d = segments.map((seg, i) => {
+    const start = `${i === 0 ? 'M' : 'L'} ${seg.from.x} ${seg.from.y}`;
+    return `${start} C ${seg.c1.x} ${seg.c1.y} ${seg.c2.x} ${seg.c2.y} ${seg.to.x} ${seg.to.y}`;
+  }).join(' ');
+  if (opts.glow) {
+    group.appendChild(svgNode('path', {
+      d,
+      fill: 'none',
+      stroke: opts.color,
+      'stroke-width': strokeWidth + overlayPageSize(8),
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+      opacity: '0.18',
+    }));
+  }
+  group.appendChild(svgNode('path', {
+    d,
+    fill: 'none',
+    stroke: opts.color,
+    'stroke-width': strokeWidth,
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+    'stroke-dasharray': opts.dashed ? `${overlayPageSize(8)} ${overlayPageSize(6)}` : null,
+  }));
+
+  const anchors = anchorsFromSegments(segments);
+  if (opts.dots) {
+    const r = overlayPageSize(opts.emphasizeDots ? 6 : 4);
+    for (const p of anchors) {
+      group.appendChild(svgNode('circle', {
+        cx: p.x,
+        cy: p.y,
+        r,
+        fill: opts.emphasizeDots ? opts.color : '#0b0d0e',
+        stroke: opts.emphasizeDots ? '#0b0d0e' : opts.color,
+        'stroke-width': overlayPageSize(2),
+      }));
+    }
+  }
+
+  if (opts.showControls) {
+    const handleR = overlayPageSize(4);
+    for (const seg of segments) {
+      group.appendChild(svgNode('line', {
+        x1: seg.from.x,
+        y1: seg.from.y,
+        x2: seg.c1.x,
+        y2: seg.c1.y,
+        stroke: opts.color,
+        'stroke-width': overlayPageSize(1),
+        'stroke-dasharray': `${overlayPageSize(4)} ${overlayPageSize(4)}`,
+        opacity: '0.72',
+      }));
+      group.appendChild(svgNode('line', {
+        x1: seg.to.x,
+        y1: seg.to.y,
+        x2: seg.c2.x,
+        y2: seg.c2.y,
+        stroke: opts.color,
+        'stroke-width': overlayPageSize(1),
+        'stroke-dasharray': `${overlayPageSize(4)} ${overlayPageSize(4)}`,
+        opacity: '0.72',
+      }));
+      for (const p of [seg.c1, seg.c2]) {
+        group.appendChild(svgNode('circle', {
+          cx: p.x,
+          cy: p.y,
+          r: handleR,
+          fill: '#111619',
+          stroke: opts.color,
+          'stroke-width': overlayPageSize(1.6),
+        }));
+      }
+    }
+  }
+
+  const labelPoints = opts.labelPoints || flattenSegments(segments, 18);
+  if (opts.label && labelPoints.length >= 2) {
+    drawPathLabel(group, labelPoints, opts);
+  }
+}
+
+function drawEndpointAnchors(points, color) {
+  if (!points || points.length < 1) return;
+  const group = svgNode('g');
+  drawSvg.appendChild(group);
+  const endpoints = points.length === 1 ? [points[0]] : [points[0], points[points.length - 1]];
+  const r = overlayPageSize(5);
+  for (const p of endpoints) {
+    group.appendChild(svgNode('circle', {
+      cx: p.x,
+      cy: p.y,
+      r,
+      fill: '#0b0d0e',
+      stroke: color,
+      'stroke-width': overlayPageSize(2),
+    }));
+  }
 }
 
 function drawPolyline(points, opts) {
   if (points.length < 1) return;
-  const ctx = drawCtx;
-  ctx.save();
-  ctx.lineWidth = (opts.width || 2) / state.zoom;
-  ctx.strokeStyle = opts.color;
-  ctx.fillStyle = opts.color;
-  if (opts.dashed) ctx.setLineDash([8 / state.zoom, 6 / state.zoom]);
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  if (opts.glow) {
-    ctx.shadowColor = opts.color;
-    ctx.shadowBlur = 12 / state.zoom;
-  }
+  const group = svgNode('g');
+  drawSvg.appendChild(group);
+  const strokeWidth = overlayPageSize(opts.width || 2);
 
   if (points.length >= 2) {
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-    ctx.stroke();
+    const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    if (opts.glow) {
+      group.appendChild(svgNode('path', {
+        d,
+        fill: 'none',
+        stroke: opts.color,
+        'stroke-width': strokeWidth + overlayPageSize(8),
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        opacity: '0.18',
+      }));
+    }
+    group.appendChild(svgNode('path', {
+      d,
+      fill: 'none',
+      stroke: opts.color,
+      'stroke-width': strokeWidth,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+      'stroke-dasharray': opts.dashed ? `${overlayPageSize(8)} ${overlayPageSize(6)}` : null,
+    }));
   }
-  ctx.setLineDash([]);
-  ctx.shadowBlur = 0;
 
   if (opts.dots) {
-    const r = (opts.emphasizeDots ? 6 : 4) / state.zoom;
+    const r = overlayPageSize(opts.emphasizeDots ? 6 : 4);
     for (const p of points) {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
       if (opts.emphasizeDots) {
-        ctx.fillStyle = opts.color;
-        ctx.fill();
-        ctx.lineWidth = 2 / state.zoom;
-        ctx.strokeStyle = '#0b0d0e';
-        ctx.stroke();
+        group.appendChild(svgNode('circle', {
+          cx: p.x,
+          cy: p.y,
+          r,
+          fill: opts.color,
+          stroke: '#0b0d0e',
+          'stroke-width': overlayPageSize(2),
+        }));
       } else {
-        ctx.fillStyle = '#0b0d0e';
-        ctx.fill();
-        ctx.lineWidth = 2 / state.zoom;
-        ctx.strokeStyle = opts.color;
-        ctx.stroke();
+        group.appendChild(svgNode('circle', {
+          cx: p.x,
+          cy: p.y,
+          r,
+          fill: '#0b0d0e',
+          stroke: opts.color,
+          'stroke-width': overlayPageSize(2),
+        }));
       }
     }
   }
 
   if (opts.label && points.length >= 2) {
-    const last = points[points.length - 1];
-    const prev = points[points.length - 2];
-    const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
-    const offX = -Math.sin(angle) * 14 / state.zoom;
-    const offY = Math.cos(angle) * 14 / state.zoom;
-    const lx = last.x + offX;
-    const ly = last.y + offY;
-    ctx.font = `${500} ${14 / state.zoom}px 'JetBrains Mono', monospace`;
-    const tw = ctx.measureText(opts.label).width;
-    const pad = 6 / state.zoom;
-    ctx.fillStyle = 'rgba(11,13,14,0.92)';
-    ctx.strokeStyle = opts.labelColor;
-    ctx.lineWidth = 1 / state.zoom;
-    const bx = lx - tw/2 - pad, by = ly - 10/state.zoom, bw = tw + pad*2, bh = 20/state.zoom;
-    roundRect(ctx, bx, by, bw, bh, 4 / state.zoom);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = opts.labelColor;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(opts.label, lx, ly);
+    drawPathLabel(group, points, opts);
   }
-  ctx.restore();
-}
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
 }
 
+function drawPathLabel(group, points, opts) {
+    const labelPosition = pointAtPolylineT(points, opts.labelT);
+    if (!labelPosition) return;
+    const { point, angle } = labelPosition;
+    const offX = -Math.sin(angle) * overlayPageSize(18);
+    const offY = Math.cos(angle) * overlayPageSize(18);
+    const lx = point.x + offX;
+    const ly = point.y + offY;
+    const fontSize = overlayPageSize(13);
+    drawCtx.font = `${700} ${fontSize}px 'JetBrains Mono', monospace`;
+    const tw = drawCtx.measureText(opts.label).width;
+    const padX = overlayPageSize(8);
+    const padY = overlayPageSize(4);
+    const accentW = overlayPageSize(3);
+    const bx = lx - tw / 2 - padX - accentW / 2;
+    const by = ly - fontSize / 2 - padY;
+    const bw = tw + padX * 2 + accentW;
+    const bh = fontSize + padY * 2;
+    if (opts.measurementId != null) {
+      state.labelHitboxes.push({
+        measurementId: opts.measurementId,
+        x: bx - overlayPageSize(2),
+        y: by - overlayPageSize(2),
+        width: bw + overlayPageSize(4),
+        height: bh + overlayPageSize(4),
+      });
+    }
+    group.appendChild(svgNode('rect', {
+      x: bx - overlayPageSize(2),
+      y: by - overlayPageSize(2),
+      width: bw + overlayPageSize(4),
+      height: bh + overlayPageSize(4),
+      rx: overlayPageSize(7),
+      ry: overlayPageSize(7),
+      fill: 'rgba(0,0,0,0.38)',
+    }));
+    group.appendChild(svgNode('rect', {
+      x: bx,
+      y: by,
+      width: bw,
+      height: bh,
+      rx: overlayPageSize(5),
+      ry: overlayPageSize(5),
+      fill: 'rgba(11,13,14,0.96)',
+      stroke: 'rgba(255,255,255,0.72)',
+      'stroke-width': overlayPageSize(0.75),
+    }));
+    group.appendChild(svgNode('rect', {
+      x: bx + overlayPageSize(4),
+      y: by + overlayPageSize(4),
+      width: accentW,
+      height: bh - overlayPageSize(8),
+      rx: overlayPageSize(1.5),
+      ry: overlayPageSize(1.5),
+      fill: opts.labelColor,
+    }));
+    const text = svgNode('text', {
+      x: lx + accentW / 2,
+      y: ly,
+      fill: '#f7fbfc',
+      'font-family': "'JetBrains Mono', monospace",
+      'font-size': fontSize,
+      'font-weight': 700,
+      'text-anchor': 'middle',
+      'dominant-baseline': 'middle',
+      'paint-order': 'stroke',
+      stroke: 'rgba(0,0,0,0.56)',
+      'stroke-width': overlayPageSize(2),
+      'stroke-linejoin': 'round',
+    });
+    text.textContent = opts.label;
+    group.appendChild(text);
+}
+function svgNode(tag, attrs = {}) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (value != null) el.setAttribute(key, String(value));
+  }
+  return el;
+}
 // ------- Sidebar list -------
 function buildMeasItem(m) {
   const item = document.createElement('div');
   const onOtherPage = m.page !== currentPage();
+  m.name = cleanMeasurementName(m.name, m);
   item.className = 'meas-item' + (state.selectedId === m.id ? ' selected' : '');
   item.dataset.measId = m.id;
   item.innerHTML = `
     <div class="row head">
       <div class="swatch" style="background:${m.color}; color:${m.color}"></div>
       <input class="name" value="${escapeHtml(m.name)}" readonly title="Double-click to rename" />
-      <span class="len">${m.lengthInches != null ? formatLen(m.lengthInches) : '—'} <span style="color:var(--muted); font-size: 12px">${UNIT_LABEL[state.unit]}</span></span>
-    </div>
-    <div class="meta">
-      <span>${m.points.length} pts${onOtherPage ? ' · pg ' + m.page : ''}</span>
+      <span class="point-count" title="${m.points.length} anchors${onOtherPage ? ' · page ' + m.page : ''}">${m.points.length}</span>
+      <span class="len">${m.lengthInches != null ? formatLen(m.lengthInches) : '—'} <span class="unit">${UNIT_LABEL[state.unit]}</span></span>
       <button class="del" data-id="${m.id}" title="Delete">×</button>
     </div>
   `;
   const nameInput = item.querySelector('.name');
-  nameInput.addEventListener('input', (e) => { m.name = e.target.value; });
-  nameInput.addEventListener('dblclick', (e) => {
-    e.stopPropagation();
+  const startNameEdit = () => {
+    nameInput.dataset.originalName = cleanMeasurementName(m.name, m);
     nameInput.removeAttribute('readonly');
     nameInput.focus();
     nameInput.select();
+  };
+  const commitNameEdit = () => {
+    m.name = cleanMeasurementName(nameInput.value, m);
+    nameInput.value = m.name;
+    nameInput.setAttribute('readonly', '');
+  };
+  nameInput.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    startNameEdit();
   });
   nameInput.addEventListener('keydown', (e) => {
-    if (!nameInput.hasAttribute('readonly') && (e.key === 'Enter' || e.key === 'Escape')) {
-      e.target.blur();
+    if (nameInput.hasAttribute('readonly')) return;
+    if (e.key === 'Escape') {
+      m.name = cleanMeasurementName(nameInput.dataset.originalName, m);
+      nameInput.value = m.name;
+      nameInput.setAttribute('readonly', '');
+      e.stopPropagation();
+      e.preventDefault();
+    } else if (e.key === 'Enter') {
+      commitNameEdit();
+      e.stopPropagation();
       e.preventDefault();
     }
   });
-  nameInput.addEventListener('blur', () => { nameInput.setAttribute('readonly', ''); });
+  nameInput.addEventListener('blur', commitNameEdit);
+  item.startNameEdit = startNameEdit;
   item.querySelector('.del').addEventListener('click', (e) => {
     e.stopPropagation();
     state.measurements = state.measurements.filter(x => x.id !== m.id);
@@ -1453,8 +3526,10 @@ function renderList() {
 function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
 
 // init
+try { state.onboardingStatusSeen = localStorage.getItem(ONBOARDING_STATUS_KEY) === '1'; } catch (_) { /* ignore */ }
 applyTransform();
 updateStatus();
+if (!state.onboardingStatusSeen) markOnboardingStatusSeen();
 </script>
 </body>
 </html>
