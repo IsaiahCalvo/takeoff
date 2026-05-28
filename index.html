@@ -32,14 +32,21 @@
     min-height: 100vh;
     display: grid;
     grid-template-rows: var(--topbar-height) 1fr;
-    grid-template-columns: minmax(0, 1fr) var(--side-width);
-    grid-template-areas: "top top" "stage side";
+    grid-template-columns: 50px minmax(0, 1fr) var(--side-width);
+    grid-template-areas: "top top top" "rail stage side";
   }
   body.no-document {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas: "top" "stage";
   }
   body.no-document aside { display: none; }
+  body.no-document .left-rail { display: none; }
+  body.no-document .toolbar.tools-center { display: none; }
+  body.no-document .toolbar.primary { visibility: visible; pointer-events: auto; }
+  body.no-document #docTabs,
+  body.no-document #uploadButton {
+    display: none;
+  }
 
   /* Top toolbar */
   header {
@@ -77,6 +84,190 @@
   }
   .toolbar-spacer { flex: 1 1 14px; min-width: 8px; }
   .divider { width: 1px; height: 24px; background: var(--line); margin: 0 3px; flex: 0 0 auto; }
+  .doc-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+    flex: 0 1 auto;
+  }
+  .doc-tab {
+    position: relative;
+    min-width: 0;
+    width: clamp(116px, 18vw, 210px);
+    max-width: 210px;
+    min-height: 30px;
+    padding: 0 14px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    justify-content: flex-start;
+    border-color: transparent;
+    background: transparent;
+  }
+  .doc-tab-title {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+  }
+  .doc-tab.active {
+    background: #1a2024;
+    border-color: #30383e;
+    color: var(--text);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .doc-tab.active::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 0;
+    height: 1px;
+    background: #6b7680;
+    opacity: 0.7;
+  }
+  .doc-tab:hover {
+    color: var(--text);
+    border-color: #30383e;
+    background: #171c20;
+  }
+  .doc-tabs:empty::before {
+    content: "No document open";
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+  }
+  .add-doc-tab {
+    width: 30px;
+    min-height: 30px;
+    padding: 0;
+    justify-content: center;
+    color: var(--muted);
+    border-color: transparent;
+    background: transparent;
+  }
+  .add-doc-tab:hover {
+    color: var(--text);
+    border-color: var(--line);
+    background: var(--panel-2);
+  }
+  .left-rail {
+    grid-area: rail;
+    min-width: 0;
+    min-height: 0;
+    height: calc(100dvh - var(--topbar-height));
+    background: var(--panel);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 4px;
+    overflow: hidden;
+    z-index: 4;
+  }
+  .left-rail .toolbar,
+  .left-rail .toolbar.tools-center,
+  .left-rail .toolbar.utility,
+  .left-rail .viewer-controls,
+  .left-rail .control-cluster {
+    position: static;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 0 0 auto;
+  }
+  .left-rail .toolbar { gap: 5px; }
+  .left-rail .toolbar.primary { display: none; }
+  .left-rail .toolbar.tools-center { order: 1; z-index: auto; }
+  .left-rail .toolbar.utility {
+    order: 2;
+    gap: 6px;
+    margin-top: auto;
+    padding-bottom: 2px;
+  }
+  .left-rail .toolbar-spacer { display: none; }
+  .left-rail .divider {
+    width: 24px;
+    height: 1px;
+    margin: 2px 0;
+  }
+  .left-rail #uploadButton {
+    width: 40px;
+    min-height: 36px;
+    padding: 0;
+    justify-content: center;
+    font-size: 0;
+    gap: 0;
+  }
+  .left-rail #uploadButton svg { width: 16px; height: 16px; }
+  .left-rail .viewer-controls {
+    gap: 2px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+  .left-rail .control-divider {
+    width: 24px;
+    height: 1px;
+    margin: 1px 0;
+  }
+  .left-rail .control-cluster {
+    min-width: 0;
+    min-height: 0;
+    gap: 2px;
+  }
+  .left-rail .control-cluster.zoom-group,
+  .left-rail .control-cluster.page-group-control {
+    width: 34px;
+    min-width: 34px;
+  }
+  .left-rail .zoom-group { flex-direction: column-reverse; }
+  .left-rail #zoomLabel {
+    min-width: 34px;
+    min-height: 20px;
+    padding: 0 2px;
+    font-size: 10px;
+  }
+  .left-rail #pageLabel {
+    min-width: 30px;
+    min-height: 38px;
+    flex-direction: column;
+    gap: 0;
+    line-height: 1.05;
+  }
+  .left-rail #pageLabel .page-sep {
+    font-size: 12px;
+    line-height: 0.9;
+  }
+  .left-rail .fit-control {
+    width: 34px;
+    min-width: 34px;
+    min-height: 24px;
+    padding: 0;
+    font-size: 0;
+    justify-content: center;
+  }
+  .left-rail .fit-control svg:first-child { width: 12px; height: 12px; }
+  .left-rail .fit-control svg:last-child { display: block; width: 8px; height: 8px; }
+  .left-rail #resetScale {
+    width: 36px;
+    min-height: 24px;
+    padding: 0;
+    font-size: 9px;
+    justify-content: center;
+    text-align: center;
+    gap: 0;
+  }
 
   button, label.btn {
     background: var(--panel-2);
@@ -121,7 +312,6 @@
   }
   #pageLabel .page-current { color: var(--accent); }
   #pageLabel .page-sep { color: var(--muted); font-size: 14px; line-height: 1; }
-  #pageLabel .calib-dot { color: var(--accent); font-size: 10px; margin-left: 1px; }
   #zoomLabel {
     min-width: 6ch;
     font-variant-numeric: tabular-nums;
@@ -155,8 +345,8 @@
     margin: 0 2px;
   }
   .control-btn {
-    width: 26px;
-    min-height: 26px;
+    width: 24px;
+    min-height: 24px;
     padding-left: 0;
     padding-right: 0;
     justify-content: center;
@@ -195,11 +385,82 @@
     background: var(--panel-2);
     color: var(--text);
   }
+  .fit-split {
+    position: relative;
+    display: inline-flex;
+    flex: 0 0 auto;
+  }
+  .fit-menu {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: none;
+    min-width: 124px;
+    padding: 6px;
+    background: #111619;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+    z-index: 40;
+  }
+  .fit-menu.show {
+    display: grid;
+    gap: 2px;
+  }
+  .fit-menu-option {
+    width: 100%;
+    min-height: 30px;
+    border: 0;
+    background: transparent;
+    justify-content: flex-start;
+    color: var(--muted);
+    padding: 0 9px;
+  }
+  .fit-menu-option:hover {
+    color: var(--text);
+    background: var(--panel-2);
+  }
   .tool-btn {
     width: 36px;
     padding-left: 0;
     padding-right: 0;
     justify-content: center;
+  }
+  .left-rail .tool-btn,
+  .left-rail .measure-menu-toggle {
+    background: transparent;
+    border-color: transparent;
+    color: var(--muted);
+    box-shadow: none;
+  }
+  .left-rail .tool-btn:hover,
+  .left-rail .measure-menu-toggle:hover {
+    background: transparent;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(177, 255, 64, 0.24);
+    color: var(--text);
+  }
+  .left-rail .measure-split:hover {
+    border-radius: 6px;
+    box-shadow: 0 0 0 1px rgba(177, 255, 64, 0.55), 0 0 0 2px rgba(177, 255, 64, 0.14);
+  }
+  .left-rail .measure-split:hover .tool-btn,
+  .left-rail .measure-split:hover .measure-menu-toggle {
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--text);
+  }
+  .left-rail .tool-btn.active,
+  .left-rail .tool-btn.active:hover {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .left-rail .tool-btn.active:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(177, 255, 64, 0.24);
   }
   .tool-btn svg {
     width: 18px;
@@ -208,30 +469,33 @@
   .measure-split {
     position: relative;
     display: inline-flex;
-    align-items: stretch;
+    flex-direction: column;
+    align-items: center;
     gap: 0;
     flex: 0 0 auto;
   }
   .measure-split .tool-btn {
-    width: 34px;
+    width: 36px;
   }
   .measure-split #btn-measure {
-    border-top-right-radius: 0;
     border-bottom-right-radius: 0;
+    border-bottom-left-radius: 0;
   }
   .measure-menu-toggle {
-    width: 22px;
-    min-width: 22px;
-    min-height: 32px;
+    width: 36px;
+    min-width: 36px;
+    min-height: 14px;
     padding: 0;
     justify-content: center;
+    border-top: 0;
     border-top-left-radius: 0;
-    border-bottom-left-radius: 0;
-    border-left: 0;
+    border-top-right-radius: 0;
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
   }
   .measure-menu-toggle svg {
-    width: 10px;
-    height: 10px;
+    width: 8px;
+    height: 8px;
   }
   .measure-mode-menu {
     position: fixed;
@@ -275,6 +539,7 @@
     mask: var(--icon) center / contain no-repeat;
     -webkit-mask: var(--icon) center / contain no-repeat;
   }
+  button.active .mask-icon { background: currentColor; }
   .sr-only {
     position: absolute;
     width: 1px;
@@ -309,7 +574,7 @@
   input[type=file].file-picker { display: none; }
 
   @media (max-width: 1180px) {
-    #scaleLabel, #resetScale { display: none; }
+    #resetScale { display: none; }
   }
   @media (max-width: 900px) {
     .brand .brand-tag { display: none; }
@@ -367,6 +632,19 @@
   .empty .key { font-family: 'JetBrains Mono', monospace; background: var(--panel-2); border: 1px solid var(--line); padding: 2px 6px; border-radius: 4px; font-size: 11px; color: var(--text); }
   .empty ol { margin-top: 24px; text-align: left; font-size: 13px; line-height: 2; }
   .empty ol li::marker { color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+  .empty .empty-upload {
+    margin-top: 18px;
+    min-height: 36px;
+    padding: 0 14px;
+    background: var(--panel-2);
+    border-color: #38434a;
+    color: var(--text);
+    pointer-events: auto;
+  }
+  .empty .empty-upload:hover {
+    border-color: var(--accent);
+    background: #232a2e;
+  }
 
   /* HUD overlay */
   .hud {
@@ -376,6 +654,21 @@
     z-index: 4;
   }
   .hud .pill { background: rgba(20,24,26,0.85); backdrop-filter: blur(8px); }
+  #cursorPos {
+    min-height: 32px;
+    padding: 5px 10px;
+    gap: 10px;
+    border-radius: 999px;
+  }
+  #cursorPos .hud-part {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+  }
+  #cursorPos .hud-part + .hud-part {
+    padding-left: 10px;
+    border-left: 1px solid rgba(132, 148, 158, 0.24);
+  }
 
   .status {
     position: absolute;
@@ -687,15 +980,23 @@
     box-shadow: 0 12px 28px rgba(0,0,0,0.45);
     z-index: 8;
   }
-  .select-wrap.open .unit-menu { display: grid; gap: 2px; }
+  .select-wrap.open .unit-menu {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: stretch;
+    gap: 2px;
+  }
   .unit-option {
+    box-sizing: border-box;
     width: 100%;
+    min-width: 0;
     min-height: 30px;
     border: 0;
     background: transparent;
-    justify-content: flex-start;
+    justify-content: center;
     color: var(--muted);
-    padding: 0 8px;
+    padding: 0 10px;
+    text-align: center;
   }
   .unit-option:hover { color: var(--text); background: var(--panel-2); }
   .unit-option.active { color: var(--accent); background: var(--accent-soft); }
@@ -761,22 +1062,23 @@
     <div class="dot"></div>
     <div>Cable<small>&nbsp;Run</small></div>
   </div>
+  <div id="docTabs" class="doc-tabs" role="tablist" aria-label="Open documents"></div>
+  <button id="uploadButton" class="add-doc-tab" type="button" title="Upload Image/PDF" aria-label="Upload Image/PDF">
+    <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2v8M2 6h8"/></svg>
+  </button>
+  <input type="file" id="fileInput" class="file-picker" accept="application/pdf,image/*" aria-label="Upload Image/PDF" />
+</header>
 
-  <div class="toolbar primary">
-    <button id="uploadButton" type="button" title="Upload Image/PDF">
-      <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-      Upload Image/PDF
-    </button>
-    <input type="file" id="fileInput" class="file-picker" accept="application/pdf,image/*" aria-label="Upload Image/PDF" />
-  </div>
-
+<nav id="leftRail" class="left-rail" aria-label="Document tools">
   <div class="toolbar tools-center" aria-label="Drawing tools">
     <button id="btn-pan" class="tool-btn" aria-label="Pan" data-tooltip="Pan">
       <span class="mask-icon" style="--icon:url('/toolbar-pan.svg')" aria-hidden="true"></span>
       <span class="sr-only">Pan</span>
     </button>
     <button id="btn-selection" class="tool-btn" aria-label="Select" data-tooltip="Select">
-      <span class="mask-icon" style="--icon:url('/toolbar-select.svg')" aria-hidden="true"></span>
+      <svg viewBox="0 0 400 400" aria-hidden="true">
+        <path fill="currentColor" fill-rule="evenodd" d="M138.362 70.475 C 136.808 70.975,135.296 72.094,134.546 73.302 L 133.812 74.482 133.730 178.897 C 133.650 281.217,133.661 283.340,134.260 284.695 C 135.387 287.242,138.686 288.618,141.509 287.720 C 142.506 287.403,146.949 283.130,164.662 265.450 C 176.718 253.417,186.651 243.642,186.735 243.726 C 186.819 243.810,188.133 246.315,189.655 249.292 C 195.872 261.453,204.766 278.723,208.131 285.167 C 214.081 296.561,223.670 314.888,224.571 316.587 C 225.866 319.029,227.592 320.096,230.251 320.096 C 232.571 320.096,230.749 320.888,259.958 307.185 C 272.932 301.099,273.163 304.009,257.088 271.132 C 253.013 262.799,248.639 253.828,247.367 251.196 C 246.095 248.565,243.727 243.684,242.104 240.351 C 235.743 227.281,233.174 221.908,233.174 221.674 C 233.174 221.392,235.631 221.205,245.455 220.737 C 249.314 220.553,256.419 220.184,261.244 219.917 C 266.069 219.649,275.160 219.168,281.446 218.848 L 292.876 218.265 294.172 217.346 C 296.551 215.660,297.424 212.092,296.127 209.359 C 295.609 208.267,289.834 202.767,275.917 190.112 C 272.155 186.691,268.069 182.957,266.835 181.814 C 265.602 180.671,261.651 177.083,258.054 173.840 C 249.697 166.306,231.375 149.715,227.432 146.112 C 224.783 143.690,212.712 132.817,200.319 121.686 C 198.126 119.717,187.719 110.365,177.193 100.904 C 147.236 73.979,144.735 71.771,143.439 71.095 C 142.034 70.362,139.628 70.068,138.362 70.475 M160.016 102.095 C 167.533 108.861,178.206 118.465,183.732 123.437 C 189.258 128.409,195.646 134.160,197.927 136.216 C 200.207 138.273,206.595 144.015,212.121 148.976 C 239.627 173.670,275.917 206.679,275.917 207.004 C 275.917 207.140,273.800 207.346,271.212 207.463 C 268.624 207.580,265.215 207.748,263.636 207.837 C 260.838 207.994,253.513 208.374,232.695 209.444 C 221.408 210.024,220.548 210.196,219.042 212.169 C 217.059 214.770,217.269 216.500,220.355 222.970 C 223.985 230.583,236.396 256.175,242.149 267.910 C 245.107 273.944,247.528 278.929,247.528 278.986 C 247.528 279.044,249.399 282.846,251.686 287.435 C 253.973 292.023,255.793 295.829,255.731 295.891 C 255.524 296.098,233.158 306.539,232.925 306.538 C 232.729 306.537,213.208 268.870,198.134 239.408 C 192.538 228.470,191.593 227.341,188.038 227.341 C 185.358 227.341,184.870 227.775,165.009 247.792 L 145.807 267.145 145.790 178.363 C 145.780 125.947,145.891 89.624,146.060 89.686 C 146.218 89.745,152.498 95.329,160.016 102.095"/>
+      </svg>
       <span class="sr-only">Select</span>
     </button>
     <button id="btn-calibrate" class="tool-btn" aria-label="Calibrate" data-tooltip="Calibrate">
@@ -789,7 +1091,7 @@
         <span class="sr-only">Measure</span>
       </button>
       <button id="measureModeToggle" class="measure-menu-toggle" type="button" aria-label="Measure mode" aria-haspopup="true" aria-expanded="false" title="Measure mode">
-        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5"/></svg>
+        <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg>
       </button>
     </div>
     <button id="btn-erase" class="tool-btn" aria-label="Erase" data-tooltip="Erase">
@@ -819,32 +1121,37 @@
 
       <div class="control-cluster page-group-control">
         <button id="prevPage" class="control-btn" disabled aria-label="Previous page">
-          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 2.5 4 6l3.5 3.5"/></svg>
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 7.5 6 4l3.5 3.5"/></svg>
         </button>
-        <span class="pill control-value" id="pageLabel"><span class="page-current">—</span><span class="page-sep">·</span><span>—</span></span>
+        <span class="pill control-value" id="pageLabel" aria-label="No page loaded"><span class="page-current">—</span><span class="page-sep">·</span><span>—</span></span>
         <button id="nextPage" class="control-btn" disabled aria-label="Next page">
-          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6 4.5 9.5"/></svg>
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>
         </button>
       </div>
 
       <div class="control-divider"></div>
 
-      <button id="zoomFit" class="fit-control" title="Fit to view">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
-        Fit
-      </button>
+      <div id="fitSplit" class="fit-split">
+        <button id="zoomFit" class="fit-control" type="button" title="Fit options" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="3" width="12" height="18" rx="1.5"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+          Fit
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg>
+        </button>
+      </div>
     </div>
 
-    <div class="divider"></div>
-
-    <span class="pill" id="scaleLabel">Scale: <strong>—</strong></span>
     <button id="resetScale" disabled title="Reset calibration for the current page only">Reset</button>
   </div>
-</header>
+</nav>
 <div id="toolTip" class="tool-tip" role="tooltip"></div>
 <div id="measureModeMenu" class="measure-mode-menu" role="menu" aria-label="Measure mode">
   <button class="measure-mode-option active" type="button" role="menuitemradio" aria-checked="true" data-value="line">Line</button>
   <button class="measure-mode-option" type="button" role="menuitemradio" aria-checked="false" data-value="freehand">Free hand</button>
+</div>
+<div id="fitMenu" class="fit-menu" role="menu" aria-label="Fit options">
+  <button class="fit-menu-option" type="button" data-fit="page" role="menuitem">Fit page</button>
+  <button class="fit-menu-option" type="button" data-fit="width" role="menuitem">Fit width</button>
+  <button class="fit-menu-option" type="button" data-fit="height" role="menuitem">Fit height</button>
 </div>
 
 <main>
@@ -862,10 +1169,18 @@
         <li>Click <span class="key">Calibrate</span>, draw a line on a known dimension, enter its real length.</li>
         <li>Click <span class="key">Measure</span>, click point-to-point to trace a run. Double-click to finish.</li>
       </ol>
+      <button id="emptyUploadButton" class="empty-upload" type="button" title="Upload Image/PDF">
+        <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+        Upload Image/PDF
+      </button>
     </div>
     <div class="status" id="status"></div>
     <div class="hud">
-      <span class="pill" id="cursorPos">x: — &nbsp; y: —</span>
+      <span class="pill" id="cursorPos">
+        <span class="hud-part">scale: <strong>—</strong></span>
+        <span class="hud-part">x: <strong>—</strong></span>
+        <span class="hud-part">y: <strong>—</strong></span>
+      </span>
       <span class="pill" id="liveLen" style="display:none">live: <strong>—</strong></span>
     </div>
   </div>
@@ -970,6 +1285,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 // ------- State -------
 const ONBOARDING_STATUS_KEY = 'cableRunStatusSeen';
 const state = {
+  documents: [],
+  activeDocId: null,
   mode: 'pan', // 'selection' | 'calibrate' | 'measure' | 'pan' | 'erase'
   prevMode: 'pan',     // mode to return to after a space-pan
   spaceHeld: false,
@@ -1043,21 +1360,33 @@ function parsePageRange(input, max) {
   return [...set].sort((a, b) => a - b);
 }
 
+function scaleHudText() {
+  return state.pxPerInch
+    ? `1 ${UNIT_LABEL[state.unit]} = ${(UNIT_TO_INCH[state.unit] * state.pxPerInch).toFixed(2)} px`
+    : '—';
+}
+
+function updateCursorHud() {
+  const x = state.cursorImg ? state.cursorImg.x.toFixed(0) : '—';
+  const y = state.cursorImg ? state.cursorImg.y.toFixed(0) : '—';
+  $('cursorPos').innerHTML = `<span class="hud-part">scale: <strong>${scaleHudText()}</strong></span><span class="hud-part">x: <strong>${x}</strong></span><span class="hud-part">y: <strong>${y}</strong></span>`;
+}
+
 function updateScaleLabel() {
   if (state.pxPerInch) {
-    $('scaleLabel').innerHTML = `Scale: <strong>1 ${UNIT_LABEL[state.unit]} = ${ (UNIT_TO_INCH[state.unit] * state.pxPerInch).toFixed(2) } px</strong>`;
     $('resetScale').disabled = false;
   } else {
-    $('scaleLabel').innerHTML = 'Scale: <strong>—</strong>';
     $('resetScale').disabled = true;
   }
+  updateCursorHud();
 }
 
 function updatePageLabel() {
   const current = state.baseW ? currentPage() : '—';
   const total = state.baseW ? totalPages() : '—';
-  const dot = state.pxPerInch ? '<span class="calib-dot">●</span>' : '';
-  $('pageLabel').innerHTML = `<span class="page-current">${current}</span><span class="page-sep">·</span><span>${total}</span>${dot}`;
+  $('pageLabel').innerHTML = `<span class="page-current">${current}</span><span class="page-sep">·</span><span>${total}</span>`;
+  $('pageLabel').setAttribute('aria-label', state.baseW ? `Page ${current} of ${total}` : 'No page loaded');
+  $('pageLabel').title = state.baseW ? `Page ${current} of ${total}` : 'No page loaded';
 }
 
 function recomputeLengthsForPage(p) {
@@ -1102,8 +1431,111 @@ function setDocumentLoaded(loaded) {
   document.body.classList.toggle('no-document', !loaded);
 }
 
+function snapshotActiveDocument(nameOverride = null) {
+  if (!state.activeDocId || (!state.pdf && !state.imageBitmap)) return null;
+  return {
+    id: state.activeDocId,
+    name: nameOverride || state.documents.find(d => d.id === state.activeDocId)?.name || 'Untitled',
+    pdf: state.pdf,
+    pdfPage: state.pdfPage,
+    pdfPages: state.pdfPages,
+    imageBitmap: state.imageBitmap,
+    baseW: state.baseW,
+    baseH: state.baseH,
+    zoom: state.zoom,
+    panX: state.panX,
+    panY: state.panY,
+    pxPerInch: state.pxPerInch,
+    pageScales: { ...state.pageScales },
+    measurements: state.measurements,
+    sidebarTab: state.sidebarTab,
+    pageCache: new Map(state.pageCache),
+  };
+}
+
+function saveActiveDocument(nameOverride = null) {
+  const doc = snapshotActiveDocument(nameOverride);
+  if (!doc) return;
+  const idx = state.documents.findIndex(d => d.id === doc.id);
+  if (idx >= 0) state.documents[idx] = doc;
+  else state.documents.push(doc);
+  renderDocumentTabs();
+}
+
+function renderDocumentTabs() {
+  const tabs = $('docTabs');
+  tabs.replaceChildren();
+  for (const doc of state.documents) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `doc-tab${doc.id === state.activeDocId ? ' active' : ''}`;
+    button.role = 'tab';
+    button.title = doc.name;
+    const title = document.createElement('span');
+    title.className = 'doc-tab-title';
+    title.textContent = doc.name;
+    button.appendChild(title);
+    button.setAttribute('aria-selected', doc.id === state.activeDocId ? 'true' : 'false');
+    button.addEventListener('click', () => switchDocument(doc.id));
+    tabs.appendChild(button);
+  }
+}
+
+async function switchDocument(id) {
+  if (id === state.activeDocId) return;
+  saveActiveDocument();
+  const doc = state.documents.find(d => d.id === id);
+  if (!doc) return;
+  await restoreDocument(doc);
+}
+
+async function restoreDocument(doc) {
+  state.activeDocId = doc.id;
+  state.pdf = doc.pdf;
+  state.pdfPage = doc.pdfPage || 1;
+  state.pdfPages = doc.pdfPages || (doc.pdf ? doc.pdf.numPages : 1);
+  state.imageBitmap = doc.imageBitmap || null;
+  state.baseW = doc.baseW || 0;
+  state.baseH = doc.baseH || 0;
+  state.zoom = doc.zoom || 1;
+  state.panX = doc.panX || 0;
+  state.panY = doc.panY || 0;
+  state.pxPerInch = doc.pxPerInch || null;
+  state.pageScales = { ...(doc.pageScales || {}) };
+  state.measurements = doc.measurements || [];
+  state.sidebarTab = doc.sidebarTab || 'page';
+  state.pageCache = new Map(doc.pageCache || []);
+  state.inProgress = null;
+  state.freehandDraft = null;
+  state.selectedId = null;
+  state.dragLabel = null;
+  state.navToken++;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === state.sidebarTab));
+  $('totalHeading').textContent = state.sidebarTab === 'page' ? 'This Page Total' : 'Grand Total';
+  if (state.pdf) {
+    await renderPdfPage({ fit: false, resetInteraction: false });
+  } else if (state.imageBitmap) {
+    baseCanvas.width = state.imageBitmap.width;
+    baseCanvas.height = state.imageBitmap.height;
+    configureCanvasCssSize(baseCanvas, state.imageBitmap.width, state.imageBitmap.height);
+    configureDrawCanvas();
+    baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
+    baseCtx.drawImage(state.imageBitmap, 0, 0);
+    onPageReady({ fit: false, resetInteraction: false });
+    applyTransform();
+  }
+  renderDocumentTabs();
+}
+
 function positionToolTip(target) {
   const rect = target.getBoundingClientRect();
+  if ($('leftRail').contains(target)) {
+    toolTip.style.transform = 'translate(0, -50%)';
+    toolTip.style.left = `${rect.right + 8}px`;
+    toolTip.style.top = `${Math.max(12, Math.min(window.innerHeight - 12, rect.top + rect.height / 2))}px`;
+    return;
+  }
+  toolTip.style.transform = 'translate(-50%, 0)';
   toolTip.style.left = `${rect.left + rect.width / 2}px`;
   toolTip.style.top = `${rect.bottom + 8}px`;
 }
@@ -1565,11 +1997,17 @@ function rotateSegmentsAround(segments, center, degrees) {
   }));
 }
 
-function fitToView() {
+function fitToView(fitMode = 'page') {
   const rect = stage.getBoundingClientRect();
   if (!state.baseW || !state.baseH) return;
   const padding = 32;
-  const z = Math.min((rect.width - padding) / state.baseW, (rect.height - padding) / state.baseH);
+  const availableW = Math.max(1, rect.width - padding);
+  const availableH = Math.max(1, rect.height - padding);
+  const z = fitMode === 'width'
+    ? availableW / state.baseW
+    : fitMode === 'height'
+      ? availableH / state.baseH
+      : Math.min(availableW / state.baseW, availableH / state.baseH);
   state.zoom = z;
   state.panX = (rect.width - state.baseW * z) / 2;
   state.panY = (rect.height - state.baseH * z) / 2;
@@ -1592,6 +2030,9 @@ $('fileInput').addEventListener('change', async (e) => {
 $('uploadButton').addEventListener('click', () => {
   $('fileInput').click();
 });
+$('emptyUploadButton').addEventListener('click', () => {
+  $('fileInput').click();
+});
 
 stage.addEventListener('dragover', (e) => {
   e.preventDefault();
@@ -1610,6 +2051,10 @@ async function loadFile(file) {
     return;
   }
 
+  const previousDocId = state.activeDocId;
+  saveActiveDocument();
+  const docId = Date.now();
+  state.activeDocId = docId;
   try {
     resetDocState();
     if (isPdfFile(file)) {
@@ -1636,14 +2081,32 @@ async function loadFile(file) {
       onPageReady();
       showStatus(`Loaded ${file.name || 'image'}`);
     }
+    saveActiveDocument(file.name || 'Untitled');
   } catch (err) {
     console.error('Failed to load file', err);
+    state.documents = state.documents.filter(d => d.id !== docId);
+    state.activeDocId = previousDocId;
+    if (previousDocId) {
+      const previousDoc = state.documents.find(d => d.id === previousDocId);
+      if (previousDoc) await restoreDocument(previousDoc);
+    }
+    renderDocumentTabs();
     showStatus('Could not load that file. Try another PDF or image.');
   }
 }
 
 function resetDocState() {
   setDocumentLoaded(false);
+  empty.style.display = 'flex';
+  state.pdf = null;
+  state.pdfPages = 0;
+  state.pdfPage = 1;
+  state.imageBitmap = null;
+  state.baseW = 0;
+  state.baseH = 0;
+  state.zoom = 1;
+  state.panX = 0;
+  state.panY = 0;
   state.measurements = [];
   state.pageScales = {};
   state.pxPerInch = null;
@@ -1819,22 +2282,42 @@ function setDrawMode(value) {
 function closeMeasureModeMenu() {
   $('measureSplit').classList.remove('open');
   $('measureModeToggle').setAttribute('aria-expanded', 'false');
+  $('measureModeToggle').querySelector('path').setAttribute('d', 'M4.5 3 7.5 6 4.5 9');
   $('measureModeMenu').classList.remove('show');
 }
+function closeFitMenu() {
+  $('zoomFit').setAttribute('aria-expanded', 'false');
+  $('zoomFit').querySelector('svg:last-child path').setAttribute('d', 'M4.5 3 7.5 6 4.5 9');
+  $('fitMenu').classList.remove('show');
+}
 function positionMeasureModeMenu() {
-  const toggle = $('measureModeToggle');
+  const anchor = $('measureSplit');
   const menu = $('measureModeMenu');
-  const rect = toggle.getBoundingClientRect();
+  const rect = anchor.getBoundingClientRect();
   const menuWidth = 116;
-  const left = Math.max(6, Math.min(window.innerWidth - menuWidth - 6, rect.right - menuWidth));
+  const menuHeight = 76;
+  const left = Math.max(6, Math.min(window.innerWidth - menuWidth - 6, rect.right + 8));
+  const top = Math.max(6, Math.min(window.innerHeight - menuHeight - 6, rect.top + rect.height / 2 - menuHeight / 2));
   menu.style.left = `${left}px`;
-  menu.style.top = `${rect.bottom + 6}px`;
+  menu.style.top = `${top}px`;
+}
+function positionFitMenu() {
+  const button = $('zoomFit');
+  const menu = $('fitMenu');
+  const rect = button.getBoundingClientRect();
+  const menuWidth = 124;
+  const menuHeight = 108;
+  const left = Math.max(6, Math.min(window.innerWidth - menuWidth - 6, rect.right + 8));
+  const top = Math.max(6, Math.min(window.innerHeight - menuHeight - 6, rect.top + rect.height / 2 - menuHeight / 2));
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
 }
 $('measureModeToggle').addEventListener('click', (e) => {
   e.stopPropagation();
   const open = !$('measureSplit').classList.contains('open');
   $('measureSplit').classList.toggle('open', open);
   $('measureModeToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+  $('measureModeToggle').querySelector('path').setAttribute('d', open ? 'M7.5 3 4.5 6 7.5 9' : 'M4.5 3 7.5 6 4.5 9');
   $('measureModeMenu').classList.toggle('show', open);
   if (open) positionMeasureModeMenu();
 });
@@ -1847,15 +2330,30 @@ document.querySelectorAll('.measure-mode-option').forEach(option => {
 });
 document.addEventListener('click', (e) => {
   if (!$('measureSplit').contains(e.target) && !$('measureModeMenu').contains(e.target)) closeMeasureModeMenu();
+  if (!$('fitSplit').contains(e.target) && !$('fitMenu').contains(e.target)) closeFitMenu();
 });
-window.addEventListener('resize', closeMeasureModeMenu);
-document.querySelector('header').addEventListener('scroll', closeMeasureModeMenu);
+window.addEventListener('resize', () => { closeMeasureModeMenu(); closeFitMenu(); });
+document.querySelector('header').addEventListener('scroll', () => { closeMeasureModeMenu(); closeFitMenu(); });
 $('btn-pan').classList.add('active');
 
 // ------- Zoom buttons -------
 $('zoomIn').addEventListener('click', () => zoomAt(stageCenter(), 1.25));
 $('zoomOut').addEventListener('click', () => zoomAt(stageCenter(), 0.8));
-$('zoomFit').addEventListener('click', fitToView);
+$('zoomFit').addEventListener('click', (e) => {
+  e.stopPropagation();
+  const open = !$('fitMenu').classList.contains('show');
+  $('zoomFit').setAttribute('aria-expanded', open ? 'true' : 'false');
+  $('zoomFit').querySelector('svg:last-child path').setAttribute('d', open ? 'M7.5 3 4.5 6 7.5 9' : 'M4.5 3 7.5 6 4.5 9');
+  $('fitMenu').classList.toggle('show', open);
+  if (open) positionFitMenu();
+});
+document.querySelectorAll('.fit-menu-option').forEach(option => {
+  option.addEventListener('click', (e) => {
+    e.stopPropagation();
+    fitToView(option.dataset.fit);
+    closeFitMenu();
+  });
+});
 function stageCenter() { const r = stage.getBoundingClientRect(); return { clientX: r.left + r.width/2, clientY: r.top + r.height/2 }; }
 function zoomAt(pt, factor) {
   const img = screenToImage(pt.clientX, pt.clientY);
@@ -2086,7 +2584,7 @@ stage.addEventListener('mousemove', (e) => {
   }
   if (!state.baseW) return;
   state.cursorImg = screenToImage(e.clientX, e.clientY);
-  $('cursorPos').innerHTML = `x: <strong>${state.cursorImg.x.toFixed(0)}</strong> &nbsp; y: <strong>${state.cursorImg.y.toFixed(0)}</strong>`;
+  updateCursorHud();
 
   if (state.freehandDraft) {
     const raw = state.freehandDraft.rawPoints;
@@ -3028,7 +3526,7 @@ function setUnit(value) {
     option.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
   $('totalUnit').textContent = UNIT_LABEL[state.unit];
-  if (state.pxPerInch) $('scaleLabel').innerHTML = `Scale: <strong>1 ${UNIT_LABEL[state.unit]} = ${ (UNIT_TO_INCH[state.unit] * state.pxPerInch).toFixed(2) } px</strong>`;
+  updateScaleLabel();
   renderList();
 }
 
