@@ -6,5 +6,8 @@ test('GitHub Pages workflow opts into Node 24 for project and action runtime', a
   const workflow = await readFile(new URL('../.github/workflows/pages.yml', import.meta.url), 'utf8');
 
   assert.match(workflow, /node-version:\s*24/);
-  assert.match(workflow, /FORCE_JAVASCRIPT_ACTIONS_TO_NODE24:\s*true/);
+  assert.match(workflow, /uses:\s*actions\/checkout@v6/);
+  assert.match(workflow, /uses:\s*actions\/setup-node@v6/);
+  assert.match(workflow, /uses:\s*actions\/upload-pages-artifact@v4/);
+  assert.doesNotMatch(workflow, /FORCE_JAVASCRIPT_ACTIONS_TO_NODE24/);
 });
