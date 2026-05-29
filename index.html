@@ -2009,8 +2009,14 @@ function configureCanvasCssSize(canvas, cssW, cssH) {
   canvas.style.height = `${cssH}px`;
 }
 
+function configureViewportCssSize(cssW, cssH) {
+  viewport.style.width = `${cssW}px`;
+  viewport.style.height = `${cssH}px`;
+}
+
 function configureDrawCanvas() {
   if (!state.baseW || !state.baseH) return 1;
+  configureViewportCssSize(state.baseW, state.baseH);
   drawCanvas.width = 1;
   drawCanvas.height = 1;
   configureCanvasCssSize(drawCanvas, state.baseW, state.baseH);
@@ -2030,11 +2036,13 @@ function overlayPageSize(screenPx) {
 }
 
 function screenToImage(clientX, clientY) {
-  const rect = stage.getBoundingClientRect();
+  const stageRect = stage.getBoundingClientRect();
+  const viewportRect = viewport.getBoundingClientRect();
   return viewerModel.screenToImagePoint({
     clientX,
     clientY,
-    stageRect: rect,
+    stageRect,
+    viewportRect,
     zoom: state.zoom,
     panX: state.panX,
     panY: state.panY,
@@ -2044,10 +2052,16 @@ function screenToImage(clientX, clientY) {
 }
 
 function imageToScreen(x, y) {
+  const stageRect = stage.getBoundingClientRect();
+  const viewportRect = viewport.getBoundingClientRect();
   return viewerModel.imageToScreenPoint({ x, y }, {
+    stageRect,
+    viewportRect,
     zoom: state.zoom,
     panX: state.panX,
     panY: state.panY,
+    baseWidth: state.baseW,
+    baseHeight: state.baseH,
   });
 }
 
@@ -2500,11 +2514,13 @@ function stageCenter() { const r = stage.getBoundingClientRect(); return { clien
 function zoomAt(pt, factor) {
   clearActiveFitMode();
   const rect = stage.getBoundingClientRect();
+  const viewportRect = viewport.getBoundingClientRect();
   const transform = viewerModel.zoomAtPoint({
     zoom: state.zoom,
     panX: state.panX,
     panY: state.panY,
     stageRect: rect,
+    viewportRect,
     point: pt,
     factor,
     baseWidth: state.baseW,

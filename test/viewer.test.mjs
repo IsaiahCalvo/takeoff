@@ -60,6 +60,38 @@ test('computeFitViewTransform supports width and height fits', async () => {
   });
 });
 
+test('screenToImagePoint uses the rendered viewport rect when available', async () => {
+  const viewer = await loadViewer();
+  const point = viewer.screenToImagePoint({
+    clientX: 420,
+    clientY: 300,
+    stageRect: { left: 10, top: 20 },
+    viewportRect: { left: 100, top: 60, width: 640, height: 960 },
+    zoom: 2,
+    panX: 0,
+    panY: 0,
+    baseWidth: 320,
+    baseHeight: 480,
+  });
+
+  assert.deepEqual(plain(point), { x: 160, y: 120 });
+});
+
+test('imageToScreenPoint can use the rendered viewport rect relative to the stage', async () => {
+  const viewer = await loadViewer();
+  const point = viewer.imageToScreenPoint({ x: 160, y: 240 }, {
+    stageRect: { left: 10, top: 20 },
+    viewportRect: { left: 100, top: 60, width: 640, height: 960 },
+    zoom: 2,
+    panX: 0,
+    panY: 0,
+    baseWidth: 320,
+    baseHeight: 480,
+  });
+
+  assert.deepEqual(plain(point), { x: 410, y: 520 });
+});
+
 test('zoomAtPoint keeps the image point under the cursor', async () => {
   const viewer = await loadViewer();
   const next = viewer.zoomAtPoint({
