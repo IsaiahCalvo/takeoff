@@ -1,0 +1,62 @@
+(function () {
+  function cloneValue(value) {
+    return value == null ? null : JSON.parse(JSON.stringify(value));
+  }
+
+  function createHistorySnapshot(source) {
+    return {
+      measurements: cloneValue(source.measurements) || [],
+      pageScales: cloneValue(source.pageScales) || {},
+      pxPerInch: source.pxPerInch,
+      selectedId: source.selectedId,
+      copiedMeasurement: cloneValue(source.copiedMeasurement),
+      rotateModeId: source.rotateModeId,
+    };
+  }
+
+  function snapshotsEqual(a, b) {
+    return JSON.stringify(a) === JSON.stringify(b);
+  }
+
+  function recordHistory(state, before, label = 'Edit') {
+    if (!before) return false;
+    const after = createHistorySnapshot(state);
+    if (snapshotsEqual(before, after)) return false;
+    state.undoStack.push({ label, before, after });
+    if (state.undoStack.length > state.historyLimit) state.undoStack.shift();
+    state.redoStack = [];
+    return true;
+  }
+
+  function applyHistorySnapshot(state, snapshot, currentPage) {
+    state.measurements = cloneValue(snapshot.measurements) || [];
+    state.pageScales = cloneValue(snapshot.pageScales) || {};
+    state.pxPerInch = snapshot.pxPerInch ?? (state.pageScales[currentPage] || null);
+    state.selectedId = snapshot.selectedId ?? null;
+    state.copiedMeasurement = cloneValue(snapshot.copiedMeasurement);
+    state.rotateModeId = snapshot.rotateModeId ?? null;
+    state.inProgress = null;
+    state.freehandDraft = null;
+    state.dragVertex = null;
+    state.dragMeasurement = null;
+    state.dragLabel = null;
+    state.rotationDrag = null;
+    state.rotationInputVisible = false;
+    state.pendingPaste = null;
+    state.contextTarget = null;
+  }
+
+  function clearHistory(state) {
+    state.undoStack = [];
+    state.redoStack = [];
+  }
+
+  window.TakeoffHistory = {
+    cloneValue,
+    createHistorySnapshot,
+    snapshotsEqual,
+    recordHistory,
+    applyHistorySnapshot,
+    clearHistory,
+  };
+})();

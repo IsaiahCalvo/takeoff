@@ -55,8 +55,67 @@
     };
   }
 
+  function parsePageRange(input, max) {
+    const set = new Set();
+    for (const part of String(input || '').split(',')) {
+      const s = part.trim();
+      if (!s) continue;
+      if (s.includes('-')) {
+        const [a, b] = s.split('-').map(n => parseInt(n.trim(), 10));
+        if (Number.isFinite(a) && Number.isFinite(b)) {
+          for (let i = Math.min(a, b); i <= Math.max(a, b); i++) {
+            if (i >= 1 && i <= max) set.add(i);
+          }
+        }
+      } else {
+        const n = parseInt(s, 10);
+        if (Number.isFinite(n) && n >= 1 && n <= max) set.add(n);
+      }
+    }
+    return [...set].sort((a, b) => a - b);
+  }
+
+  function computePxPerInch(points, realLength, unit, distancePx) {
+    const value = Number(realLength);
+    const unitFactor = UNIT_TO_INCH[unit];
+    if (!Array.isArray(points) || points.length < 2 || !Number.isFinite(value) || value <= 0 || !unitFactor) {
+      return null;
+    }
+    const px = distancePx(points[0], points[1]);
+    const inches = value * unitFactor;
+    return px / inches;
+  }
+
+  function applyScaleToPages({ measurements, pageScales, pages, pxPerInch, measureLengthPx }) {
+    for (const page of pages || []) {
+      pageScales[page] = pxPerInch;
+      recomputeLengthsForPage(measurements, pageScales, page, measureLengthPx);
+    }
+  }
+
+  function clearPageScale({ measurements, pageScales, page }) {
+    delete pageScales[page];
+    for (const measurement of measurements || []) {
+      if (measurement.page === page) measurement.lengthInches = null;
+    }
+  }
+
+  function recomputeLengthsForPage(measurements, pageScales, page, measureLengthPx) {
+    const scale = pageScales[page] || null;
+    for (const measurement of measurements || []) {
+      if (measurement.page !== page) continue;
+      measurement.lengthPx = measureLengthPx(measurement);
+      measurement.lengthInches = scale ? (measurement.lengthPx / scale) : null;
+    }
+  }
+
   window.TakeoffCalibrationUtils = {
     summarizeMeasurements,
     formatScaleStatus,
+    parsePageRange,
+    computePxPerInch,
+    applyScaleToPages,
+    clearPageScale,
+    recomputeLengthsForPage,
   };
 })();
