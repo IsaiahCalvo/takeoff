@@ -1,4 +1,8 @@
 (function () {
+  function cloneValue(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
   function activeDocument(state) {
     return (state.documents || []).find(doc => doc.id === state.activeDocId) || null;
   }
@@ -33,7 +37,7 @@
       activeFitMode: state.activeFitMode,
       pxPerInch: state.pxPerInch,
       pageScales: { ...(state.pageScales || {}) },
-      measurements: state.measurements,
+      measurements: cloneValue(state.measurements) || [],
       sidebarTab: state.sidebarTab,
       collapsedPageGroups: { ...(state.collapsedPageGroups || {}) },
       pageCache: new Map(state.pageCache || []),

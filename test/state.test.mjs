@@ -119,13 +119,22 @@ test('restoreDocumentState applies saved document fields and clears transient ed
     activeFitMode: 'width',
     pxPerInch: 4,
     pageScales: { 3: 4 },
-    measurements: [{ id: 1 }],
+    measurements: [{
+      id: 1,
+      shape: {
+        active: 'line',
+        previousFreehand: {
+          points: [{ x: 0, y: 0 }],
+        },
+      },
+    }],
     sidebarTab: 'all',
     collapsedPageGroups: { 1: true },
     pageCache: [[3, { page: 3 }]],
   };
 
   store.restoreDocumentState(state, doc);
+  doc.measurements[0].shape.previousFreehand.points[0].x = 99;
 
   assert.equal(state.activeDocId, 'doc-1');
   assert.equal(state.pdf, doc.pdf);
@@ -139,7 +148,15 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.panY, 20);
   assert.equal(state.activeFitMode, 'width');
   assert.deepEqual(plain(state.pageScales), { 3: 4 });
-  assert.deepEqual(plain(state.measurements), [{ id: 1 }]);
+  assert.deepEqual(plain(state.measurements), [{
+    id: 1,
+    shape: {
+      active: 'line',
+      previousFreehand: {
+        points: [{ x: 0, y: 0 }],
+      },
+    },
+  }]);
   assert.equal(state.sidebarTab, 'all');
   assert.deepEqual(plain(state.collapsedPageGroups), { 1: true });
   assert.equal(state.pageCache.get(3).page, 3);

@@ -24,6 +24,13 @@
     return segments ? segments.map(cloneSegment) : null;
   }
 
+  function cloneMeasurementShape(measurement) {
+    return measurementModel.cloneShapeMetadata(
+      measurement && measurement.shape,
+      measurementModel.measurementShapeKind(measurement),
+    );
+  }
+
   function nextMeasurementColor(existingMeasurements, palette) {
     const colors = palette || [];
     const usedColors = new Set((existingMeasurements || []).map(measurement => measurement.color));
@@ -60,6 +67,7 @@
       name: `Run ${(existingMeasurements || []).length + 1}`,
       color: nextMeasurementColor(existingMeasurements, palette),
       drawType: 'line',
+      shape: measurementModel.createShapeMetadata('line'),
       points: clonedPoints,
       lengthInches: pxPerInch ? lengthPx / pxPerInch : null,
       lengthPx,
@@ -93,6 +101,7 @@
       name: `Run ${(existingMeasurements || []).length + 1}`,
       color: nextMeasurementColor(existingMeasurements, palette),
       drawType: 'freehand',
+      shape: measurementModel.createShapeMetadata('freehand'),
       points: clonePoints(points),
       segments,
       lengthInches: pxPerInch ? lengthPx / pxPerInch : null,
@@ -108,6 +117,7 @@
       ...selected,
       points: clonePoints(selected.points),
       segments: measurementModel.isCurveMeasurement(selected) ? cloneSegments(selected.segments) : null,
+      shape: cloneMeasurementShape(selected),
       sourcePage: selected.page,
       sourceScale: (pageScales || {})[selected.page] || null,
       sourceLengthInches: selected.lengthInches,
@@ -282,6 +292,7 @@
       page: currentPage,
       points,
       segments,
+      shape: cloneMeasurementShape(source),
       labelT: Number.isFinite(source.labelT)
         ? source.labelT
         : defaultLabelT(segments ? geometry.flattenSegments(segments, 18) : points),

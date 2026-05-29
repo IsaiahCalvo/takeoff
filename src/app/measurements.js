@@ -1,8 +1,60 @@
 (function () {
   const geometry = window.TakeoffGeometry;
+  const LINE_SHAPE = 'line';
+  const FREEHAND_SHAPE = 'freehand';
+
+  function cloneValue(value) {
+    if (value == null) return value;
+    return JSON.parse(JSON.stringify(value));
+  }
 
   function isCurveMeasurement(measurement) {
     return !!(measurement && Array.isArray(measurement.segments) && measurement.segments.length);
+  }
+
+  function normalizeShapeKind(kind) {
+    if (kind === LINE_SHAPE || kind === FREEHAND_SHAPE) return kind;
+    return null;
+  }
+
+  function measurementShapeKind(measurement) {
+    if (!measurement) return LINE_SHAPE;
+    const explicitShape = measurement.shape
+      ? normalizeShapeKind(measurement.shape.active) || normalizeShapeKind(measurement.shape.kind)
+      : null;
+    return explicitShape
+      || normalizeShapeKind(measurement.drawType)
+      || (isCurveMeasurement(measurement) ? FREEHAND_SHAPE : LINE_SHAPE);
+  }
+
+  function isLineMeasurement(measurement) {
+    return measurementShapeKind(measurement) === LINE_SHAPE;
+  }
+
+  function isFreehandMeasurement(measurement) {
+    return measurementShapeKind(measurement) === FREEHAND_SHAPE;
+  }
+
+  function createShapeMetadata(active = LINE_SHAPE, metadata = {}) {
+    const cloned = cloneValue(metadata) || {};
+    delete cloned.kind;
+    return {
+      ...cloned,
+      active: normalizeShapeKind(active) || normalizeShapeKind(cloned.active) || LINE_SHAPE,
+    };
+  }
+
+  function cloneShapeMetadata(metadata, fallbackActive = LINE_SHAPE) {
+    const cloned = cloneValue(metadata) || {};
+    const active = normalizeShapeKind(cloned.active)
+      || normalizeShapeKind(cloned.kind)
+      || normalizeShapeKind(fallbackActive)
+      || LINE_SHAPE;
+    delete cloned.kind;
+    return {
+      ...cloned,
+      active,
+    };
   }
 
   function measurementLengthPx(measurement) {
@@ -92,7 +144,14 @@
   }
 
   window.TakeoffMeasurements = {
+    LINE_SHAPE,
+    FREEHAND_SHAPE,
     isCurveMeasurement,
+    measurementShapeKind,
+    isLineMeasurement,
+    isFreehandMeasurement,
+    createShapeMetadata,
+    cloneShapeMetadata,
     measurementLengthPx,
     measurementDisplayPoints,
     buildFreehandSegments,

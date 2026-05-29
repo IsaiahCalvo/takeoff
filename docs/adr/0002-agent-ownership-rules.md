@@ -14,7 +14,8 @@ Use ownership rules until the app shell is fully split:
 
 - Only one agent may edit `index.html` at a time.
 - A module change should include a matching test file change.
-- New measurement behavior should go through measurement commands or measurement workflows.
+- New measurement behavior should go through measurement model helpers, measurement commands, or measurement workflows.
+- Line/Freehand behavior should use measurement shape metadata instead of callers inventing their own geometry checks.
 - New page scale behavior should go through calibration or state-store helpers.
 - Rendering changes must say whether they affect hit testing.
 - Viewer/document changes must say whether they affect page navigation or cache invalidation.

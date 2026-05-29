@@ -39,6 +39,17 @@ test('buildExportRows creates Excel-ready rows with scaled flags', async () => {
   });
 });
 
+test('buildExportRows reads app measurement shape and draw mode metadata', async () => {
+  const utils = await loadUtils();
+  const rows = utils.buildExportRows([
+    { page: 1, name: 'Legacy freehand', drawType: 'freehand', lengthInches: 24 },
+    { page: 1, name: 'Converted line', shape: { active: 'line' }, drawType: 'freehand', lengthInches: 36 },
+  ], { unit: 'ft' });
+
+  assert.equal(rows[0].type, 'freehand');
+  assert.equal(rows[1].type, 'line');
+});
+
 test('generateCsv emits compact title-cased columns and blank unscaled length', async () => {
   const utils = await loadUtils();
   const csv = utils.generateCsv(utils.buildExportRows(measurements, { unit: 'ft' }));

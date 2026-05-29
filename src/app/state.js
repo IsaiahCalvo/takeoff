@@ -1,4 +1,8 @@
 (function () {
+  function cloneValue(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
   function createInitialState() {
     return {
       documents: [],
@@ -103,7 +107,7 @@
     state.activeFitMode = doc.activeFitMode || null;
     state.pxPerInch = doc.pxPerInch || null;
     state.pageScales = { ...(doc.pageScales || {}) };
-    state.measurements = doc.measurements || [];
+    state.measurements = cloneValue(doc.measurements) || [];
     clearHistoryState(state);
     state.sidebarTab = doc.sidebarTab || 'page';
     state.collapsedPageGroups = { ...(doc.collapsedPageGroups || {}) };
@@ -135,6 +139,7 @@
   }
 
   window.TakeoffState = {
+    cloneValue,
     createInitialState,
     clearHistoryState,
     resetDocumentState,

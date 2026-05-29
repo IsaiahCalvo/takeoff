@@ -13,11 +13,30 @@ async function loadHistory() {
 
 function baseState() {
   return {
-    measurements: [{ id: 1, page: 1, points: [{ x: 0, y: 0 }] }],
+    measurements: [{
+      id: 1,
+      page: 1,
+      points: [{ x: 0, y: 0 }],
+      shape: {
+        active: 'line',
+        previousFreehand: {
+          points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+        },
+      },
+    }],
     pageScales: { 1: 2 },
     pxPerInch: 2,
     selectedId: 1,
-    copiedMeasurement: { id: 1, points: [{ x: 0, y: 0 }] },
+    copiedMeasurement: {
+      id: 1,
+      points: [{ x: 0, y: 0 }],
+      shape: {
+        active: 'freehand',
+        previousLine: {
+          points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+        },
+      },
+    },
     rotateModeId: 1,
     undoStack: [],
     redoStack: [{ label: 'stale' }],
@@ -40,12 +59,16 @@ test('createHistorySnapshot clones editable state', async () => {
   const snapshot = history.createHistorySnapshot(state);
 
   state.measurements[0].points[0].x = 99;
+  state.measurements[0].shape.previousFreehand.points[0].x = 77;
   state.pageScales[1] = 10;
   state.copiedMeasurement.points[0].x = 42;
+  state.copiedMeasurement.shape.previousLine.points[0].x = 66;
 
   assert.equal(snapshot.measurements[0].points[0].x, 0);
+  assert.equal(snapshot.measurements[0].shape.previousFreehand.points[0].x, 0);
   assert.equal(snapshot.pageScales[1], 2);
   assert.equal(snapshot.copiedMeasurement.points[0].x, 0);
+  assert.equal(snapshot.copiedMeasurement.shape.previousLine.points[0].x, 0);
 });
 
 test('recordHistory stores changed snapshots and clears redo stack', async () => {
@@ -82,7 +105,17 @@ test('applyHistorySnapshot restores history-owned state and clears transient int
   const history = await loadHistory();
   const state = baseState();
   const snapshot = {
-    measurements: [{ id: 9, page: 2, points: [{ x: 2, y: 2 }] }],
+    measurements: [{
+      id: 9,
+      page: 2,
+      points: [{ x: 2, y: 2 }],
+      shape: {
+        active: 'freehand',
+        previousLine: {
+          points: [{ x: 1, y: 1 }, { x: 3, y: 3 }],
+        },
+      },
+    }],
     pageScales: { 2: 5 },
     selectedId: 9,
     copiedMeasurement: null,
@@ -90,8 +123,10 @@ test('applyHistorySnapshot restores history-owned state and clears transient int
   };
 
   history.applyHistorySnapshot(state, snapshot, 2);
+  snapshot.measurements[0].shape.previousLine.points[0].x = 99;
 
   assert.equal(state.measurements[0].id, 9);
+  assert.equal(state.measurements[0].shape.previousLine.points[0].x, 1);
   assert.equal(state.pxPerInch, 5);
   assert.equal(state.selectedId, 9);
   assert.equal(state.inProgress, null);

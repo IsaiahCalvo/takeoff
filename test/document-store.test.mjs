@@ -32,17 +32,27 @@ test('createDocumentSnapshot captures persisted document state only when a docum
     activeFitMode: 'page',
     pxPerInch: 4,
     pageScales: { 2: 4 },
-    measurements: [{ id: 1 }],
+    measurements: [{
+      id: 1,
+      shape: {
+        active: 'line',
+        previousFreehand: {
+          points: [{ x: 0, y: 0 }],
+        },
+      },
+    }],
     sidebarTab: 'all',
     collapsedPageGroups: { 2: true },
     pageCache: new Map([[2, { page: 2 }]]),
   };
 
   const snapshot = store.createDocumentSnapshot(state);
+  state.measurements[0].shape.previousFreehand.points[0].x = 99;
 
   assert.equal(snapshot.id, 'doc-1');
   assert.equal(snapshot.name, 'Drawing.pdf');
   assert.deepEqual(plain(snapshot.pageScales), { 2: 4 });
+  assert.equal(snapshot.measurements[0].shape.previousFreehand.points[0].x, 0);
   assert.equal(snapshot.pageCache.get(2).page, 2);
   assert.equal(store.createDocumentSnapshot({ activeDocId: 'doc-2', pdf: null, imageBitmap: null }), null);
 });

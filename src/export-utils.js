@@ -12,6 +12,16 @@
     return name || fallback;
   }
 
+  function measurementType(measurement) {
+    const value = measurement?.shape?.active
+      || measurement?.shape?.kind
+      || measurement?.drawType
+      || measurement?.type
+      || 'line';
+    const normalized = String(value).toLowerCase();
+    return normalized === 'freehand' ? 'freehand' : 'line';
+  }
+
   function buildExportRows(measurements, options = {}) {
     const unit = options.unit || 'ft';
     const unitLabel = UNIT_LABEL[unit] || unit;
@@ -23,7 +33,7 @@
         return {
           page: measurement.page || 1,
           name: cleanName(measurement.name, `Run ${index + 1}`),
-          type: String(measurement.type || 'line').toLowerCase(),
+          type: measurementType(measurement),
           length: scaled ? Number(inchesToUnit(measurement.lengthInches, unit).toFixed(2)) : null,
           unit: unitLabel,
           scaled: scaled ? 'Y' : 'N',

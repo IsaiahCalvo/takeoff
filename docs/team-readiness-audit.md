@@ -6,13 +6,13 @@ Date: 2026-05-29
 
 This audit answers one question: can multiple engineers or agents work on Takeoff without colliding in the same files?
 
-Current answer: much safer than the original codebase. `index.html` is now a small shell, app code is loaded from `src/main.js`, and most domain rules live in tested `src/app/*.js` modules. The remaining concentration is `src/main.js`, but it is now mostly runtime wiring instead of owning every rule directly.
+Current answer: much safer than the original codebase. `index.html` is now a small shell, app code is loaded from `src/main.js`, and most domain rules live in tested `src/app/*.js` modules. The remaining concentration is `src/main.js`, but it is now mostly runtime wiring instead of owning every rule directly. A follow-up Linear audit found the next feature cluster is Line/Freehand mode switching and reversible conversion, so this pass added measurement shape metadata before that work starts.
 
 ## Current Snapshot
 
 - `index.html`: 264 lines. It is markup-only app shell plus one module entrypoint.
 - `src/main.js`: 2,386 lines after this pass. It still wires PDF rendering, broad pointer input, sidebar list DOM, and redraw orchestration, but pointer drag rules, sidebar chrome rules, calibration modal chrome, and export/menu chrome now live in controllers.
-- Tests: 130 `node:test` checks pass.
+- Tests: 134 `node:test` checks pass.
 - Build: Vite builds the GitHub Pages bundle with relative asset paths.
 
 ## Healthy Modules
@@ -20,8 +20,8 @@ Current answer: much safer than the original codebase. `index.html` is now a sma
 These areas now have a real module seam and matching test coverage:
 
 - Geometry: `src/app/geometry.js`, `test/geometry.test.mjs`
-- Measurement model: `src/app/measurements.js`, `test/measurements.test.mjs`
-- Measurement commands: `src/app/measurement-commands.js`, `test/measurement-commands.test.mjs`
+- Measurement model and Line/Freehand shape metadata: `src/app/measurements.js`, `test/measurements.test.mjs`
+- Measurement commands, including shape preservation through create/copy/paste: `src/app/measurement-commands.js`, `test/measurement-commands.test.mjs`
 - Measurement workflows: `src/app/measurement-workflows.js`, `test/measurement-workflows.test.mjs`
 - Calibration rules: `src/calibration-utils.js`, `src/app/calibration-workflow.js`, matching tests
 - State store: `src/app/state.js`, `test/state.test.mjs`
@@ -37,6 +37,15 @@ These areas now have a real module seam and matching test coverage:
 - Tooltip controller: `src/app/tooltip-controller.js`, `test/tooltip-controller.test.mjs`
 - Export helpers: `src/export-utils.js`, `test/export-utils.test.mjs`
 - Source growth guard: `test/deployment-paths.test.mjs`
+
+## Linear Prep From This Pass
+
+- KAL-116 through KAL-124 describe Line/Freehand mode switching, reversible conversion, context-menu actions, and QA. The model now has explicit shape helpers so that work can extend `shape` metadata instead of inspecting raw segments everywhere.
+- New Line/Freehand measurements now get explicit shape metadata. Legacy measurements still infer shape from `drawType` or existing curve segments.
+- Clipboard, paste, undo/redo, document snapshots, and document restore now deep-copy shape metadata so reversible conversion geometry will not be shared by accident.
+- CSV/XLSX export now reads shape metadata and `drawType`, so Freehand measurements no longer export as Line by default.
+- KAL-106 and KAL-109 cover same-scale continuous scroll. KAL-109 is already in review, so this pass did not duplicate that helper; future page-scale work should land through calibration/state-store helpers.
+- KAL-98 and KAL-100 through KAL-102 cover Path Templates, grouping, and visibility. The next preparatory seam there should be a Path/Template model module before any right-panel grouping changes.
 
 ## Remaining Collision Risks
 

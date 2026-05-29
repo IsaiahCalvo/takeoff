@@ -46,6 +46,53 @@ test('curve measurements expose display points and anchors', async () => {
   assert.equal(measurements.measurementDisplayPoints(measurement).length, 19);
 });
 
+test('measurement shape helpers prefer explicit metadata and infer legacy shape', async () => {
+  const measurements = await loadMeasurements();
+  const curveMeasurement = {
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 10, y: 0 },
+      c2: { x: 10, y: 10 },
+      to: { x: 20, y: 10 },
+    }],
+  };
+
+  assert.equal(measurements.measurementShapeKind({ shape: { active: 'freehand' }, points: [] }), 'freehand');
+  assert.equal(measurements.measurementShapeKind({ shape: { active: 'line' }, segments: curveMeasurement.segments }), 'line');
+  assert.equal(measurements.measurementShapeKind({ drawType: 'freehand', points: [] }), 'freehand');
+  assert.equal(measurements.measurementShapeKind({ drawType: 'line', points: [] }), 'line');
+  assert.equal(measurements.measurementShapeKind(curveMeasurement), 'freehand');
+  assert.equal(measurements.measurementShapeKind({ points: [] }), 'line');
+  assert.equal(measurements.isFreehandMeasurement(curveMeasurement), true);
+  assert.equal(measurements.isLineMeasurement({ points: [] }), true);
+});
+
+test('cloneShapeMetadata deep-copies reversible geometry metadata', async () => {
+  const measurements = await loadMeasurements();
+  const shape = {
+    active: 'line',
+    previousFreehand: {
+      points: [{ x: 1, y: 2 }],
+      segments: [{
+        type: 'cubic',
+        from: { x: 0, y: 0 },
+        c1: { x: 4, y: 0 },
+        c2: { x: 6, y: 10 },
+        to: { x: 10, y: 10 },
+      }],
+    },
+  };
+
+  const cloned = measurements.cloneShapeMetadata(shape);
+  shape.previousFreehand.points[0].x = 99;
+  shape.previousFreehand.segments[0].c1.x = 99;
+
+  assert.equal(cloned.active, 'line');
+  assert.equal(cloned.previousFreehand.points[0].x, 1);
+  assert.equal(cloned.previousFreehand.segments[0].c1.x, 4);
+});
+
 test('buildFreehandSegments filters redundant points and creates cubic segments', async () => {
   const measurements = await loadMeasurements();
   const segments = measurements.buildFreehandSegments([

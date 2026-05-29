@@ -69,6 +69,7 @@ test('image upload to measured line flow keeps canvas and measurement state cons
   assert.equal(drawCanvasConfigured, 1);
   assert.deepEqual(drawCalls, [[image, 0, 0]]);
   assert.equal(measurement.drawType, 'line');
+  assert.equal(measurement.shape.active, 'line');
   assert.equal(measurement.page, 1);
   assert.equal(measurement.lengthPx, 50);
   assert.equal(measurement.lengthInches, 5);

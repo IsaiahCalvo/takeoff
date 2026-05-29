@@ -34,9 +34,31 @@ test('createLineMeasurement builds a scaled run and clones points', async () => 
   assert.equal(measurement.name, 'Run 1');
   assert.equal(measurement.color, 'lime');
   assert.equal(measurement.drawType, 'line');
+  assert.equal(measurement.shape.active, 'line');
   assert.equal(measurement.lengthPx, 5);
   assert.equal(measurement.lengthInches, 2.5);
   assert.equal(measurement.page, 2);
+});
+
+test('createFreehandMeasurement builds explicit freehand shape metadata', async () => {
+  const commands = await loadCommands();
+  const measurement = commands.createFreehandMeasurement({
+    id: 20,
+    rawPoints: [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 40, y: 20 },
+      { x: 60, y: 20 },
+    ],
+    existingMeasurements: [],
+    palette: ['cyan'],
+    page: 1,
+    pxPerInch: 10,
+  });
+
+  assert.equal(measurement.drawType, 'freehand');
+  assert.equal(measurement.shape.active, 'freehand');
+  assert.ok(measurement.segments.length > 0);
 });
 
 test('cloneMeasurementForClipboard deep-copies geometry and stores source scale metadata', async () => {
@@ -53,6 +75,12 @@ test('cloneMeasurementForClipboard deep-copies geometry and stores source scale 
       c2: { x: 7, y: 3 },
       to: { x: 10, y: 0 },
     }],
+    shape: {
+      active: 'freehand',
+      previousLine: {
+        points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      },
+    },
     lengthInches: 12,
     lengthPx: 120,
   };
@@ -60,6 +88,7 @@ test('cloneMeasurementForClipboard deep-copies geometry and stores source scale 
   const clipboard = commands.cloneMeasurementForClipboard(selected, { 3: 10 });
   selected.points[0].x = 99;
   selected.segments[0].c1.x = 99;
+  selected.shape.previousLine.points[0].x = 99;
 
   assert.equal(clipboard.sourcePage, 3);
   assert.equal(clipboard.sourceScale, 10);
@@ -67,6 +96,8 @@ test('cloneMeasurementForClipboard deep-copies geometry and stores source scale 
   assert.equal(clipboard.sourceLengthPx, 120);
   assert.equal(clipboard.points[0].x, 0);
   assert.equal(clipboard.segments[0].c1.x, 3);
+  assert.equal(clipboard.shape.active, 'freehand');
+  assert.equal(clipboard.shape.previousLine.points[0].x, 0);
 });
 
 test('createPastedMeasurement can preserve real length across page scales', async () => {
@@ -82,6 +113,12 @@ test('createPastedMeasurement can preserve real length across page scales', asyn
     sourceScale: 1,
     sourceLengthInches: 10,
     sourceLengthPx: 10,
+    shape: {
+      active: 'line',
+      previousFreehand: {
+        points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      },
+    },
   };
 
   const pasted = commands.createPastedMeasurement({
@@ -102,6 +139,9 @@ test('createPastedMeasurement can preserve real length across page scales', asyn
   assert.equal(pasted.lengthPx, 20);
   assert.equal(pasted.lengthInches, 10);
   assert.deepEqual(JSON.parse(JSON.stringify(pasted.points)), [{ x: 90, y: 100 }, { x: 110, y: 100 }]);
+  assert.equal(pasted.shape.active, 'line');
+  assert.equal(pasted.shape.previousFreehand.points[0].x, 0);
+  assert.notEqual(pasted.shape.previousFreehand, source.shape.previousFreehand);
 });
 
 test('shouldAskPasteMode asks only when scale differs across pages', async () => {
