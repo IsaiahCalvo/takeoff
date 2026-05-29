@@ -18,6 +18,7 @@ test('run summary text is owned by the dynamic counter', async () => {
 
 test('single-page documents replace scope tabs with a Runs title', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const hiddenRule = html.match(/\.tabs\[hidden\],\s*\.single-scope-title\[hidden\]\s*\{[^}]+\}/)?.[0] || '';
   const scopeTitleRule = html.match(/\.single-scope-title\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(html, /<div id="singleScopeTitle" class="single-scope-title" hidden>Runs<\/div>/);
@@ -28,6 +29,7 @@ test('single-page documents replace scope tabs with a Runs title', async () => {
   assert.match(html, /singleScopeTitle\.hidden = model\.showScopeTabs;/);
   assert.match(html, /singleScopeTitle\.textContent = model\.scopeTitle;/);
   assert.match(html, /totalHeading'\)\.textContent = model\.totalHeadingText;/);
+  assert.match(hiddenRule, /display:\s*none !important/);
   assert.match(scopeTitleRule, /min-height:\s*34px/);
   assert.match(scopeTitleRule, /text-transform:\s*uppercase/);
 });
