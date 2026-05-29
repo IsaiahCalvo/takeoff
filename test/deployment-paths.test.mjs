@@ -97,6 +97,14 @@ test('measure mode menu uses Line and Freehand product wording', async () => {
   assert.doesNotMatch(html, /Free hand|Bezier|Bézier|spline|polyline/);
 });
 
+test('freehand completion keeps the app in measure mode', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const finishFreehand = main.match(/function finishFreehandMeasurement\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+
+  assert.match(finishFreehand, /function finishFreehandMeasurement/);
+  assert.doesNotMatch(finishFreehand, /setMode\('selection'\)/);
+});
+
 test('single-page documents remove scope chrome entirely', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';
