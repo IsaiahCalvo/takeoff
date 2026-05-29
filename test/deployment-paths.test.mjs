@@ -75,6 +75,20 @@ test('run summary text is owned by the dynamic counter', async () => {
   assert.doesNotMatch(html, /<span id="runCount">[^<]*<\/span>\s+runs/);
 });
 
+test('calibration apply scope uses one compact combo row', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+
+  assert.match(html, /id="calibScopeCombo"/);
+  assert.match(html, /id="calibScopeMenu"[^>]+aria-expanded="false"/);
+  assert.match(html, />Apply to the current page<\/button>/);
+  assert.match(html, />Apply to all pages<\/button>/);
+  assert.match(html, />Apply to a selected group of pages<\/button>/);
+  assert.doesNotMatch(html, /id="calibRangeField"/);
+  assert.match(styles, /\.calib-scope-combo\.custom input\[type=text\]\.calib-scope-range\s*\{\s*display:\s*block;/);
+  assert.match(styles, /\.calib-scope-menu::before/);
+});
+
 test('single-page documents remove scope chrome entirely', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';

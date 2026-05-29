@@ -5,12 +5,17 @@
       unit,
       scope: 'this',
       range: '',
-      rangeDisplay: 'none',
     };
   }
 
-  function rangeDisplayForScope(scope) {
-    return scope === 'custom' ? 'flex' : 'none';
+  function scopeLabel(scope) {
+    if (scope === 'all') return 'Apply to all pages';
+    if (scope === 'custom') return 'Apply to a selected group of pages';
+    return 'Apply to the current page';
+  }
+
+  function sanitizePageRangeInput(input) {
+    return String(input || '').replace(/[^0-9,\-\s]/g, '');
   }
 
   function sanitizeCalibrationValueInput(input) {
@@ -47,7 +52,8 @@
 
   window.TakeoffCalibrationWorkflow = {
     initialModalState,
-    rangeDisplayForScope,
+    scopeLabel,
+    sanitizePageRangeInput,
     sanitizeCalibrationValueInput,
     calibrationValueNumber,
     isPositiveCalibrationValue,

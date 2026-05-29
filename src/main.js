@@ -1804,11 +1804,15 @@ function openCalibModal() {
     valueInput: $('calibValue'),
     okButton: $('calibOk'),
     unitSelect: $('calibUnit'),
-    scopeSelect: $('calibScope'),
+    scopeInput: $('calibScope'),
+    scopeCombo: $('calibScopeCombo'),
+    scopeDisplay: $('calibScopeDisplay'),
+    scopeOptions: $('calibScopeOptions'),
+    menuButton: $('calibScopeMenu'),
     rangeInput: $('calibRange'),
-    rangeField: $('calibRangeField'),
     modalState,
     isPositiveCalibrationValue: calibrationWorkflow.isPositiveCalibrationValue,
+    labelForScope: calibrationWorkflow.scopeLabel,
   });
   setTimeout(() => $('calibValue').focus(), 50);
 }
@@ -1818,14 +1822,16 @@ function closeCalibModal() {
   pendingCalibration = null;
   redraw();
 }
-$('calibScope').addEventListener('change', (e) => {
-  calibrationController.applyScopeRangeState({
-    scope: e.target.value,
-    rangeField: $('calibRangeField'),
-    rangeInput: $('calibRange'),
-    rangeDisplayForScope: calibrationWorkflow.rangeDisplayForScope,
-    focusLater: input => setTimeout(() => input.focus(), 30),
-  });
+calibrationController.bindScopeCombo({
+  root: document,
+  scopeInput: $('calibScope'),
+  scopeCombo: $('calibScopeCombo'),
+  scopeDisplay: $('calibScopeDisplay'),
+  scopeOptions: $('calibScopeOptions'),
+  menuButton: $('calibScopeMenu'),
+  rangeInput: $('calibRange'),
+  labelForScope: calibrationWorkflow.scopeLabel,
+  focusLater: input => setTimeout(() => input.focus(), 30),
 });
 $('calibCancel').addEventListener('click', closeCalibModal);
 $('calibOk').addEventListener('click', () => {
@@ -1888,6 +1894,11 @@ $('calibValue').addEventListener('input', () => {
 });
 $('calibValue').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !$('calibOk').disabled) $('calibOk').click();
+});
+calibrationController.bindPageRangeInput({
+  rangeInput: $('calibRange'),
+  okButton: $('calibOk'),
+  sanitizePageRangeInput: calibrationWorkflow.sanitizePageRangeInput,
 });
 
 function updateCalibValueValidity() {
