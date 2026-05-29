@@ -89,6 +89,14 @@ test('calibration apply scope uses one compact combo row', async () => {
   assert.match(styles, /\.calib-scope-menu::before/);
 });
 
+test('measure mode menu uses Line and Freehand product wording', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+
+  assert.match(html, />Line<\/button>/);
+  assert.match(html, />Freehand<\/button>/);
+  assert.doesNotMatch(html, /Free hand|Bezier|Bézier|spline|polyline/);
+});
+
 test('single-page documents remove scope chrome entirely', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';

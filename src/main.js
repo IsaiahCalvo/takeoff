@@ -1012,7 +1012,13 @@ stage.addEventListener('mousedown', (e) => {
       redraw(getEffectiveCursor());
       return;
     }
-    if (state.drawMode === 'freehand') {
+    const activeDrawMode = measurementWorkflows.resolveActiveMeasureDrawMode({
+      rememberedDrawMode: state.drawMode,
+      shiftKey: e.shiftKey,
+      inProgress: state.inProgress,
+      freehandDraft: state.freehandDraft,
+    });
+    if (activeDrawMode === 'freehand') {
       if (state.freehandDraft) {
         const raw = state.freehandDraft.rawPoints;
         const last = raw[raw.length - 1];
@@ -1895,11 +1901,7 @@ $('calibValue').addEventListener('input', () => {
 $('calibValue').addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !$('calibOk').disabled) $('calibOk').click();
 });
-calibrationController.bindPageRangeInput({
-  rangeInput: $('calibRange'),
-  okButton: $('calibOk'),
-  sanitizePageRangeInput: calibrationWorkflow.sanitizePageRangeInput,
-});
+calibrationController.bindPageRangeInput({ rangeInput: $('calibRange'), okButton: $('calibOk'), sanitizePageRangeInput: calibrationWorkflow.sanitizePageRangeInput });
 
 function updateCalibValueValidity() {
   $('calibOk').disabled = !calibrationWorkflow.isPositiveCalibrationValue($('calibValue').value);

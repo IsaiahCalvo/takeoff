@@ -75,3 +75,43 @@ test('recomputeMeasurementLength keeps scaled and unscaled length updates consis
   assert.equal(measurement.lengthPx, 10);
   assert.equal(measurement.lengthInches, null);
 });
+
+test('measure start draw mode flips only when shift starts the run', async () => {
+  const workflows = await loadMeasurementWorkflows();
+
+  assert.equal(workflows.resolveMeasureStartDrawMode({
+    rememberedDrawMode: 'freehand',
+    shiftKey: true,
+  }), 'line');
+  assert.equal(workflows.resolveMeasureStartDrawMode({
+    rememberedDrawMode: 'line',
+    shiftKey: true,
+  }), 'freehand');
+  assert.equal(workflows.resolveMeasureStartDrawMode({
+    rememberedDrawMode: 'freehand',
+    shiftKey: false,
+  }), 'freehand');
+  assert.equal(workflows.resolveMeasureStartDrawMode({
+    rememberedDrawMode: 'line',
+    shiftKey: false,
+  }), 'line');
+});
+
+test('active measure draw mode stays locked after shift changes mid-run', async () => {
+  const workflows = await loadMeasurementWorkflows();
+
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'freehand',
+    shiftKey: false,
+    inProgress: { type: 'measure', points: [{ x: 0, y: 0 }] },
+  }), 'line');
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'line',
+    shiftKey: false,
+    freehandDraft: { rawPoints: [{ x: 0, y: 0 }] },
+  }), 'freehand');
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'line',
+    shiftKey: true,
+  }), 'freehand');
+});
