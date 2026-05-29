@@ -9,3 +9,9 @@ test('index uses relative local asset paths for GitHub Pages subpath deploys', a
 
   assert.deepEqual(rootRelativeRefs, []);
 });
+
+test('run summary text is owned by the dynamic counter', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+
+  assert.doesNotMatch(html, /<span id="runCount">[^<]*<\/span>\s+runs/);
+});
