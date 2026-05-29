@@ -16,6 +16,22 @@ test('run summary text is owned by the dynamic counter', async () => {
   assert.doesNotMatch(html, /<span id="runCount">[^<]*<\/span>\s+runs/);
 });
 
+test('single-page documents replace scope tabs with a Runs title', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const scopeTitleRule = html.match(/\.single-scope-title\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(html, /<div id="singleScopeTitle" class="single-scope-title" hidden>Runs<\/div>/);
+  assert.match(html, /<div id="scopeTabs" class="tabs">/);
+  assert.match(html, /function documentPageCount\(\)/);
+  assert.match(html, /function updateSidebarScopeChrome\(model\)/);
+  assert.match(html, /scopeTabs\.hidden = !model\.showScopeTabs;/);
+  assert.match(html, /singleScopeTitle\.hidden = model\.showScopeTabs;/);
+  assert.match(html, /singleScopeTitle\.textContent = model\.scopeTitle;/);
+  assert.match(html, /totalHeading'\)\.textContent = model\.totalHeadingText;/);
+  assert.match(scopeTitleRule, /min-height:\s*34px/);
+  assert.match(scopeTitleRule, /text-transform:\s*uppercase/);
+});
+
 test('all-pages collapse toggle uses the left-rail svg chevron style', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const collapseToggleRule = html.match(/\.page-group \.collapse-toggle\s*\{[^}]+\}/)?.[0] || '';
@@ -73,18 +89,28 @@ test('all-pages page group keeps page controls left and scale/info/go right', as
 test('all-pages page group nests full-width child runs under each page', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const childrenRule = html.match(/\.page-group \.page-children\s*\{[^}]+\}/)?.[0] || '';
+  const childrenInnerRule = html.match(/\.page-group \.page-children-inner\s*\{[^}]+\}/)?.[0] || '';
+  const collapsedChildrenRule = html.match(/\.page-group\.collapsed \.page-children\s*\{[^}]+\}/)?.[0] || '';
   const childItemRule = html.match(/\.page-group \.meas-item\s*\{[^}]+\}/)?.[0] || '';
   const childRowRule = html.match(/\.page-group \.meas-item \.row\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(html, /groupEl\.className = `page-group \$\{group\.collapsed \? 'collapsed' : 'open'\}`;/);
   assert.match(html, /header\.className = 'page-header';/);
   assert.match(html, /children\.className = 'page-children';/);
+  assert.match(html, /childrenInner\.className = 'page-children-inner';/);
   assert.match(html, /groupEl\.appendChild\(header\);/);
-  assert.match(html, /children\.appendChild\(buildMeasItem\(m\)\);/);
+  assert.match(html, /childrenInner\.appendChild\(buildMeasItem\(m\)\);/);
+  assert.match(html, /children\.appendChild\(childrenInner\);/);
   assert.match(html, /groupEl\.appendChild\(children\);/);
   assert.match(childrenRule, /display:\s*grid/);
-  assert.match(childrenRule, /gap:\s*3px/);
+  assert.match(childrenRule, /grid-template-rows:\s*1fr/);
   assert.match(childrenRule, /padding:\s*4px/);
+  assert.match(childrenRule, /transition:\s*grid-template-rows/);
+  assert.match(collapsedChildrenRule, /grid-template-rows:\s*0fr/);
+  assert.doesNotMatch(collapsedChildrenRule, /display:\s*none/);
+  assert.match(childrenInnerRule, /min-height:\s*0/);
+  assert.match(childrenInnerRule, /overflow:\s*hidden/);
+  assert.match(childrenInnerRule, /gap:\s*3px/);
   assert.match(childItemRule, /width:\s*100%/);
   assert.match(childItemRule, /min-height:\s*31px/);
   assert.match(childItemRule, /padding:\s*3px 5px/);

@@ -41,6 +41,26 @@ test('buildSidebarModel summarizes the current page tab', async () => {
   assert.equal(model.totalUnitText, 'ft');
 });
 
+test('buildSidebarModel simplifies single-page documents to a Runs scope', async () => {
+  const sidebar = await loadSidebar();
+  const model = sidebar.buildSidebarModel({
+    measurements: measurements.filter(measurement => measurement.page === 1),
+    currentPage: 1,
+    sidebarTab: 'all',
+    pageScales: { 1: 10 },
+    collapsedPageGroups: {},
+    pageCount: 1,
+    unit: 'ft',
+  });
+
+  assert.equal(model.effectiveSidebarTab, 'page');
+  assert.equal(model.showScopeTabs, false);
+  assert.equal(model.scopeTitle, 'Runs');
+  assert.equal(model.totalHeadingText, 'Total');
+  assert.deepEqual(plain(model.pageGroups), []);
+  assert.deepEqual(plain(model.measurementsForTab.map(measurement => measurement.id)), [1, 2]);
+});
+
 test('buildSidebarModel groups all measurements by page with page totals', async () => {
   const sidebar = await loadSidebar();
   const model = sidebar.buildSidebarModel({
@@ -49,14 +69,20 @@ test('buildSidebarModel groups all measurements by page with page totals', async
     sidebarTab: 'all',
     pageScales: { 1: 10 },
     collapsedPageGroups: {},
+    pageCount: 2,
     unit: 'ft',
   });
 
   assert.equal(model.totalLenText, '15.00');
   assert.equal(model.runCountText, '3 runs · 1 unscaled excluded');
+  assert.equal(model.effectiveSidebarTab, 'all');
+  assert.equal(model.showScopeTabs, true);
+  assert.equal(model.scopeTitle, '');
+  assert.equal(model.totalHeadingText, 'Grand Total');
   assert.deepEqual(plain(model.pageGroups.map(group => ({
     page: group.page,
     ids: group.measurements.map(measurement => measurement.id),
+    collapsed: group.collapsed,
     hasScale: group.hasScale,
     pageTotalText: group.pageTotalText,
     excludedText: group.excludedText,
@@ -64,6 +90,7 @@ test('buildSidebarModel groups all measurements by page with page totals', async
     {
       page: 1,
       ids: [1, 2],
+      collapsed: true,
       hasScale: true,
       pageTotalText: '10.00 ft',
       excludedText: ' · 1 unscaled excluded',
@@ -71,6 +98,7 @@ test('buildSidebarModel groups all measurements by page with page totals', async
     {
       page: 2,
       ids: [3],
+      collapsed: true,
       hasScale: false,
       pageTotalText: '5.00 ft',
       excludedText: '',
@@ -85,15 +113,16 @@ test('buildSidebarModel marks collapsed all-page groups without dropping totals'
     currentPage: 1,
     sidebarTab: 'all',
     pageScales: { 1: 10 },
-    collapsedPageGroups: { 1: true },
+    collapsedPageGroups: { 1: false },
+    pageCount: 2,
     unit: 'ft',
   });
 
   assert.equal(model.pageGroups[0].page, 1);
-  assert.equal(model.pageGroups[0].collapsed, true);
+  assert.equal(model.pageGroups[0].collapsed, false);
   assert.equal(model.pageGroups[0].measurementCount, 2);
   assert.equal(model.pageGroups[0].pageTotalText, '10.00 ft');
-  assert.equal(model.pageGroups[1].collapsed, false);
+  assert.equal(model.pageGroups[1].collapsed, true);
 });
 
 test('shouldSelectMeasurementFromSidebarClick allows readonly title clicks to select rows', async () => {

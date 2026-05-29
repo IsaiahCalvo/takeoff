@@ -928,6 +928,19 @@
   }
   .tab:hover { color: var(--text); background: transparent; }
   .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: transparent; }
+  .single-scope-title {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+  }
 
   .page-group {
     margin: 0 0 6px;
@@ -1107,10 +1120,24 @@
   .page-group .no-scale { color: var(--calib); }
   .page-group .page-children {
     display: grid;
-    gap: 3px;
+    grid-template-rows: 1fr;
     padding: 4px;
+    opacity: 1;
+    transition: grid-template-rows .2s cubic-bezier(.87,0,.13,1), opacity .16s ease, padding .2s cubic-bezier(.87,0,.13,1);
   }
-  .page-group.collapsed .page-children { display: none; }
+  .page-group.collapsed .page-children {
+    grid-template-rows: 0fr;
+    padding-top: 0;
+    padding-bottom: 0;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .page-group .page-children-inner {
+    min-height: 0;
+    overflow: hidden;
+    display: grid;
+    gap: 3px;
+  }
   .page-group .meas-item {
     width: 100%;
     min-height: 31px;
@@ -1533,7 +1560,8 @@
     <div class="sub"><span id="runCount">0 runs</span></div>
   </div>
 
-  <div class="tabs">
+  <div id="singleScopeTitle" class="single-scope-title" hidden>Runs</div>
+  <div id="scopeTabs" class="tabs">
     <button class="tab active" data-tab="page">This Page</button>
     <button class="tab" data-tab="all">All Pages</button>
   </div>
@@ -1651,6 +1679,17 @@ const {
 
 function currentPage() { return state.pdf ? state.pdfPage : 1; }
 function totalPages() { return state.pdf ? state.pdfPages : 1; }
+function documentPageCount() { return state.pdf ? state.pdfPages : (state.baseW ? 1 : 0); }
+
+function updateSidebarScopeChrome(model) {
+  const scopeTabs = $('scopeTabs');
+  const singleScopeTitle = $('singleScopeTitle');
+  scopeTabs.hidden = !model.showScopeTabs;
+  singleScopeTitle.hidden = model.showScopeTabs;
+  singleScopeTitle.textContent = model.scopeTitle;
+  $('totalHeading').textContent = model.totalHeadingText;
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === model.effectiveSidebarTab));
+}
 
 function scaleHudText() {
   return state.pxPerInch
@@ -3569,9 +3608,8 @@ $('resetScale').addEventListener('click', () => {
 // Sidebar tab switching
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b === btn));
     state.sidebarTab = btn.dataset.tab;
-    $('totalHeading').textContent = state.sidebarTab === 'page' ? 'This Page Total' : 'Grand Total';
+    if (state.sidebarTab === 'all') state.collapsedPageGroups = {};
     renderList();
   });
 });
@@ -3953,16 +3991,19 @@ function renderList() {
     sidebarTab: state.sidebarTab,
     pageScales: state.pageScales,
     collapsedPageGroups: state.collapsedPageGroups,
+    pageCount: documentPageCount(),
     unit: state.unit,
   });
+  updateSidebarScopeChrome(model);
 
-  if (state.sidebarTab === 'page') {
+  if (model.effectiveSidebarTab === 'page') {
     for (const m of model.measurementsForTab) measList.appendChild(buildMeasItem(m));
   } else {
     for (const group of model.pageGroups) {
       const groupEl = document.createElement('div');
       const header = document.createElement('div');
       const children = document.createElement('div');
+      const childrenInner = document.createElement('div');
       const scaleText = group.hasScale ? group.pageTotalText : 'No scale';
       const excludedText = group.excludedText.replace(/^ · /, '');
       const excludedTitle = excludedText ? `${excludedText} on page ${group.page}` : '';
@@ -3973,6 +4014,7 @@ function renderList() {
       header.setAttribute('tabindex', '0');
       header.setAttribute('aria-expanded', group.collapsed ? 'false' : 'true');
       children.className = 'page-children';
+      childrenInner.className = 'page-children-inner';
       header.innerHTML = `
         <button class="collapse-toggle" type="button" aria-expanded="${group.collapsed ? 'false' : 'true'}" aria-label="${group.collapsed ? 'Expand' : 'Collapse'} page ${group.page}" title="${group.collapsed ? 'Expand' : 'Collapse'} page ${group.page}">
           <svg class="collapse-toggle-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="${group.collapsed ? 'M4.5 3 7.5 6 4.5 9' : 'M2.5 4.5 6 8l3.5-3.5'}"></path></svg>
@@ -3985,9 +4027,19 @@ function renderList() {
         </span>
       `;
       const toggleGroup = () => {
-        state.collapsedPageGroups[group.page] = !state.collapsedPageGroups[group.page];
+        const isCollapsed = groupEl.classList.contains('collapsed');
+        const nextCollapsed = !isCollapsed;
+        state.collapsedPageGroups[group.page] = nextCollapsed;
+        groupEl.classList.toggle('collapsed', nextCollapsed);
+        groupEl.classList.toggle('open', !nextCollapsed);
+        header.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
+        const toggle = header.querySelector('.collapse-toggle');
+        const iconPath = header.querySelector('.collapse-toggle-icon path');
+        toggle.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
+        toggle.setAttribute('aria-label', `${nextCollapsed ? 'Expand' : 'Collapse'} page ${group.page}`);
+        toggle.title = `${nextCollapsed ? 'Expand' : 'Collapse'} page ${group.page}`;
+        iconPath.setAttribute('d', nextCollapsed ? 'M4.5 3 7.5 6 4.5 9' : 'M2.5 4.5 6 8l3.5-3.5');
         saveActiveDocument();
-        renderList();
       };
       header.addEventListener('click', (e) => {
         if (e.target.closest('.page-actions')) return;
@@ -4019,9 +4071,8 @@ function renderList() {
         goToPage(group.page);
       });
       groupEl.appendChild(header);
-      if (!group.collapsed) {
-        for (const m of group.measurements) children.appendChild(buildMeasItem(m));
-      }
+      for (const m of group.measurements) childrenInner.appendChild(buildMeasItem(m));
+      children.appendChild(childrenInner);
       groupEl.appendChild(children);
       measList.appendChild(groupEl);
     }

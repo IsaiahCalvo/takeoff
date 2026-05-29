@@ -48,11 +48,19 @@
       : `${summary.count} runs`;
   }
 
+  function resolvePageCount(measurements, pageCount) {
+    const numericPageCount = Number(pageCount);
+    if (Number.isFinite(numericPageCount) && numericPageCount > 0) return Math.floor(numericPageCount);
+    const pages = (measurements || []).map(measurement => measurement.page || 1);
+    return Math.max(1, ...pages);
+  }
+
   function pageGroups(measurements, pageScales, unit, collapsedPageGroups = {}) {
     const byPage = new Map();
     for (const measurement of measurements || []) {
-      if (!byPage.has(measurement.page)) byPage.set(measurement.page, []);
-      byPage.get(measurement.page).push(measurement);
+      const page = measurement.page || 1;
+      if (!byPage.has(page)) byPage.set(page, []);
+      byPage.get(page).push(measurement);
     }
     return [...byPage.keys()].sort((a, b) => a - b).map(page => {
       const list = byPage.get(page);
@@ -61,7 +69,7 @@
         page,
         measurements: list,
         measurementCount: list.length,
-        collapsed: !!collapsedPageGroups[page],
+        collapsed: collapsedPageGroups[page] !== false,
         hasScale: !!(pageScales || {})[page],
         pageTotalText: pageSummary.totalDisplayAvailable
           ? `${inchesToUnit(pageSummary.totalInches, unit).toFixed(2)} ${UNIT_LABEL[unit]}`
@@ -71,11 +79,14 @@
     });
   }
 
-  function buildSidebarModel({ measurements, currentPage, sidebarTab, pageScales, collapsedPageGroups, unit }) {
+  function buildSidebarModel({ measurements, currentPage, sidebarTab, pageScales, collapsedPageGroups, pageCount, unit }) {
     const all = measurements || [];
+    const resolvedPageCount = resolvePageCount(all, pageCount);
+    const isSinglePage = resolvedPageCount <= 1;
+    const effectiveSidebarTab = isSinglePage ? 'page' : (sidebarTab === 'all' ? 'all' : 'page');
     const measurementsForTab = all.filter(measurement => measurement.page === currentPage);
     const summary = summarizeMeasurements(all, currentPage);
-    const activeSummary = sidebarTab === 'page' ? summary.page : summary.all;
+    const activeSummary = effectiveSidebarTab === 'page' ? summary.page : summary.all;
     return {
       measurementsForTab,
       pageSummary: summary.page,
@@ -84,7 +95,12 @@
       totalLenText: formatTotal(activeSummary, unit),
       runCountText: formatRunCount(activeSummary),
       totalUnitText: UNIT_LABEL[unit],
-      pageGroups: sidebarTab === 'all' ? pageGroups(all, pageScales, unit, collapsedPageGroups) : [],
+      effectiveSidebarTab,
+      isSinglePage,
+      showScopeTabs: !isSinglePage,
+      scopeTitle: isSinglePage ? 'Runs' : '',
+      totalHeadingText: isSinglePage ? 'Total' : (effectiveSidebarTab === 'page' ? 'This Page Total' : 'Grand Total'),
+      pageGroups: effectiveSidebarTab === 'all' ? pageGroups(all, pageScales, unit, collapsedPageGroups) : [],
     };
   }
 
