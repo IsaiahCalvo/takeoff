@@ -3,12 +3,13 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 async function readIndexAndSidebarView() {
-  const [html, sidebarView, styles] = await Promise.all([
+  const [html, main, sidebarView, styles] = await Promise.all([
     readFile(new URL('../index.html', import.meta.url), 'utf8'),
-    readFile(new URL('../public/app/sidebar-view.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/main.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/sidebar-view.js', import.meta.url), 'utf8'),
     readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8'),
   ]);
-  return { html, sidebarView, styles, source: `${html}\n${sidebarView}\n${styles}` };
+  return { html, main, sidebarView, styles, source: `${html}\n${main}\n${sidebarView}\n${styles}` };
 }
 
 test('index uses relative local asset paths for GitHub Pages subpath deploys', async () => {
@@ -26,6 +27,34 @@ test('index keeps app shell styles in an external stylesheet', async () => {
   assert.doesNotMatch(html, /<style>/);
 });
 
+test('index delegates app startup to one module entrypoint', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(html, /<script type="module" src="\.\/src\/main\.js"><\/script>/);
+  assert.doesNotMatch(html, /<script src="src\/app\/pointer-controller\.js"><\/script>/);
+  assert.doesNotMatch(html, /<script>\s*pdfjsLib\.GlobalWorkerOptions/);
+  assert.match(main, /import '\.\/export-utils\.js';/);
+  assert.match(main, /import '\.\/app\/pointer-controller\.js';/);
+  assert.match(main, /const pdfjsLib = window\.pdfjsLib;/);
+});
+
+test('index stays a small app shell instead of owning app logic', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const lineCount = html.trimEnd().split('\n').length;
+
+  assert.equal(lineCount < 350, true, `index.html has ${lineCount} lines`);
+  assert.doesNotMatch(html, /function loadFile\(/);
+  assert.doesNotMatch(html, /function renderList\(/);
+  assert.doesNotMatch(html, /addEventListener\('mousedown'/);
+});
+
+test('vite builds bundled assets with relative paths for GitHub Pages', async () => {
+  const config = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
+
+  assert.match(config, /base:\s*['"]\.\/['"]/);
+});
+
 test('run summary text is owned by the dynamic counter', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
@@ -33,14 +62,14 @@ test('run summary text is owned by the dynamic counter', async () => {
 });
 
 test('single-page documents remove scope chrome entirely', async () => {
-  const { html, styles } = await readIndexAndSidebarView();
+  const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(html, /<div id="scopeTabs" class="tabs">/);
-  assert.match(html, /function documentPageCount\(\)/);
-  assert.match(html, /function updateSidebarScopeChrome\(model\)/);
-  assert.match(html, /scopeTabs\.hidden = !model\.showScopeTabs;/);
-  assert.match(html, /totalHeading'\)\.textContent = model\.totalHeadingText;/);
+  assert.match(source, /function documentPageCount\(\)/);
+  assert.match(source, /function updateSidebarScopeChrome\(model\)/);
+  assert.match(source, /scopeTabs\.hidden = !model\.showScopeTabs;/);
+  assert.match(source, /totalHeading'\)\.textContent = model\.totalHeadingText;/);
   assert.match(hiddenRule, /display:\s*none !important/);
   assert.doesNotMatch(html, /singleScopeTitle/);
   assert.doesNotMatch(html, /single-scope-title/);
@@ -74,7 +103,7 @@ test('all-pages page group header keeps its label left aligned', async () => {
 });
 
 test('all-pages page group keeps page controls left and scale/info/go right', async () => {
-  const { html, styles, source } = await readIndexAndSidebarView();
+  const { styles, source } = await readIndexAndSidebarView();
   const pageGroupRule = styles.match(/\.page-group\s*\{[^}]+\}/)?.[0] || '';
   const pageHeaderRule = styles.match(/\.page-group \.page-header\s*\{[^}]+\}/)?.[0] || '';
   const pageLabelRule = styles.match(/\.page-group \.page-label\s*\{[^}]+\}/)?.[0] || '';
@@ -89,7 +118,7 @@ test('all-pages page group keeps page controls left and scale/info/go right', as
   assert.match(source, /class="page-actions"/);
   assert.match(source, /class="page-status page-status-scale/);
   assert.match(source, /class="page-info"/);
-  assert.match(html, /const excludedTitle = excludedText \? `\$\{excludedText\} on page \$\{group\.page\}` : '';/);
+  assert.match(source, /const excludedTitle = excludedText \? `\$\{excludedText\} on page \$\{group\.page\}` : '';/);
   assert.match(source, /aria-label="\$\{escapeHtml\(excludedTitle\)\}"/);
   assert.match(pageLabelRule, /white-space:\s*nowrap/);
   assert.match(pageLabelRule, /font-size:\s*10px/);
@@ -104,7 +133,7 @@ test('all-pages page group keeps page controls left and scale/info/go right', as
 });
 
 test('all-pages page group nests full-width child runs under each page', async () => {
-  const { html, styles } = await readIndexAndSidebarView();
+  const { styles, source } = await readIndexAndSidebarView();
   const childrenRule = styles.match(/\.page-group \.page-children\s*\{[^}]+\}/)?.[0] || '';
   const childrenInnerRule = styles.match(/\.page-group \.page-children-inner\s*\{[^}]+\}/)?.[0] || '';
   const openChildrenInnerRule = styles.match(/\.page-group\.open \.page-children-inner\s*\{[^}]+\}/)?.[0] || '';
@@ -118,14 +147,14 @@ test('all-pages page group nests full-width child runs under each page', async (
   const deleteRule = styles.match(/\n\s*\.meas-item \.del\s*\{[^}]+\}/)?.[0] || '';
   const selectedUnscaledRule = styles.match(/\.meas-item\.selected\.unscaled\s*\{[^}]+\}/)?.[0] || '';
 
-  assert.match(html, /groupEl\.className = `page-group \$\{group\.collapsed \? 'collapsed' : 'open'\}`;/);
-  assert.match(html, /header\.className = 'page-header';/);
-  assert.match(html, /children\.className = 'page-children';/);
-  assert.match(html, /childrenInner\.className = 'page-children-inner';/);
-  assert.match(html, /groupEl\.appendChild\(header\);/);
-  assert.match(html, /childrenInner\.appendChild\(buildMeasItem\(m\)\);/);
-  assert.match(html, /children\.appendChild\(childrenInner\);/);
-  assert.match(html, /groupEl\.appendChild\(children\);/);
+  assert.match(source, /groupEl\.className = `page-group \$\{group\.collapsed \? 'collapsed' : 'open'\}`;/);
+  assert.match(source, /header\.className = 'page-header';/);
+  assert.match(source, /children\.className = 'page-children';/);
+  assert.match(source, /childrenInner\.className = 'page-children-inner';/);
+  assert.match(source, /groupEl\.appendChild\(header\);/);
+  assert.match(source, /childrenInner\.appendChild\(buildMeasItem\(m\)\);/);
+  assert.match(source, /children\.appendChild\(childrenInner\);/);
+  assert.match(source, /groupEl\.appendChild\(children\);/);
   assert.match(childrenRule, /display:\s*grid/);
   assert.match(childrenRule, /grid-template-rows:\s*1fr/);
   assert.match(childrenRule, /padding:\s*4px/);
@@ -156,7 +185,7 @@ test('all-pages page group nests full-width child runs under each page', async (
 });
 
 test('all-pages unscaled info icon opens a real tooltip on hover, focus, and click', async () => {
-  const { html, styles, source } = await readIndexAndSidebarView();
+  const { styles, source } = await readIndexAndSidebarView();
   const pageInfoRule = styles.match(/\.page-group \.page-info\s*\{[^}]+\}/)?.[0] || '';
   const tooltipRule = styles.match(/\.page-group \.page-info-tooltip\s*\{[^}]+\}/)?.[0] || '';
   const tooltipOpenRule = styles.match(/\.page-group \.page-info:is\([^}]+\}/)?.[0] || '';
@@ -166,9 +195,9 @@ test('all-pages unscaled info icon opens a real tooltip on hover, focus, and cli
   assert.match(source, /aria-describedby="\$\{escapeHtml\(tooltipId\)\}"/);
   assert.match(source, /class="page-info-tooltip"/);
   assert.match(source, /role="tooltip"/);
-  assert.match(html, /const tooltipId = `page-info-\$\{group\.page\}`;/);
-  assert.match(html, /pageInfoButton\.addEventListener\('click'/);
-  assert.match(html, /pageInfoButton\.classList\.toggle\('is-open'/);
+  assert.match(source, /const tooltipId = `page-info-\$\{group\.page\}`;/);
+  assert.match(source, /pageInfoButton\.addEventListener\('click'/);
+  assert.match(source, /pageInfoButton\.classList\.toggle\('is-open'/);
   assert.match(pageInfoRule, /position:\s*relative/);
   assert.match(tooltipRule, /position:\s*absolute/);
   assert.match(tooltipRule, /opacity:\s*0/);

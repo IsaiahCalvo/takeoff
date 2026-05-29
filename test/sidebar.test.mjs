@@ -5,8 +5,8 @@ import { readFile } from 'node:fs/promises';
 
 async function loadSidebar() {
   const [calibration, sidebar] = await Promise.all([
-    readFile(new URL('../public/calibration-utils.js', import.meta.url), 'utf8'),
-    readFile(new URL('../public/app/sidebar.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/calibration-utils.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/sidebar.js', import.meta.url), 'utf8'),
   ]);
   const sandbox = { window: {} };
   vm.createContext(sandbox);

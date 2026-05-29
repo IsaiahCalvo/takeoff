@@ -5,9 +5,9 @@ import { readFile } from 'node:fs/promises';
 
 async function loadCommands() {
   const [geometry, measurements, commands] = await Promise.all([
-    readFile(new URL('../public/app/geometry.js', import.meta.url), 'utf8'),
-    readFile(new URL('../public/app/measurements.js', import.meta.url), 'utf8'),
-    readFile(new URL('../public/app/measurement-commands.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/measurement-commands.js', import.meta.url), 'utf8'),
   ]);
   const sandbox = { window: {} };
   vm.createContext(sandbox);

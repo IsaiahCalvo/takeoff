@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadUtils() {
-  const source = await readFile(new URL('../public/calibration-utils.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../src/calibration-utils.js', import.meta.url), 'utf8');
   const sandbox = { window: {} };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox, { filename: 'calibration-utils.js' });

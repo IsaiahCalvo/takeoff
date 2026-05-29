@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadPdfPageCache() {
-  const source = await readFile(new URL('../public/app/pdf-page-cache.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../src/app/pdf-page-cache.js', import.meta.url), 'utf8');
   const sandbox = { window: {} };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox, { filename: 'pdf-page-cache.js' });

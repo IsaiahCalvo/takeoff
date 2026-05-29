@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadGeometry() {
-  const source = await readFile(new URL('../public/app/geometry.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8');
   const sandbox = { window: {} };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox, { filename: 'geometry.js' });

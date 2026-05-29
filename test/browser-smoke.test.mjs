@@ -14,15 +14,17 @@ test('served app shell and critical assets load through HTTP', async () => {
 
     assert.match(html, /Takeoff — Plan Measurement Tool/);
     assert.match(html, /href="\.\/app\/styles\.css"/);
-    assert.match(html, /src="app\/pointer-controller\.js"/);
+    assert.match(html, /src="\.\/src\/main\.js"/);
 
-    const [styles, pointerController, sidebarView] = await Promise.all([
+    const [styles, main, pointerController, sidebarView] = await Promise.all([
       fetchText(`${baseUrl}/app/styles.css`),
-      fetchText(`${baseUrl}/app/pointer-controller.js`),
-      fetchText(`${baseUrl}/app/sidebar-view.js`),
+      fetchText(`${baseUrl}/src/main.js`),
+      fetchText(`${baseUrl}/src/app/pointer-controller.js`),
+      fetchText(`${baseUrl}/src/app/sidebar-view.js`),
     ]);
 
     assert.match(styles, /body\.no-document/);
+    assert.match(main, /import "\/src\/app\/pointer-controller\.js";/);
     assert.match(pointerController, /TakeoffPointerController/);
     assert.match(sidebarView, /TakeoffSidebarView/);
   });

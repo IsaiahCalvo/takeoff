@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadInputController() {
-  const source = await readFile(new URL('../public/app/input-controller.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../src/app/input-controller.js', import.meta.url), 'utf8');
   const sandbox = { window: {} };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox, { filename: 'input-controller.js' });

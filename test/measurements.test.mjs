@@ -4,8 +4,8 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadMeasurements() {
-  const geometrySource = await readFile(new URL('../public/app/geometry.js', import.meta.url), 'utf8');
-  const measurementSource = await readFile(new URL('../public/app/measurements.js', import.meta.url), 'utf8');
+  const geometrySource = await readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8');
+  const measurementSource = await readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8');
   const sandbox = { window: {} };
   vm.createContext(sandbox);
   vm.runInContext(geometrySource, sandbox, { filename: 'geometry.js' });

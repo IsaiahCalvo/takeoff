@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadUtils() {
-  const source = await readFile(new URL('../public/export-utils.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../src/export-utils.js', import.meta.url), 'utf8');
   const sandbox = { window: {}, Blob, TextEncoder, TextDecoder };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox, { filename: 'export-utils.js' });

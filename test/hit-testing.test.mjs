@@ -5,9 +5,9 @@ import { readFile } from 'node:fs/promises';
 
 async function loadHitTesting() {
   const [geometry, measurements, hitTesting] = await Promise.all([
-    readFile(new URL('../public/app/geometry.js', import.meta.url), 'utf8'),
-    readFile(new URL('../public/app/measurements.js', import.meta.url), 'utf8'),
-    readFile(new URL('../public/app/hit-testing.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/hit-testing.js', import.meta.url), 'utf8'),
   ]);
   const sandbox = { window: {} };
   vm.createContext(sandbox);

@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadRenderer() {
-  const source = await readFile(new URL('../public/app/svg-renderer.js', import.meta.url), 'utf8');
+  const source = await readFile(new URL('../src/app/svg-renderer.js', import.meta.url), 'utf8');
   const sandbox = {
     window: {},
     document: {
