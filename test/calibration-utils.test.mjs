@@ -11,6 +11,10 @@ async function loadUtils() {
   return sandbox.window.TakeoffCalibrationUtils;
 }
 
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 test('summarizeMeasurements excludes unscaled runs from totals', async () => {
   const utils = await loadUtils();
   const summary = utils.summarizeMeasurements([
@@ -69,6 +73,102 @@ test('computePxPerInch converts a calibration line into pixels per inch', async 
   ], 10, 'ft', (a, b) => Math.hypot(a.x - b.x, a.y - b.y));
 
   assert.equal(pxPerInch, 1);
+});
+
+test('sameScalePdfEligibility rejects image uploads', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(plain(utils.sameScalePdfEligibility({
+    pdf: null,
+    pdfPages: 1,
+    pageScales: { 1: 10 },
+  })), {
+    eligible: false,
+    reason: 'not_pdf',
+    missingPages: [],
+    mismatchedPages: [],
+    canonicalScale: null,
+  });
+});
+
+test('sameScalePdfEligibility rejects single-page PDFs', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(plain(utils.sameScalePdfEligibility({
+    pdf: {},
+    pdfPages: 1,
+    pageScales: { 1: 10 },
+  })), {
+    eligible: false,
+    reason: 'single_page_pdf',
+    missingPages: [],
+    mismatchedPages: [],
+    canonicalScale: null,
+  });
+});
+
+test('sameScalePdfEligibility reports missing page calibrations', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(plain(utils.sameScalePdfEligibility({
+    pdf: {},
+    pdfPages: 4,
+    pageScales: { 1: 10, 3: Infinity },
+  })), {
+    eligible: false,
+    reason: 'missing_page_calibration',
+    missingPages: [2, 3, 4],
+    mismatchedPages: [],
+    canonicalScale: null,
+  });
+});
+
+test('sameScalePdfEligibility accepts multi-page PDFs with matching scales', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(plain(utils.sameScalePdfEligibility({
+    pdf: {},
+    pdfPages: 3,
+    pageScales: { 1: 10, 2: 10, 3: 10 },
+  })), {
+    eligible: true,
+    reason: 'eligible',
+    missingPages: [],
+    mismatchedPages: [],
+    canonicalScale: 10,
+  });
+});
+
+test('sameScalePdfEligibility reports mismatched page scales', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(plain(utils.sameScalePdfEligibility({
+    pdf: {},
+    pdfPages: 4,
+    pageScales: { 1: 10, 2: 10.02, 3: 9.98, 4: 10 },
+  })), {
+    eligible: false,
+    reason: 'mismatched_page_scale',
+    missingPages: [],
+    mismatchedPages: [2, 3],
+    canonicalScale: 10,
+  });
+});
+
+test('sameScalePdfEligibility treats tiny floating point scale differences as matching', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(plain(utils.sameScalePdfEligibility({
+    pdf: {},
+    pdfPages: 3,
+    pageScales: { 1: 1000, 2: 1000.5, 3: 999.2 },
+  })), {
+    eligible: true,
+    reason: 'eligible',
+    missingPages: [],
+    mismatchedPages: [],
+    canonicalScale: 1000,
+  });
 });
 
 test('applyScaleToPages updates page scales and recomputes page measurements', async () => {

@@ -1,6 +1,7 @@
 (function () {
   const UNIT_TO_INCH = { in: 1, ft: 12, yd: 36, cm: 0.393700787, m: 39.3700787 };
   const UNIT_LABEL = { in: 'in', ft: 'ft', yd: 'yd', cm: 'cm', m: 'm' };
+  const SAME_SCALE_RELATIVE_TOLERANCE = 0.001;
 
   function isScaled(measurement) {
     return measurement && measurement.lengthInches != null && Number.isFinite(measurement.lengthInches);
@@ -86,6 +87,62 @@
     return px / inches;
   }
 
+  function sameScaleTolerance(a, b) {
+    return Math.max(Math.abs(a), Math.abs(b), Number.EPSILON) * SAME_SCALE_RELATIVE_TOLERANCE;
+  }
+
+  function sameScalePdfEligibility(state) {
+    const docState = state || {};
+    const pageCount = Number(docState.pdfPages);
+    const pageScales = docState.pageScales || {};
+    const result = {
+      eligible: false,
+      reason: '',
+      missingPages: [],
+      mismatchedPages: [],
+      canonicalScale: null,
+    };
+
+    if (!docState.pdf) {
+      result.reason = 'not_pdf';
+      return result;
+    }
+
+    if (!Number.isInteger(pageCount) || pageCount <= 1) {
+      result.reason = 'single_page_pdf';
+      return result;
+    }
+
+    for (let page = 1; page <= pageCount; page += 1) {
+      const scale = pageScales[page];
+      if (!Number.isFinite(scale)) {
+        result.missingPages.push(page);
+      }
+    }
+
+    if (result.missingPages.length > 0) {
+      result.reason = 'missing_page_calibration';
+      return result;
+    }
+
+    result.canonicalScale = pageScales[1];
+    for (let page = 2; page <= pageCount; page += 1) {
+      const scale = pageScales[page];
+      if (Math.abs(scale - result.canonicalScale) > sameScaleTolerance(scale, result.canonicalScale)) {
+        result.mismatchedPages.push(page);
+      }
+    }
+
+    if (result.mismatchedPages.length > 0) {
+      result.reason = 'mismatched_page_scale';
+      return result;
+    }
+
+    result.eligible = true;
+    result.reason = 'eligible';
+    return result;
+  }
+
   function applyScaleToPages({ measurements, pageScales, pages, pxPerInch, measureLengthPx }) {
     for (const page of pages || []) {
       pageScales[page] = pxPerInch;
@@ -114,6 +171,7 @@
     formatScaleStatus,
     parsePageRange,
     computePxPerInch,
+    sameScalePdfEligibility,
     applyScaleToPages,
     clearPageScale,
     recomputeLengthsForPage,
