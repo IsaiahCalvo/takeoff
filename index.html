@@ -930,27 +930,41 @@
   .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: transparent; }
 
   .page-group {
-    margin: 10px 4px 6px;
-    padding: 6px 8px;
-    position: relative;
-    display: grid;
-    grid-template-columns: 18px auto minmax(12px, 1fr) auto;
-    grid-template-areas: "toggle label spacer actions";
+    margin: 0 0 6px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--muted);
+  }
+  .page-group:first-child { margin-top: 4px; }
+  .page-group.open {
+    border-color: #26343a;
+    background: rgba(255,255,255,0.018);
+  }
+  .page-group .page-header {
+    width: 100%;
+    min-height: 31px;
+    display: flex;
     align-items: center;
-    justify-items: start;
-    gap: 6px;
-    font-size: 11px;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid #26323a;
+    border-radius: 5px;
+    background: #12191c;
+    color: inherit;
     font-family: 'JetBrains Mono', monospace;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     line-height: 1;
     text-align: left;
-    color: var(--muted);
+    cursor: pointer;
   }
-  .page-group:first-child { margin-top: 4px; }
+  .page-group.open .page-header {
+    border-color: rgba(182,255,60,0.22);
+    background: #151e21;
+  }
   .page-group .collapse-toggle {
-    grid-area: toggle;
-    width: 18px;
+    width: 16px;
     height: 18px;
     min-height: 18px;
     padding: 0;
@@ -977,21 +991,20 @@
   }
   .page-group .collapse-toggle:hover { color: var(--accent); border-color: var(--line); }
   .page-group .page-label {
-    grid-area: label;
-    justify-self: start;
-    align-self: center;
     min-width: 0;
-    max-width: 100%;
+    flex: 1 1 auto;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    color: #aab6bd;
+    font-size: 10px;
   }
   .page-group .page-actions {
-    grid-area: actions;
-    justify-self: end;
+    margin-left: auto;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    justify-content: flex-end;
+    gap: 4px;
     min-width: 0;
   }
   .page-group .page-status {
@@ -999,12 +1012,13 @@
     align-items: center;
     max-width: 100%;
     min-width: 0;
-    padding: 2px 4px;
+    min-height: 14px;
+    padding: 1px 4px;
     border: 1px solid rgba(125,138,145,0.22);
-    border-radius: 4px;
+    border-radius: 3px;
     background: rgba(255,255,255,0.025);
     color: var(--muted);
-    font-size: 9px;
+    font-size: 7px;
     letter-spacing: 0.04em;
     line-height: 1;
     white-space: nowrap;
@@ -1012,9 +1026,9 @@
   .page-group .page-status-scale:not(.no-scale) { color: var(--accent); border-color: rgba(182,255,60,0.24); }
   .page-group .page-info {
     position: relative;
-    width: 18px;
-    height: 18px;
-    min-height: 18px;
+    width: 15px;
+    height: 15px;
+    min-height: 15px;
     padding: 0;
     border: 1px solid rgba(125,138,145,0.28);
     border-radius: 50%;
@@ -1028,8 +1042,8 @@
     z-index: 4;
   }
   .page-group .page-info svg {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     stroke: currentColor;
     fill: none;
     stroke-width: 1.8;
@@ -1083,13 +1097,49 @@
   .page-group .jump {
     background: transparent; border: 1px solid var(--line);
     color: var(--muted);
-    font-size: 10px; padding: 2px 8px; border-radius: 4px;
+    min-width: 28px;
+    min-height: 22px;
+    font-size: 9px; padding: 2px 6px; border-radius: 5px;
     font-family: inherit; letter-spacing: 0.08em;
     cursor: pointer;
-    justify-self: end;
   }
   .page-group .jump:hover { color: var(--accent); border-color: var(--accent); }
   .page-group .no-scale { color: var(--calib); }
+  .page-group .page-children {
+    display: grid;
+    gap: 3px;
+    padding: 4px;
+  }
+  .page-group.collapsed .page-children { display: none; }
+  .page-group .meas-item {
+    width: 100%;
+    min-height: 31px;
+    margin-bottom: 0;
+    padding: 3px 5px;
+    border-radius: 5px;
+  }
+  .page-group .meas-item .row {
+    grid-template-columns: 8px minmax(0, 1fr) auto auto auto;
+    gap: 5px;
+  }
+  .page-group .meas-item .swatch {
+    width: 8px;
+    height: 8px;
+    box-shadow: 0 0 7px currentColor;
+  }
+  .page-group .meas-item .point-count {
+    min-width: 20px;
+    min-height: 17px;
+    padding: 0 5px;
+    font-size: 9px;
+  }
+  .page-group .meas-item .len { font-size: 11px; }
+  .page-group .meas-item .len .unit { font-size: 9px; }
+  .page-group .meas-item .del {
+    width: 18px;
+    min-height: 17px;
+    font-size: 12px;
+  }
 
   .meas-list {
     flex: 1;
@@ -3910,12 +3960,19 @@ function renderList() {
     for (const m of model.measurementsForTab) measList.appendChild(buildMeasItem(m));
   } else {
     for (const group of model.pageGroups) {
+      const groupEl = document.createElement('div');
       const header = document.createElement('div');
+      const children = document.createElement('div');
       const scaleText = group.hasScale ? group.pageTotalText : 'No scale';
       const excludedText = group.excludedText.replace(/^ · /, '');
       const excludedTitle = excludedText ? `${excludedText} on page ${group.page}` : '';
       const tooltipId = `page-info-${group.page}`;
-      header.className = 'page-group';
+      groupEl.className = `page-group ${group.collapsed ? 'collapsed' : 'open'}`;
+      header.className = 'page-header';
+      header.setAttribute('role', 'button');
+      header.setAttribute('tabindex', '0');
+      header.setAttribute('aria-expanded', group.collapsed ? 'false' : 'true');
+      children.className = 'page-children';
       header.innerHTML = `
         <button class="collapse-toggle" type="button" aria-expanded="${group.collapsed ? 'false' : 'true'}" aria-label="${group.collapsed ? 'Expand' : 'Collapse'} page ${group.page}" title="${group.collapsed ? 'Expand' : 'Collapse'} page ${group.page}">
           <svg class="collapse-toggle-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="${group.collapsed ? 'M4.5 3 7.5 6 4.5 9' : 'M2.5 4.5 6 8l3.5-3.5'}"></path></svg>
@@ -3927,10 +3984,23 @@ function renderList() {
           <button class="jump" data-page="${group.page}">Go</button>
         </span>
       `;
-      header.querySelector('.collapse-toggle').addEventListener('click', () => {
+      const toggleGroup = () => {
         state.collapsedPageGroups[group.page] = !state.collapsedPageGroups[group.page];
         saveActiveDocument();
         renderList();
+      };
+      header.addEventListener('click', (e) => {
+        if (e.target.closest('.page-actions')) return;
+        toggleGroup();
+      });
+      header.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        toggleGroup();
+      });
+      header.querySelector('.collapse-toggle').addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleGroup();
       });
       const pageInfoButton = header.querySelector('.page-info');
       if (pageInfoButton) {
@@ -3944,11 +4014,16 @@ function renderList() {
           pageInfoButton.setAttribute('aria-expanded', 'false');
         });
       }
-      header.querySelector('.jump').addEventListener('click', () => goToPage(group.page));
-      measList.appendChild(header);
+      header.querySelector('.jump').addEventListener('click', (e) => {
+        e.stopPropagation();
+        goToPage(group.page);
+      });
+      groupEl.appendChild(header);
       if (!group.collapsed) {
-        for (const m of group.measurements) measList.appendChild(buildMeasItem(m));
+        for (const m of group.measurements) children.appendChild(buildMeasItem(m));
       }
+      groupEl.appendChild(children);
+      measList.appendChild(groupEl);
     }
   }
 
