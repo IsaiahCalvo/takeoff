@@ -51,3 +51,59 @@ test('formatScaleStatus makes current page calibration obvious', async () => {
     title: 'Current page is calibrated.',
   });
 });
+
+test('parsePageRange accepts lists, ranges, and clamps to document bounds', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(utils.parsePageRange('3, 1-2, 8-6, 99, nope', 8))),
+    [1, 2, 3, 6, 7, 8],
+  );
+});
+
+test('computePxPerInch converts a calibration line into pixels per inch', async () => {
+  const utils = await loadUtils();
+  const pxPerInch = utils.computePxPerInch([
+    { x: 0, y: 0 },
+    { x: 120, y: 0 },
+  ], 10, 'ft', (a, b) => Math.hypot(a.x - b.x, a.y - b.y));
+
+  assert.equal(pxPerInch, 1);
+});
+
+test('applyScaleToPages updates page scales and recomputes page measurements', async () => {
+  const utils = await loadUtils();
+  const measurements = [
+    { page: 1, lengthPx: 0 },
+    { page: 2, lengthPx: 0 },
+  ];
+  const pageScales = {};
+
+  utils.applyScaleToPages({
+    measurements,
+    pageScales,
+    pages: [1],
+    pxPerInch: 2,
+    measureLengthPx: () => 24,
+  });
+
+  assert.deepEqual(pageScales, { 1: 2 });
+  assert.equal(measurements[0].lengthPx, 24);
+  assert.equal(measurements[0].lengthInches, 12);
+  assert.equal(measurements[1].lengthPx, 0);
+});
+
+test('clearPageScale removes scale and marks page measurements unscaled', async () => {
+  const utils = await loadUtils();
+  const measurements = [
+    { page: 1, lengthInches: 12 },
+    { page: 2, lengthInches: 24 },
+  ];
+  const pageScales = { 1: 2, 2: 4 };
+
+  utils.clearPageScale({ measurements, pageScales, page: 1 });
+
+  assert.deepEqual(pageScales, { 2: 4 });
+  assert.equal(measurements[0].lengthInches, null);
+  assert.equal(measurements[1].lengthInches, 24);
+});
