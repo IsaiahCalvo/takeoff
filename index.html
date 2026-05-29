@@ -1645,6 +1645,7 @@
 <script src="app/measurement-commands.js"></script>
 <script src="app/hit-testing.js"></script>
 <script src="app/viewer.js"></script>
+<script src="app/pdf-page-cache.js"></script>
 <script src="app/input-controller.js"></script>
 <script src="app/svg-renderer.js"></script>
 <script src="app/history.js"></script>
@@ -1991,17 +1992,17 @@ function applyTransform() {
   updateRotationPill();
 }
 
-function devicePixelRatioCap() {
-  return Math.min(window.devicePixelRatio || 1, 2);
-}
-
 function desiredPdfRenderScale() {
-  if (!state.pdf) return 1;
-  let target = Math.max(state.minPdfRenderScale, state.zoom * devicePixelRatioCap());
-  if (state.baseW && state.baseH) {
-    target = Math.min(target, state.maxPdfBitmapEdge / Math.max(state.baseW, state.baseH));
-  }
-  return Math.min(target, state.maxPdfRenderScale);
+  return pdfPageCache.desiredRenderScale({
+    hasPdf: !!state.pdf,
+    zoom: state.zoom,
+    devicePixelRatio: window.devicePixelRatio || 1,
+    minRenderScale: state.minPdfRenderScale,
+    maxRenderScale: state.maxPdfRenderScale,
+    maxBitmapEdge: state.maxPdfBitmapEdge,
+    baseWidth: state.baseW,
+    baseHeight: state.baseH,
+  });
 }
 
 function configureCanvasCssSize(canvas, cssW, cssH) {
@@ -2101,6 +2102,7 @@ const {
 } = window.TakeoffMeasurements;
 const measurementCommands = window.TakeoffMeasurementCommands;
 const viewerModel = window.TakeoffViewer;
+const pdfPageCache = window.TakeoffPdfPageCache;
 const inputController = window.TakeoffInputController;
 const sidebarModel = window.TakeoffSidebar;
 
@@ -2277,29 +2279,16 @@ function resetDocState() {
 }
 
 function cacheGet(p, minRenderScale = 0) {
-  if (!state.pageCache.has(p)) return null;
-  // touch for LRU
-  const c = state.pageCache.get(p);
-  if ((c.renderScale || 1) + 0.01 < minRenderScale) return null;
-  state.pageCache.delete(p);
-  state.pageCache.set(p, c);
-  return c;
+  return pdfPageCache.getCachedPage(state.pageCache, p, minRenderScale);
 }
 function cacheHasUsable(p, minRenderScale = 0) {
-  const c = state.pageCache.get(p);
-  return !!c && (c.renderScale || 1) + 0.01 >= minRenderScale;
+  return pdfPageCache.hasUsableCachedPage(state.pageCache, p, minRenderScale);
 }
 function cacheSet(p, entry) {
-  const existing = state.pageCache.get(p);
-  if (existing && (existing.renderScale || 1) > (entry.renderScale || 1)) return;
-  state.pageCache.set(p, entry);
-  // Evict least-recently-used, but never the current page
-  while (state.pageCache.size > state.MAX_CACHE) {
-    let oldest = null;
-    for (const k of state.pageCache.keys()) { if (k !== state.pdfPage) { oldest = k; break; } }
-    if (oldest == null) break;
-    state.pageCache.delete(oldest);
-  }
+  return pdfPageCache.setCachedPage(state.pageCache, p, entry, {
+    maxEntries: state.MAX_CACHE,
+    currentPage: state.pdfPage,
+  });
 }
 
 async function renderPageToCanvas(pageNum, requestedScale = state.minPdfRenderScale) {
@@ -2360,14 +2349,12 @@ async function renderPdfPage({ fit = true, resetInteraction = true, minRenderSca
 function schedulePreRender() {
   if (!state.pdf) return;
   const targetScale = desiredPdfRenderScale();
-  const desired = [];
-  const p = state.pdfPage;
-  // Prioritize nearest neighbors, expanding outward
-  for (let off = 1; off <= state.pdfPages; off++) {
-    if (p + off <= state.pdfPages) desired.push(p + off);
-    if (p - off >= 1) desired.push(p - off);
-  }
-  state.preRenderQueue = desired.filter(n => !cacheHasUsable(n, targetScale));
+  state.preRenderQueue = pdfPageCache.planPreRenderPages({
+    currentPage: state.pdfPage,
+    pageCount: state.pdfPages,
+    cache: state.pageCache,
+    targetScale,
+  });
   runPreRender();
 }
 

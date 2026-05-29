@@ -6,7 +6,7 @@ Date: 2026-05-29
 
 This audit answers one question: can multiple engineers or agents work on Takeoff without colliding in the same files?
 
-Current answer after the first remediation pass: safer than before, but not fully team-ready yet. Core math, measurement helpers, measurement commands, calibration, history, hit-testing, keyboard input decisions, viewer zoom/fit math, sidebar summary rules, SVG drawing, and document state reset/restore work can now happen in separate modules; pointer input, document loading, and workflow wiring still risk collisions in `index.html`.
+Current answer after the first remediation pass: safer than before, but not fully team-ready yet. Core math, measurement helpers, measurement commands, calibration, history, hit-testing, keyboard input decisions, viewer zoom/fit math, PDF page cache policy, sidebar summary rules, SVG drawing, and document state reset/restore work can now happen in separate modules; pointer input, document loading, and workflow wiring still risk collisions in `index.html`.
 
 ## Executive Summary
 
@@ -16,9 +16,9 @@ Initial audit finding: that file was 4,767 lines out of 5,405 tracked source/tes
 
 Initial audit finding: the file had 190 top-level functions, 75 event listener bindings, and more than 500 direct `state.` references. Those numbers are a practical warning: there are too many ways for unrelated changes to touch the same implementation.
 
-First remediation pass: geometry, measurement, command, calibration, history, hit testing, input, viewer, sidebar, state, and SVG drawing helpers were extracted to `public/app/geometry.js`, `public/app/measurements.js`, `public/app/measurement-commands.js`, `public/calibration-utils.js`, `public/app/history.js`, `public/app/hit-testing.js`, `public/app/input-controller.js`, `public/app/viewer.js`, `public/app/sidebar.js`, `public/app/state.js`, and `public/app/svg-renderer.js`, with direct tests in matching `test/*.test.mjs` files. After the latest sidebar fixes, `index.html` is 3,831 lines with 134 top-level functions, and the direct test suite has 59 tests.
+First remediation pass: geometry, measurement, command, calibration, history, hit testing, input, viewer, PDF page cache, sidebar, state, and SVG drawing helpers were extracted to `public/app/geometry.js`, `public/app/measurements.js`, `public/app/measurement-commands.js`, `public/calibration-utils.js`, `public/app/history.js`, `public/app/hit-testing.js`, `public/app/input-controller.js`, `public/app/viewer.js`, `public/app/pdf-page-cache.js`, `public/app/sidebar.js`, `public/app/state.js`, and `public/app/svg-renderer.js`, with direct tests in matching `test/*.test.mjs` files. After the latest readiness pass, `index.html` is 4,083 lines with 128 top-level functions, 80 event listener bindings, and 441 direct `state.` references. The direct test suite has 72 tests.
 
-The healthiest modules now follow a consistent pattern: a small browser-global interface, meaningful behavior behind it, and direct `node:test` coverage. The codebase should keep moving behavior into modules like `public/app/geometry.js`, `public/app/measurements.js`, `public/app/measurement-commands.js`, `public/app/hit-testing.js`, `public/app/input-controller.js`, `public/app/viewer.js`, `public/app/svg-renderer.js`, `public/app/history.js`, `public/app/state.js`, `public/calibration-utils.js`, and `public/export-utils.js`.
+The healthiest modules now follow a consistent pattern: a small browser-global interface, meaningful behavior behind it, and direct `node:test` coverage. The codebase should keep moving behavior into modules like `public/app/geometry.js`, `public/app/measurements.js`, `public/app/measurement-commands.js`, `public/app/hit-testing.js`, `public/app/input-controller.js`, `public/app/viewer.js`, `public/app/pdf-page-cache.js`, `public/app/svg-renderer.js`, `public/app/history.js`, `public/app/state.js`, `public/calibration-utils.js`, and `public/export-utils.js`.
 
 ## Current Module Map
 
@@ -27,7 +27,7 @@ The healthiest modules now follow a consistent pattern: a small browser-global i
 | App state | `index.html`, `public/app/state.js` | Defaults, reset, and restore are separated; feature workflows still mutate one shared state object. |
 | Document snapshots/history | `index.html`, `public/app/history.js`, `public/app/state.js` | History mechanics and document restore state are separated, but document tabs, redraw calls, and saved document state are still coupled. |
 | PDF/image loading | `index.html` | File loading, PDF.js, image bitmap handling, canvas sizing, and user status messages are fused. |
-| PDF page rendering/cache | `index.html`, `public/app/viewer.js` | Zoom/fit math is separated, but rendering, cache policy, DOM canvas mutation, and page-ready UI updates share one seam. |
+| PDF page rendering/cache | `index.html`, `public/app/viewer.js`, `public/app/pdf-page-cache.js` | Zoom/fit math and cache policy are separated; PDF.js rendering, DOM canvas mutation, navigation tokens, and page-ready UI updates still share one seam. |
 | Input handling | `index.html`, `public/app/input-controller.js` | Keyboard decisions are separated; pointer input, pan, select, erase, calibrate, measure, drag, label movement, and freehand drawing still live in long event handlers. |
 | Measurement model/commands | `public/app/measurements.js`, `public/app/measurement-commands.js`, `index.html` | Core helpers and many command rules are separated; drag/rotate workflow wiring, history labels, selection, and UI refresh still live in `index.html`. |
 | Geometry | `public/app/geometry.js` | Good module shape; keep feature work here when it is pure math/geometry. |
@@ -92,7 +92,7 @@ The goal is not "many tiny files." The goal is deeper modules: small interfaces 
 | Measurement commands | `public/app/measurement-commands.js` | Create/delete/move/rotate/paste/reset commands | Centralizes history, recompute, selection, redraw triggers. |
 | Calibration | `public/app/calibration.js` or expanded `public/calibration-utils.js` | Parse page ranges, compute scale, apply/reset page scales, eligibility | Lets calibration and continuous-scroll work avoid UI files. |
 | Document adapters | `public/app/documents.js`, `public/app/pdf-adapter.js`, `public/app/image-adapter.js` | Load document, page count, render page, dimensions | PDF and image behavior stop touching input/sidebar code. |
-| Viewer renderer | `public/app/viewer-renderer.js` | Render current page, cache pages, fit/zoom model | Continuous-scroll work gets a real seam. |
+| Viewer renderer | `public/app/viewer-renderer.js`, `public/app/pdf-page-cache.js` | Render current page, use page cache, fit/zoom model | Continuous-scroll work gets a real seam. |
 | Drawing layer | `public/app/measurement-renderer.js` | Draw measurements, previews, labels | Visual work separated from model commands. |
 | Hit testing | `public/app/hit-testing.js` | Given point and measurements, return target | Input work separated from SVG drawing. |
 | Input controller | `public/app/input-controller.js` | Convert pointer/keyboard events into commands | Interaction work gets one owner. |
@@ -257,9 +257,11 @@ Status: partially complete. Page-range parsing, scale calculation, apply/reset h
 - Added sidebar collapsed-page state to `public/app/state.js` document reset/restore.
 - Extracted SVG path/drawing helpers to `public/app/svg-renderer.js`.
 - Extracted pointer hit testing to `public/app/hit-testing.js`.
+- Extracted PDF page cache, render-scale selection, and pre-render planning to `public/app/pdf-page-cache.js`.
 - Added direct tests for every extracted module.
 - Fixed sidebar UX so a single click anywhere on a run row, including its readonly title, selects the run while a double-click on the title still starts rename.
 - Fixed All Pages sidebar UX so each page group has a left-side expand/collapse arrow while the existing Go action still navigates to that page.
+- Added a GitHub Pages CI test step so `npm test` must pass before the live site builds.
 
 ## Second Deep-Dive Findings
 
@@ -277,11 +279,11 @@ Benefits: interaction work, measurement command work, sidebar work, and renderin
 
 ### 2. Document And Viewer Adapters
 
-Files: `index.html`, `public/app/viewer.js`.
+Files: `index.html`, `public/app/viewer.js`, `public/app/pdf-page-cache.js`.
 
-Problem: file type detection, PDF.js usage, image decode, page cache, canvas blitting, navigation tokens, and UI refresh are fused in the app shell.
+Problem: file type detection, PDF.js usage, image decode, canvas blitting, navigation tokens, and UI refresh are fused in the app shell. Page cache policy is now separated.
 
-Solution: create `document-loader`, `pdf-adapter`, `image-adapter`, `page-cache`, and `viewer-renderer` modules with a shared document/page rendering interface.
+Solution: create `document-loader`, `pdf-adapter`, `image-adapter`, and `viewer-renderer` modules with a shared document/page rendering interface. Keep cache policy in `public/app/pdf-page-cache.js`.
 
 Benefits: PDF rendering, image support, cache policy, zoom fidelity, and future continuous-scroll work can proceed without touching measurement editing or sidebar behavior.
 
@@ -309,9 +311,9 @@ Benefits: keyboard, context menu, sidebar, pointer, and modal entry points can s
 
 Files: `public/app`, `test`, `docs/team-readiness-audit.md`, `.github/workflows/pages.yml`.
 
-Problem: the branch has many newly extracted modules/tests/docs. CI currently builds the Pages site but should also run the test suite before build.
+Problem: the branch has many newly extracted modules/tests/docs. CI now runs the test suite before build; standalone mockups still need a keep/delete decision.
 
-Solution: make the readiness slice explicit in version control, move standalone mockups into a prototypes/docs area if they should be kept, and add `npm test` before `npm run build` in Pages CI.
+Solution: make the readiness slice explicit in version control and move standalone mockups into a prototypes/docs area if they should be kept.
 
 Benefits: parallel agents and teammates get the same module map, test gate, and ownership surface before building new feature branches.
 
@@ -328,6 +330,6 @@ The codebase is ready for broad parallel work when:
 
 ## Audit Verdict
 
-Takeoff is no longer a pure single-owner codebase: geometry, measurement helpers, measurement command rules, calibration helpers, history, hit testing, keyboard input decisions, viewer zoom/fit math, sidebar summary/collapse/click rules, state defaults/reset/restore, SVG drawing, and export can now be worked on independently.
+Takeoff is no longer a pure single-owner codebase: geometry, measurement helpers, measurement command rules, calibration helpers, history, hit testing, keyboard input decisions, viewer zoom/fit math, PDF page cache policy, sidebar summary/collapse/click rules, state defaults/reset/restore, SVG drawing, and export can now be worked on independently.
 
 It is still not fully ready for broad parallel feature teams. The next highest-value splits are pointer input, document/viewer adapters, sidebar DOM rendering, measurement/calibration workflows, and then a higher-level state/command coordinator with typed state slices.
