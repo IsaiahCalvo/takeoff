@@ -1,7 +1,7 @@
 (function () {
   const UNIT_TO_INCH = { in: 1, ft: 12, yd: 36, cm: 0.393700787, m: 39.3700787 };
   const UNIT_LABEL = { in: 'in', ft: 'ft', yd: 'yd', cm: 'cm', m: 'm' };
-  const HEADERS = ['Page', 'Name', 'Category', 'Notes', 'Type', 'Length', 'Unit', 'Scaled'];
+  const HEADERS = ['Page', 'Name', 'Type', 'Length', 'Unit', 'Scaled'];
 
   function inchesToUnit(inches, unit) {
     return inches / (UNIT_TO_INCH[unit] || UNIT_TO_INCH.ft);
@@ -23,9 +23,7 @@
         return {
           page: measurement.page || 1,
           name: cleanName(measurement.name, `Run ${index + 1}`),
-          category: String(measurement.category || '').trim(),
-          notes: String(measurement.notes || '').trim(),
-          type: String(measurement.drawType || measurement.type || 'line').toLowerCase(),
+          type: String(measurement.type || 'line').toLowerCase(),
           length: scaled ? Number(inchesToUnit(measurement.lengthInches, unit).toFixed(2)) : null,
           unit: unitLabel,
           scaled: scaled ? 'Y' : 'N',
@@ -49,8 +47,6 @@
       lines.push([
         row.page,
         row.name,
-        row.category,
-        row.notes,
         row.type,
         formatLength(row.length),
         row.unit,
@@ -77,14 +73,12 @@
       let pageTotal = 0;
       lines.push(`Page ${page}`);
       for (const row of byPage.get(page)) {
-        const category = row.category ? ` [${row.category}]` : '';
-        const notes = row.notes ? ` - ${row.notes}` : '';
         if (row.scaled === 'Y' && row.length != null) {
           pageTotal += row.length;
-          lines.push(`- ${row.name}${category}: ${formatLength(row.length)} ${row.unit}${notes}`);
+          lines.push(`- ${row.name}: ${formatLength(row.length)} ${row.unit}`);
         } else {
           unscaledCount += 1;
-          lines.push(`- ${row.name}${category}: Unscaled${notes}`);
+          lines.push(`- ${row.name}: Unscaled`);
         }
       }
       grandTotal += pageTotal;
@@ -144,30 +138,26 @@
       data.push(`<row r="${r}">` + [
         numberCell(r, 1, row.page, 1),
         textCell(r, 2, row.name, 2),
-        textCell(r, 3, row.category, 2),
-        textCell(r, 4, row.notes, 2),
-        textCell(r, 5, row.type, 2),
-        row.length == null ? blankCell(r, 6, 3) : numberCell(r, 6, formatLength(row.length), 3),
-        textCell(r, 7, row.unit, 1),
-        textCell(r, 8, row.scaled, 1),
+        textCell(r, 3, row.type, 2),
+        row.length == null ? blankCell(r, 4, 3) : numberCell(r, 4, formatLength(row.length), 3),
+        textCell(r, 5, row.unit, 1),
+        textCell(r, 6, row.scaled, 1),
       ].join('') + '</row>');
     });
 
-    const conditionalRange = 'H2:H1000';
+    const conditionalRange = 'F2:F1000';
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <dimension ref="A1:H${rowCount}"/>
+  <dimension ref="A1:F${rowCount}"/>
   <sheetViews><sheetView workbookViewId="0"/></sheetViews>
   <sheetFormatPr defaultRowHeight="15"/>
   <cols>
     <col min="1" max="1" width="10.83" customWidth="1"/>
     <col min="2" max="2" width="19.33" customWidth="1"/>
-    <col min="3" max="3" width="16" customWidth="1"/>
-    <col min="4" max="4" width="24" customWidth="1"/>
-    <col min="5" max="5" width="11" customWidth="1"/>
-    <col min="6" max="6" width="13" customWidth="1"/>
-    <col min="7" max="7" width="13" customWidth="1"/>
-    <col min="8" max="8" width="12.33" customWidth="1"/>
+    <col min="3" max="3" width="11" customWidth="1"/>
+    <col min="4" max="4" width="13" customWidth="1"/>
+    <col min="5" max="5" width="13" customWidth="1"/>
+    <col min="6" max="6" width="12.33" customWidth="1"/>
   </cols>
   <sheetData>${data.join('')}</sheetData>
   <conditionalFormatting sqref="${conditionalRange}">
@@ -181,9 +171,9 @@
   function buildTableXml(rows) {
     const rowCount = Math.max(1, (rows || []).length + 1);
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:H${rowCount}" totalsRowShown="0">
-  <autoFilter ref="A1:H${rowCount}"/>
-  <tableColumns count="8">
+<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:F${rowCount}" totalsRowShown="0">
+  <autoFilter ref="A1:F${rowCount}"/>
+  <tableColumns count="6">
     ${HEADERS.map((header, i) => `<tableColumn id="${i + 1}" name="${xmlEscape(header)}"/>`).join('')}
   </tableColumns>
   <tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>
