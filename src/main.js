@@ -7,6 +7,7 @@ import './app/geometry.js';
 import './app/measurements.js';
 import './app/measurement-commands.js';
 import './app/measurement-workflows.js';
+import './app/page-state.js';
 import './app/hit-testing.js';
 import './app/viewer.js';
 import './app/pdf-page-cache.js';
@@ -14,9 +15,12 @@ import './app/input-controller.js';
 import './app/pointer-controller.js';
 import './app/document-loader.js';
 import './app/document-adapters.js';
+import './app/document-store.js';
 import './app/calibration-workflow.js';
 import './app/svg-renderer.js';
 import './app/history.js';
+import './app/units.js';
+import './app/tooltip-controller.js';
 
 const pdfjsLib = window.pdfjsLib;
 if (!pdfjsLib) throw new Error('PDF.js failed to load.');
@@ -30,8 +34,12 @@ const sidebarView = window.TakeoffSidebarView;
 const pointerController = window.TakeoffPointerController;
 const documentLoader = window.TakeoffDocumentLoader;
 const documentAdapters = window.TakeoffDocumentAdapters;
+const documentStore = window.TakeoffDocumentStore;
 const calibrationWorkflow = window.TakeoffCalibrationWorkflow;
 const measurementWorkflows = window.TakeoffMeasurementWorkflows;
+const pageState = window.TakeoffPageState;
+const unitModel = window.TakeoffUnits;
+const tooltipController = window.TakeoffTooltipController;
 const state = stateStore.createInitialState();
 
 const {
@@ -42,9 +50,9 @@ const {
   recomputeLengthsForPage: recomputePageLengths,
 } = window.TakeoffCalibrationUtils;
 
-function currentPage() { return state.pdf ? state.pdfPage : 1; }
-function totalPages() { return state.pdf ? state.pdfPages : 1; }
-function documentPageCount() { return state.pdf ? state.pdfPages : (state.baseW ? 1 : 0); }
+function currentPage() { return pageState.currentPage(state); }
+function totalPages() { return pageState.totalPages(state); }
+function documentPageCount() { return pageState.documentPageCount(state); }
 
 function updateSidebarScopeChrome(model) {
   const scopeTabs = $('scopeTabs');
@@ -54,9 +62,7 @@ function updateSidebarScopeChrome(model) {
 }
 
 function scaleHudText() {
-  return state.pxPerInch
-    ? `1 ${UNIT_LABEL[state.unit]} = ${(UNIT_TO_INCH[state.unit] * state.pxPerInch).toFixed(2)} px`
-    : '—';
+  return unitModel.scaleHudText({ pxPerInch: state.pxPerInch, unit: state.unit });
 }
 
 function updateCursorHud() {
@@ -85,10 +91,6 @@ function updatePageLabel() {
 function recomputeLengthsForPage(p) {
   recomputePageLengths(state.measurements, state.pageScales, p, measurementLengthPx);
 }
-
-// unit conversion: how many inches in one unit
-const UNIT_TO_INCH = { in: 1, ft: 12, yd: 36, cm: 0.393700787, m: 39.3700787 };
-const UNIT_LABEL = { in: 'in', ft: 'ft', yd: 'yd', cm: 'cm', m: 'm' };
 
 // distinct, dark-bg-friendly palette (red reserved for erase hover)
 const PALETTE = [
@@ -120,42 +122,18 @@ const exportButton = $('exportButton');
 const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
 const copySummaryButton = $('copySummary');
-let toolTipTarget = null;
 
 function setDocumentLoaded(loaded) {
   document.body.classList.toggle('no-document', !loaded);
 }
 
 function snapshotActiveDocument(nameOverride = null) {
-  if (!state.activeDocId || (!state.pdf && !state.imageBitmap)) return null;
-  return {
-    id: state.activeDocId,
-    name: nameOverride || state.documents.find(d => d.id === state.activeDocId)?.name || 'Untitled',
-    pdf: state.pdf,
-    pdfPage: state.pdfPage,
-    pdfPages: state.pdfPages,
-    imageBitmap: state.imageBitmap,
-    baseW: state.baseW,
-    baseH: state.baseH,
-    zoom: state.zoom,
-    panX: state.panX,
-    panY: state.panY,
-    activeFitMode: state.activeFitMode,
-    pxPerInch: state.pxPerInch,
-    pageScales: { ...state.pageScales },
-    measurements: state.measurements,
-    sidebarTab: state.sidebarTab,
-    collapsedPageGroups: { ...state.collapsedPageGroups },
-    pageCache: new Map(state.pageCache),
-  };
+  return documentStore.createDocumentSnapshot(state, nameOverride);
 }
 
 function saveActiveDocument(nameOverride = null) {
-  const doc = snapshotActiveDocument(nameOverride);
+  const doc = documentStore.saveDocumentSnapshot(state, nameOverride);
   if (!doc) return;
-  const idx = state.documents.findIndex(d => d.id === doc.id);
-  if (idx >= 0) state.documents[idx] = doc;
-  else state.documents.push(doc);
   renderDocumentTabs();
 }
 
@@ -258,40 +236,13 @@ async function restoreDocument(doc) {
   renderDocumentTabs();
 }
 
-function positionToolTip(target) {
-  const rect = target.getBoundingClientRect();
-  if ($('leftRail').contains(target)) {
-    toolTip.style.transform = 'translate(0, -50%)';
-    toolTip.style.left = `${rect.right + 8}px`;
-    toolTip.style.top = `${Math.max(12, Math.min(window.innerHeight - 12, rect.top + rect.height / 2))}px`;
-    return;
-  }
-  toolTip.style.transform = 'translate(-50%, 0)';
-  toolTip.style.left = `${rect.left + rect.width / 2}px`;
-  toolTip.style.top = `${rect.bottom + 8}px`;
-}
-
-function showToolTip(target) {
-  toolTipTarget = target;
-  toolTip.textContent = target.dataset.tooltip;
-  positionToolTip(target);
-  toolTip.classList.add('show');
-}
-
-function hideToolTip() {
-  toolTipTarget = null;
-  toolTip.classList.remove('show');
-}
-
-document.querySelectorAll('[data-tooltip]').forEach(btn => {
-  btn.addEventListener('mouseenter', () => showToolTip(btn));
-  btn.addEventListener('focus', () => showToolTip(btn));
-  btn.addEventListener('mouseleave', hideToolTip);
-  btn.addEventListener('blur', hideToolTip);
+tooltipController.createTooltipController({
+  tooltipEl: toolTip,
+  buttons: document.querySelectorAll('[data-tooltip]'),
+  railEl: $('leftRail'),
 });
 
 window.addEventListener('resize', () => {
-  if (toolTipTarget) positionToolTip(toolTipTarget);
   requestAnimationFrame(refitActiveView);
 });
 
@@ -484,16 +435,10 @@ const inputController = window.TakeoffInputController;
 const sidebarModel = window.TakeoffSidebar;
 
 function pxToInches(px) {
-  if (!state.pxPerInch) return null;
-  return px / state.pxPerInch;
-}
-function inchesToUnit(inches) {
-  return inches / UNIT_TO_INCH[state.unit];
+  return unitModel.pxToInches(px, state.pxPerInch);
 }
 function formatLen(inches) {
-  if (inches == null) return '—';
-  const v = inchesToUnit(inches);
-  return v.toFixed(2);
+  return unitModel.formatLengthInUnit(inches, state.unit);
 }
 
 function constrainDeltaToPage(bounds, dx, dy) {
@@ -1655,8 +1600,7 @@ function closePasteChoice() {
 }
 
 function measurementsOnCurrentPage() {
-  const p = currentPage();
-  return state.measurements.filter(m => m.page === p);
+  return pageState.measurementsForCurrentPage(state, state.measurements);
 }
 
 function findNearestVertex(p, tol) {
@@ -2014,23 +1958,17 @@ function setUnit(value) {
     option.classList.toggle('active', isActive);
     option.setAttribute('aria-selected', isActive ? 'true' : 'false');
   });
-  $('totalUnit').textContent = UNIT_LABEL[state.unit];
+  $('totalUnit').textContent = unitModel.unitLabel(state.unit);
   updateScaleLabel();
   renderList();
 }
 
 function activeDocumentName() {
-  const doc = state.documents.find(d => d.id === state.activeDocId);
-  return doc?.name || 'takeoff';
+  return documentStore.activeDocumentName(state);
 }
 
 function exportBaseName() {
-  const cleaned = activeDocumentName()
-    .replace(/\.[^.]+$/, '')
-    .replace(/[^a-z0-9_-]+/gi, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase();
-  return cleaned || 'takeoff-measurements';
+  return documentStore.exportBaseName(state);
 }
 
 function getExportRows() {
@@ -2201,7 +2139,7 @@ function redraw(previewTo) {
       dots: true,
       emphasizeDots: isSelected,
       glow: isSelected || isSelHover,
-      label: m.lengthInches != null ? `${formatLen(m.lengthInches)} ${UNIT_LABEL[state.unit]}` : 'no scale',
+      label: m.lengthInches != null ? `${formatLen(m.lengthInches)} ${unitModel.unitLabel(state.unit)}` : 'no scale',
       labelColor: color,
       measurementId: m.id,
       labelT: m.labelT,
@@ -2223,7 +2161,7 @@ function redraw(previewTo) {
       dots: true,
       labelColor: isCalib ? '#ffb13c' : '#b6ff3c',
       label: !isCalib && state.pxPerInch
-        ? `${formatLen(pxToInches(polylineLengthPx(pts)))} ${UNIT_LABEL[state.unit]}`
+        ? `${formatLen(pxToInches(polylineLengthPx(pts)))} ${unitModel.unitLabel(state.unit)}`
         : null,
     });
   }
@@ -2233,7 +2171,7 @@ function redraw(previewTo) {
     const livePx = state.freehandDraft.previewSegments?.length
       ? state.freehandDraft.previewSegments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0)
       : polylineLengthPx(raw);
-    const liveLabel = state.pxPerInch ? `${formatLen(pxToInches(livePx))} ${UNIT_LABEL[state.unit]}` : 'no scale';
+    const liveLabel = state.pxPerInch ? `${formatLen(pxToInches(livePx))} ${unitModel.unitLabel(state.unit)}` : 'no scale';
     if (state.freehandDraft.previewSegments?.length) {
       drawBezierSegments(state.freehandDraft.previewSegments, {
         color: '#b6ff3c',
@@ -2315,7 +2253,7 @@ function buildMeasItem(m) {
     page: m.page,
     onOtherPage,
     isUnscaled,
-    lengthHtml: isUnscaled ? 'unscaled' : `${formatLen(m.lengthInches)} <span class="unit">${UNIT_LABEL[state.unit]}</span>`,
+    lengthHtml: isUnscaled ? 'unscaled' : `${formatLen(m.lengthInches)} <span class="unit">${unitModel.unitLabel(state.unit)}</span>`,
     measurementId: m.id,
   });
   const nameInput = item.querySelector('.name');
@@ -2470,7 +2408,7 @@ function renderList() {
 
   $('totalLen').textContent = model.totalLenText;
   $('runCount').textContent = model.runCountText;
-  $('totalUnit').textContent = UNIT_LABEL[state.unit];
+  $('totalUnit').textContent = unitModel.unitLabel(state.unit);
 }
 
 // init
