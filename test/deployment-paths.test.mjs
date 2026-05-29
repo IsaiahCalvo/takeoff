@@ -2,6 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
+async function readIndexAndSidebarView() {
+  const [html, sidebarView] = await Promise.all([
+    readFile(new URL('../index.html', import.meta.url), 'utf8'),
+    readFile(new URL('../public/app/sidebar-view.js', import.meta.url), 'utf8'),
+  ]);
+  return { html, sidebarView, source: `${html}\n${sidebarView}` };
+}
+
 test('index uses relative local asset paths for GitHub Pages subpath deploys', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const rootRelativeRefs = [...html.matchAll(/\b(?:src|href)=["']\/(?!\/)|url\(["']?\/(?!\/)/g)]
@@ -34,13 +42,13 @@ test('single-page documents remove scope chrome entirely', async () => {
 });
 
 test('all-pages collapse toggle uses the left-rail svg chevron style', async () => {
-  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const { html, source } = await readIndexAndSidebarView();
   const collapseToggleRule = html.match(/\.page-group \.collapse-toggle\s*\{[^}]+\}/)?.[0] || '';
 
-  assert.match(html, /class="collapse-toggle-icon"/);
-  assert.match(html, /M4\.5 3 7\.5 6 4\.5 9/);
-  assert.match(html, /M2\.5 4\.5 6 8l3\.5-3\.5/);
-  assert.doesNotMatch(html, /&#9656;|&#9662;/);
+  assert.match(source, /class="collapse-toggle-icon"/);
+  assert.match(source, /M4\.5 3 7\.5 6 4\.5 9/);
+  assert.match(source, /M2\.5 4\.5 6 8l3\.5-3\.5/);
+  assert.doesNotMatch(source, /&#9656;|&#9662;/);
   assert.match(collapseToggleRule, /display:\s*inline-flex/);
   assert.match(collapseToggleRule, /align-items:\s*center/);
 });
@@ -58,7 +66,7 @@ test('all-pages page group header keeps its label left aligned', async () => {
 });
 
 test('all-pages page group keeps page controls left and scale/info/go right', async () => {
-  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const { html, source } = await readIndexAndSidebarView();
   const pageGroupRule = html.match(/\.page-group\s*\{[^}]+\}/)?.[0] || '';
   const pageHeaderRule = html.match(/\.page-group \.page-header\s*\{[^}]+\}/)?.[0] || '';
   const pageLabelRule = html.match(/\.page-group \.page-label\s*\{[^}]+\}/)?.[0] || '';
@@ -69,12 +77,12 @@ test('all-pages page group keeps page controls left and scale/info/go right', as
   assert.match(pageGroupRule, /margin:\s*0 0 6px/);
   assert.match(pageHeaderRule, /min-height:\s*31px/);
   assert.match(pageHeaderRule, /gap:\s*4px/);
-  assert.doesNotMatch(html, /class="page-meta"/);
-  assert.match(html, /class="page-actions"/);
-  assert.match(html, /class="page-status page-status-scale/);
-  assert.match(html, /class="page-info"/);
+  assert.doesNotMatch(source, /class="page-meta"/);
+  assert.match(source, /class="page-actions"/);
+  assert.match(source, /class="page-status page-status-scale/);
+  assert.match(source, /class="page-info"/);
   assert.match(html, /const excludedTitle = excludedText \? `\$\{excludedText\} on page \$\{group\.page\}` : '';/);
-  assert.match(html, /aria-label="\$\{excludedTitle\}"/);
+  assert.match(source, /aria-label="\$\{escapeHtml\(excludedTitle\)\}"/);
   assert.match(pageLabelRule, /white-space:\s*nowrap/);
   assert.match(pageLabelRule, /font-size:\s*10px/);
   assert.match(pageActionsRule, /margin-left:\s*auto/);
@@ -140,16 +148,16 @@ test('all-pages page group nests full-width child runs under each page', async (
 });
 
 test('all-pages unscaled info icon opens a real tooltip on hover, focus, and click', async () => {
-  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const { html, source } = await readIndexAndSidebarView();
   const pageInfoRule = html.match(/\.page-group \.page-info\s*\{[^}]+\}/)?.[0] || '';
   const tooltipRule = html.match(/\.page-group \.page-info-tooltip\s*\{[^}]+\}/)?.[0] || '';
   const tooltipOpenRule = html.match(/\.page-group \.page-info:is\([^}]+\}/)?.[0] || '';
 
-  assert.match(html, /<button class="page-info"/);
-  assert.match(html, /aria-expanded="false"/);
-  assert.match(html, /aria-describedby="\$\{tooltipId\}"/);
-  assert.match(html, /class="page-info-tooltip"/);
-  assert.match(html, /role="tooltip"/);
+  assert.match(source, /<button class="page-info"/);
+  assert.match(source, /aria-expanded="false"/);
+  assert.match(source, /aria-describedby="\$\{escapeHtml\(tooltipId\)\}"/);
+  assert.match(source, /class="page-info-tooltip"/);
+  assert.match(source, /role="tooltip"/);
   assert.match(html, /const tooltipId = `page-info-\$\{group\.page\}`;/);
   assert.match(html, /pageInfoButton\.addEventListener\('click'/);
   assert.match(html, /pageInfoButton\.classList\.toggle\('is-open'/);

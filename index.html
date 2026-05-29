@@ -1663,14 +1663,19 @@
 <script src="export-utils.js"></script>
 <script src="calibration-utils.js"></script>
 <script src="app/sidebar.js"></script>
+<script src="app/sidebar-view.js"></script>
 <script src="app/state.js"></script>
 <script src="app/geometry.js"></script>
 <script src="app/measurements.js"></script>
 <script src="app/measurement-commands.js"></script>
+<script src="app/measurement-workflows.js"></script>
 <script src="app/hit-testing.js"></script>
 <script src="app/viewer.js"></script>
 <script src="app/pdf-page-cache.js"></script>
 <script src="app/input-controller.js"></script>
+<script src="app/pointer-controller.js"></script>
+<script src="app/document-loader.js"></script>
+<script src="app/calibration-workflow.js"></script>
 <script src="app/svg-renderer.js"></script>
 <script src="app/history.js"></script>
 <script>
@@ -1679,6 +1684,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 // ------- State -------
 const ONBOARDING_STATUS_KEY = 'cableRunStatusSeen';
 const stateStore = window.TakeoffState;
+const sidebarView = window.TakeoffSidebarView;
+const pointerController = window.TakeoffPointerController;
+const documentLoader = window.TakeoffDocumentLoader;
+const calibrationWorkflow = window.TakeoffCalibrationWorkflow;
+const measurementWorkflows = window.TakeoffMeasurementWorkflows;
 const state = stateStore.createInitialState();
 
 const {
@@ -2209,13 +2219,6 @@ function refitActiveView() {
 }
 
 // ------- File loading -------
-function isPdfFile(file) {
-  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
-}
-function isImageFile(file) {
-  return file.type.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|avif|heic|heif)$/i.test(file.name || '');
-}
-
 $('fileInput').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   await loadFile(file);
@@ -2242,7 +2245,8 @@ stage.addEventListener('drop', async (e) => {
 
 async function loadFile(file) {
   if (!file) return;
-  if (!isPdfFile(file) && !isImageFile(file)) {
+  const fileInfo = documentLoader.describeDocumentFile(file);
+  if (!fileInfo.supported) {
     showStatus('Unsupported file. Use a PDF or image.');
     return;
   }
@@ -2253,31 +2257,32 @@ async function loadFile(file) {
   state.activeDocId = docId;
   try {
     resetDocState();
-    if (isPdfFile(file)) {
+    if (fileInfo.kind === 'pdf') {
       const buf = await file.arrayBuffer();
       state.pdf = await pdfjsLib.getDocument({ data: buf }).promise;
       state.pdfPages = state.pdf.numPages;
       state.pdfPage = 1;
       state.imageBitmap = null;
       await renderPdfPage();
-      showStatus(`Loaded ${file.name || 'PDF'}`);
+      showStatus(`Loaded ${fileInfo.displayName}`);
     } else {
       const img = await createImageBitmap(file);
+      const imageState = documentLoader.createImageDocumentState(img);
       state.imageBitmap = img;
-      state.pdf = null;
-      state.pdfPages = 1;
-      state.pdfPage = 1;
-      state.baseW = img.width;
-      state.baseH = img.height;
-      baseCanvas.width = img.width;
-      baseCanvas.height = img.height;
-      configureCanvasCssSize(baseCanvas, img.width, img.height);
+      state.pdf = imageState.pdf;
+      state.pdfPages = imageState.pdfPages;
+      state.pdfPage = imageState.pdfPage;
+      state.baseW = imageState.baseW;
+      state.baseH = imageState.baseH;
+      baseCanvas.width = imageState.baseW;
+      baseCanvas.height = imageState.baseH;
+      configureCanvasCssSize(baseCanvas, imageState.baseW, imageState.baseH);
       configureDrawCanvas();
       baseCtx.drawImage(img, 0, 0);
       onPageReady();
-      showStatus(`Loaded ${file.name || 'image'}`);
+      showStatus(`Loaded ${fileInfo.displayName}`);
     }
-    saveActiveDocument(file.name || 'Untitled');
+    saveActiveDocument(fileInfo.displayName || 'Untitled');
   } catch (err) {
     console.error('Failed to load file', err);
     state.documents = state.documents.filter(d => d.id !== docId);
@@ -2550,9 +2555,12 @@ function zoomAt(pt, factor) {
 }
 
 function shouldSuppressPointPlacement(e) {
-  if (e.button !== 0) return true;
-  if (e.detail && e.detail > 1) return true;
-  return performance.now() < state.suppressPointUntil;
+  return pointerController.shouldSuppressPointPlacement({
+    button: e.button,
+    detail: e.detail,
+    now: performance.now(),
+    suppressPointUntil: state.suppressPointUntil,
+  });
 }
 
 function schedulePdfRerenderForZoom() {
@@ -2639,9 +2647,14 @@ stage.addEventListener('mousedown', (e) => {
       return;
     }
   }
-  if (e.button === 1 || state.mode === 'pan') {
+  if (pointerController.shouldStartPan({ button: e.button, mode: state.mode })) {
     state.isPanning = true;
-    state.panStart = { x: e.clientX - state.panX, y: e.clientY - state.panY };
+    state.panStart = pointerController.createPanStart({
+      clientX: e.clientX,
+      clientY: e.clientY,
+      panX: state.panX,
+      panY: state.panY,
+    });
     stage.classList.add('dragging');
     e.preventDefault();
     return;
@@ -2756,22 +2769,28 @@ stage.addEventListener('mousedown', (e) => {
     const hitId = findNearestMeasurement(p, 8 / state.zoom);
     if (hitId != null) {
       const historyBefore = createHistorySnapshot();
-      state.measurements = measurementCommands.deleteMeasurementById(state.measurements, hitId);
-      recordHistory(historyBefore, 'run deletion');
-      renderList();
-      redraw();
+      if (deleteMeasurementFromState(hitId)) {
+        recordHistory(historyBefore, 'run deletion');
+        renderList();
+        redraw();
+      }
     }
   }
 });
 
 stage.addEventListener('mousemove', (e) => {
-  if ((state.rotationDrag || state.dragVertex || state.dragMeasurement || state.dragLabel || state.isPanning) && e.buttons === 0) {
+  if (pointerController.shouldFinishPointerDragOnMove(state, e.buttons)) {
     finishPointerDrag();
   }
   if (state.isPanning) {
     clearActiveFitMode();
-    state.panX = e.clientX - state.panStart.x;
-    state.panY = e.clientY - state.panStart.y;
+    const nextPan = pointerController.nextPanFromPointer({
+      clientX: e.clientX,
+      clientY: e.clientY,
+      panStart: state.panStart,
+    });
+    state.panX = nextPan.panX;
+    state.panY = nextPan.panY;
     applyTransform();
     return;
   }
@@ -2810,8 +2829,7 @@ stage.addEventListener('mousemove', (e) => {
     const m = state.measurements.find(x => x.id === state.dragVertex.measurementId);
     if (m) {
       applyVertexDrag(m, state.dragVertex, state.cursorImg);
-      m.lengthPx = measurementLengthPx(m);
-      m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
+      recomputeMeasurementLength(m);
       renderList();
       redraw();
     }
@@ -2844,8 +2862,7 @@ stage.addEventListener('mousemove', (e) => {
           cy: state.dragMeasurement.originalFrame.cy + dy,
         };
       }
-      m.lengthPx = measurementLengthPx(m);
-      m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
+      recomputeMeasurementLength(m);
       renderList();
       redraw();
     }
@@ -2913,8 +2930,7 @@ function updateRotationDrag(clientX, clientY, shiftKey = false) {
   m.rotationAngle = nextAngle;
   m.rotationFrame = createRotationFrame(m);
   if (m.rotationFrame) m.rotationFrame.angle = nextAngle;
-  m.lengthPx = measurementLengthPx(m);
-  m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
+  recomputeMeasurementLength(m);
   renderList();
   redraw();
   return true;
@@ -3034,10 +3050,10 @@ window.addEventListener('keydown', (e) => {
   }
   if (inputAction.action === 'delete-selection') {
     const historyBefore = createHistorySnapshot();
-    state.measurements = measurementCommands.deleteMeasurementById(state.measurements, state.selectedId);
-    state.selectedId = null;
-    recordHistory(historyBefore, 'run deletion');
-    renderList(); redraw();
+    if (deleteMeasurementFromState(state.selectedId)) {
+      recordHistory(historyBefore, 'run deletion');
+      renderList(); redraw();
+    }
     e.preventDefault();
     return;
   }
@@ -3106,14 +3122,20 @@ function finishMeasurement() {
   const historyBefore = createHistorySnapshot();
   const pts = state.inProgress.points;
   const id = Date.now();
-  state.measurements.push(measurementCommands.createLineMeasurement({
+  const measurement = measurementCommands.createLineMeasurement({
     id,
     points: pts.slice(),
     existingMeasurements: state.measurements,
     palette: PALETTE,
     page: currentPage(),
     pxPerInch: state.pxPerInch,
-  }));
+  });
+  const result = measurementWorkflows.appendMeasurementResult({
+    measurements: state.measurements,
+    measurement,
+    selectedId: state.selectedId,
+  });
+  state.measurements = result.measurements;
   state.inProgress = null;
   recordHistory(historyBefore, 'run creation');
   renderList();
@@ -3152,8 +3174,14 @@ function finishFreehandMeasurement() {
     redraw();
     return;
   }
-  state.measurements.push(measurement);
-  state.selectedId = id;
+  const result = measurementWorkflows.appendMeasurementResult({
+    measurements: state.measurements,
+    measurement,
+    selectedId: state.selectedId,
+    selectAppended: true,
+  });
+  state.measurements = result.measurements;
+  state.selectedId = result.selectedId;
   recordHistory(historyBefore, 'run creation');
   setMode('selection');
   renderList();
@@ -3187,6 +3215,25 @@ function cleanMeasurementName(value, m) {
   return measurementCommands.cleanMeasurementName(state.measurements, value, m);
 }
 
+function deleteMeasurementFromState(id) {
+  const result = measurementWorkflows.deleteMeasurementResult({
+    measurements: state.measurements,
+    selectedId: state.selectedId,
+    deletedId: id,
+  });
+  state.measurements = result.measurements;
+  state.selectedId = result.selectedId;
+  if (state.rotateModeId === id) endRotateMode();
+  return result.deleted;
+}
+
+function recomputeMeasurementLength(m) {
+  return measurementWorkflows.recomputeMeasurementLength(m, {
+    pxPerInch: state.pxPerInch,
+    measureLengthPx: measurementLengthPx,
+  });
+}
+
 function blurActiveMeasurementName(target) {
   const active = document.activeElement;
   if (!active || !active.classList || !active.classList.contains('name')) return;
@@ -3210,9 +3257,7 @@ function copySelectedMeasurement() {
 function cutSelectedMeasurement() {
   const historyBefore = createHistorySnapshot();
   if (!copySelectedMeasurement()) return false;
-  state.measurements = measurementCommands.deleteMeasurementById(state.measurements, state.selectedId);
-  state.selectedId = null;
-  endRotateMode();
+  deleteMeasurementFromState(state.selectedId);
   recordHistory(historyBefore, 'run cut');
   renderList();
   redraw();
@@ -3243,8 +3288,14 @@ function pasteCopiedMeasurement(mode = null) {
     constrainGeometry: constrainGeometryToPage,
   });
   if (!pasted) return false;
-  state.measurements.push(pasted);
-  state.selectedId = pasted.id;
+  const result = measurementWorkflows.appendMeasurementResult({
+    measurements: state.measurements,
+    measurement: pasted,
+    selectedId: state.selectedId,
+    selectAppended: true,
+  });
+  state.measurements = result.measurements;
+  state.selectedId = result.selectedId;
   recordHistory(historyBefore, 'run paste');
   renderList();
   redraw();
@@ -3495,8 +3546,7 @@ function commitRotationInput() {
   m.rotationAngle = nextAngle;
   m.rotationFrame = createRotationFrame(m);
   if (m.rotationFrame) m.rotationFrame.angle = nextAngle;
-  m.lengthPx = measurementLengthPx(m);
-  m.lengthInches = state.pxPerInch ? pxToInches(m.lengthPx) : null;
+  recomputeMeasurementLength(m);
   rotationInput.blur();
   recordHistory(historyBefore, 'run rotation');
   renderList();
@@ -3506,13 +3556,14 @@ function commitRotationInput() {
 // ------- Calibration modal -------
 let pendingCalibration = null;
 function openCalibModal() {
+  const modalState = calibrationWorkflow.initialModalState(state.unit);
   $('calibModal').classList.add('show');
-  $('calibValue').value = '';
+  $('calibValue').value = modalState.value;
   updateCalibValueValidity();
-  $('calibUnit').value = state.unit;
-  $('calibScope').value = 'this';
-  $('calibRange').value = '';
-  $('calibRangeField').style.display = 'none';
+  $('calibUnit').value = modalState.unit;
+  $('calibScope').value = modalState.scope;
+  $('calibRange').value = modalState.range;
+  $('calibRangeField').style.display = modalState.rangeDisplay;
   setTimeout(() => $('calibValue').focus(), 50);
 }
 function closeCalibModal() {
@@ -3522,13 +3573,13 @@ function closeCalibModal() {
   redraw();
 }
 $('calibScope').addEventListener('change', (e) => {
-  $('calibRangeField').style.display = e.target.value === 'custom' ? 'flex' : 'none';
+  $('calibRangeField').style.display = calibrationWorkflow.rangeDisplayForScope(e.target.value);
   if (e.target.value === 'custom') setTimeout(() => $('calibRange').focus(), 30);
 });
 $('calibCancel').addEventListener('click', closeCalibModal);
 $('calibOk').addEventListener('click', () => {
-  const v = parseFloat($('calibValue').value);
-  if (!isFinite(v) || v <= 0) {
+  const v = calibrationWorkflow.calibrationValueNumber($('calibValue').value);
+  if (!calibrationWorkflow.isPositiveCalibrationValue($('calibValue').value)) {
     updateCalibValueValidity();
     $('calibValue').focus();
     return;
@@ -3538,20 +3589,19 @@ $('calibOk').addEventListener('click', () => {
 
   // Determine which pages get this scale
   const scope = $('calibScope').value;
-  let targetPages;
-  if (scope === 'all') {
-    targetPages = [];
-    for (let i = 1; i <= totalPages(); i++) targetPages.push(i);
-  } else if (scope === 'custom') {
-    targetPages = parsePageRange($('calibRange').value, totalPages());
-    if (targetPages.length === 0) {
-      alert('Enter at least one valid page number (e.g. "1, 3, 5-7").');
-      $('calibRange').focus();
-      return;
-    }
-  } else {
-    targetPages = [currentPage()];
+  const targetPageResult = calibrationWorkflow.resolveTargetPages({
+    scope,
+    currentPage: currentPage(),
+    totalPages: totalPages(),
+    rangeText: $('calibRange').value,
+    parsePageRange,
+  });
+  if (targetPageResult.error === 'empty-custom-range') {
+    alert('Enter at least one valid page number (e.g. "1, 3, 5-7").');
+    $('calibRange').focus();
+    return;
   }
+  const targetPages = targetPageResult.pages;
 
   applyScaleToPages({
     measurements: state.measurements,
@@ -3581,12 +3631,7 @@ $('calibValue').addEventListener('beforeinput', (e) => {
 });
 $('calibValue').addEventListener('input', () => {
   const input = $('calibValue');
-  let value = input.value.replace(/[^0-9.]/g, '');
-  const dotIndex = value.indexOf('.');
-  if (dotIndex !== -1) {
-    value = value.slice(0, dotIndex + 1) + value.slice(dotIndex + 1).replace(/\./g, '');
-  }
-  if (/^0+$/.test(value)) value = '';
+  const value = calibrationWorkflow.sanitizeCalibrationValueInput(input.value);
   if (input.value !== value) input.value = value;
   updateCalibValueValidity();
 });
@@ -3595,8 +3640,7 @@ $('calibValue').addEventListener('keydown', (e) => {
 });
 
 function updateCalibValueValidity() {
-  const value = parseFloat($('calibValue').value);
-  $('calibOk').disabled = !isFinite(value) || value <= 0;
+  $('calibOk').disabled = !calibrationWorkflow.isPositiveCalibrationValue($('calibValue').value);
 }
 
 // Reset calibration on current page only
@@ -3925,17 +3969,21 @@ function buildMeasItem(m) {
   const onOtherPage = m.page !== currentPage();
   m.name = cleanMeasurementName(m.name, m);
   const isUnscaled = m.lengthInches == null;
-  item.className = 'meas-item' + (state.selectedId === m.id ? ' selected' : '') + (isUnscaled ? ' unscaled' : '');
+  item.className = sidebarView.measurementItemClass({
+    selected: state.selectedId === m.id,
+    isUnscaled,
+  });
   item.dataset.measId = m.id;
-  item.innerHTML = `
-    <div class="row head">
-      <div class="swatch" style="background:${m.color}; color:${m.color}"></div>
-      <input class="name" value="${escapeHtml(m.name)}" readonly title="Double-click to rename" />
-      <span class="point-count" title="${m.points.length} anchors${onOtherPage ? ' · page ' + m.page : ''}">${m.points.length}</span>
-      <span class="len" title="${isUnscaled ? 'No page scale; excluded from totals.' : ''}">${isUnscaled ? 'unscaled' : `${formatLen(m.lengthInches)} <span class="unit">${UNIT_LABEL[state.unit]}</span>`}</span>
-      <button class="del" data-id="${m.id}" title="Delete">×</button>
-    </div>
-  `;
+  item.innerHTML = sidebarView.buildMeasurementItemMarkup({
+    color: m.color,
+    name: m.name,
+    pointCount: m.points.length,
+    page: m.page,
+    onOtherPage,
+    isUnscaled,
+    lengthHtml: isUnscaled ? 'unscaled' : `${formatLen(m.lengthInches)} <span class="unit">${UNIT_LABEL[state.unit]}</span>`,
+    measurementId: m.id,
+  });
   const nameInput = item.querySelector('.name');
   const startNameEdit = () => {
     nameInput.dataset.originalName = cleanMeasurementName(m.name, m);
@@ -3975,11 +4023,11 @@ function buildMeasItem(m) {
   item.querySelector('.del').addEventListener('click', (e) => {
     e.stopPropagation();
     const historyBefore = createHistorySnapshot();
-    state.measurements = measurementCommands.deleteMeasurementById(state.measurements, m.id);
-    if (state.selectedId === m.id) state.selectedId = null;
-    recordHistory(historyBefore, 'run deletion');
-    renderList();
-    redraw();
+    if (deleteMeasurementFromState(m.id)) {
+      recordHistory(historyBefore, 'run deletion');
+      renderList();
+      redraw();
+    }
   });
   item.addEventListener('click', async (e) => {
     if (!sidebarModel.shouldSelectMeasurementFromSidebarClick(e.target)) return;
@@ -4026,17 +4074,14 @@ function renderList() {
       header.setAttribute('aria-expanded', group.collapsed ? 'false' : 'true');
       children.className = 'page-children';
       childrenInner.className = 'page-children-inner';
-      header.innerHTML = `
-        <button class="collapse-toggle" type="button" aria-expanded="${group.collapsed ? 'false' : 'true'}" aria-label="${group.collapsed ? 'Expand' : 'Collapse'} page ${group.page}" title="${group.collapsed ? 'Expand' : 'Collapse'} page ${group.page}">
-          <svg class="collapse-toggle-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="${group.collapsed ? 'M4.5 3 7.5 6 4.5 9' : 'M2.5 4.5 6 8l3.5-3.5'}"></path></svg>
-        </button>
-        <span class="page-label">Page <strong>${group.page}</strong></span>
-        <span class="page-actions">
-          <span class="page-status page-status-scale${group.hasScale ? '' : ' no-scale'}">${scaleText}</span>
-          ${excludedText ? `<button class="page-info" type="button" aria-label="${excludedTitle}" aria-describedby="${tooltipId}" aria-expanded="false"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"></circle><path d="M8 7.2v3.8"></path><path d="M8 5h.01"></path></svg><span class="page-info-tooltip" id="${tooltipId}" role="tooltip">${excludedTitle}</span></button>` : ''}
-          <button class="jump" data-page="${group.page}">Go</button>
-        </span>
-      `;
+      header.innerHTML = sidebarView.buildPageHeaderMarkup({
+        page: group.page,
+        collapsed: group.collapsed,
+        hasScale: group.hasScale,
+        scaleText,
+        excludedTitle,
+        tooltipId,
+      });
       const toggleGroup = () => {
         const isCollapsed = groupEl.classList.contains('collapsed');
         const nextCollapsed = !isCollapsed;
@@ -4049,7 +4094,7 @@ function renderList() {
         toggle.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
         toggle.setAttribute('aria-label', `${nextCollapsed ? 'Expand' : 'Collapse'} page ${group.page}`);
         toggle.title = `${nextCollapsed ? 'Expand' : 'Collapse'} page ${group.page}`;
-        iconPath.setAttribute('d', nextCollapsed ? 'M4.5 3 7.5 6 4.5 9' : 'M2.5 4.5 6 8l3.5-3.5');
+        iconPath.setAttribute('d', sidebarView.collapseIconPath(nextCollapsed));
         saveActiveDocument();
       };
       header.addEventListener('click', (e) => {
@@ -4093,7 +4138,6 @@ function renderList() {
   $('runCount').textContent = model.runCountText;
   $('totalUnit').textContent = UNIT_LABEL[state.unit];
 }
-function escapeHtml(s) { return sidebarModel.escapeHtml(s); }
 
 // init
 try { state.onboardingStatusSeen = localStorage.getItem(ONBOARDING_STATUS_KEY) === '1'; } catch (_) { /* ignore */ }
