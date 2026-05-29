@@ -1,0 +1,483 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>All Pages Accordion Mockup</title>
+<style>
+  :root {
+    --bg: #090d0f;
+    --panel: #111719;
+    --panel-2: #151d20;
+    --line: #283238;
+    --line-soft: #20282d;
+    --text: #e8eef0;
+    --muted: #819099;
+    --accent: #b6ff3c;
+    --warn: #ffb13c;
+    --blue: #50d7ff;
+    --danger: #ff6b6b;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 24% 20%, rgba(80, 215, 255, 0.05), transparent 32%),
+      linear-gradient(135deg, #080b0d, #101518 58%, #080b0d);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  .frame {
+    width: min(1180px, calc(100vw - 36px));
+    min-height: min(720px, calc(100vh - 36px));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    border: 1px solid #202a2f;
+    background: #0b1012;
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.45);
+  }
+
+  .stage {
+    min-width: 0;
+    padding: 38px;
+    display: grid;
+    place-items: center;
+    color: #64727a;
+    border-right: 1px solid var(--line);
+  }
+
+  .sheet {
+    width: min(420px, 80%);
+    aspect-ratio: 8.5 / 11;
+    background: #f7f9f9;
+    border: 1px solid #cfd6d9;
+    position: relative;
+  }
+
+  .sheet::before {
+    content: "Right panel mockup";
+    position: absolute;
+    top: 32px;
+    left: 32px;
+    color: #182126;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .sheet::after {
+    content: "";
+    position: absolute;
+    left: 52px;
+    right: 52px;
+    top: 128px;
+    height: 1px;
+    background: #dbe1e3;
+    box-shadow: 0 44px #dbe1e3, 0 88px #dbe1e3, 0 132px #dbe1e3, 0 176px #dbe1e3;
+  }
+
+  .side {
+    min-height: 0;
+    background: var(--panel);
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+  }
+
+  .total {
+    padding: 16px 18px 14px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .eyebrow {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    color: #7b8890;
+  }
+
+  .total-value {
+    margin-top: 22px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+  }
+
+  .dash {
+    font-size: 26px;
+    font-weight: 800;
+  }
+
+  .unit {
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .summary {
+    margin-top: 8px;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .tab {
+    min-height: 34px;
+    display: grid;
+    place-items: center;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+  }
+
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .pages {
+    overflow: auto;
+    padding: 10px 12px 14px;
+  }
+
+  .page-block {
+    border: 1px solid transparent;
+    border-radius: 6px;
+    margin-bottom: 6px;
+  }
+
+  .page-block.open {
+    border-color: #26343a;
+    background: rgba(255, 255, 255, 0.018);
+  }
+
+  .page-header {
+    width: 100%;
+    min-height: 31px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border: 1px solid #26323a;
+    border-radius: 5px;
+    background: #12191c;
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .page-block.open .page-header {
+    border-color: rgba(182, 255, 60, 0.22);
+    border-bottom-left-radius: 5px;
+    border-bottom-right-radius: 5px;
+    background: #151e21;
+  }
+
+  .chevron {
+    width: 16px;
+    height: 18px;
+    display: grid;
+    place-items: center;
+    color: #9aa7ad;
+    flex: 0 0 16px;
+  }
+
+  .chevron svg {
+    width: 8px;
+    height: 8px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transform: rotate(0deg);
+    transition: transform .14s ease;
+  }
+
+  .page-block.open .chevron svg {
+    transform: rotate(90deg);
+  }
+
+  .page-title {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 0;
+    flex: 1 1 auto;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: #aab6bd;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .page-title strong {
+    color: var(--text);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+  }
+
+  .page-actions {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+    flex: 0 0 auto;
+  }
+
+  .scale-pill {
+    min-height: 14px;
+    max-width: 68px;
+    padding: 1px 4px;
+    border: 1px solid rgba(125, 138, 145, 0.25);
+    border-radius: 3px;
+    color: var(--muted);
+    background: rgba(255, 255, 255, 0.025);
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 7px;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .scale-pill.good {
+    color: var(--accent);
+    border-color: rgba(182, 255, 60, 0.26);
+  }
+
+  .scale-pill.warn {
+    color: var(--warn);
+    border-color: rgba(255, 177, 60, 0.3);
+  }
+
+  .info {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 1px solid rgba(125, 138, 145, 0.35);
+    display: grid;
+    place-items: center;
+    color: #9aa7ad;
+    background: rgba(255, 255, 255, 0.025);
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 9px;
+  }
+
+  .go {
+    min-width: 28px;
+    height: 22px;
+    border-radius: 5px;
+    border: 1px solid #2c373d;
+    background: #172025;
+    color: #95a2a9;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 9px;
+    cursor: pointer;
+  }
+
+  .children {
+    display: grid;
+    gap: 3px;
+    padding: 4px;
+  }
+
+  .page-block:not(.open) .children {
+    display: none;
+  }
+
+  .run {
+    width: 100%;
+    min-height: 31px;
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 5px;
+    border: 1px solid #2b342f;
+    border-radius: 5px;
+    background: #171e1b;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 3px;
+    box-shadow: 0 0 7px currentColor;
+  }
+
+  .run-name {
+    min-width: 0;
+    color: #edf5f7;
+    font-size: 12px;
+    font-weight: 650;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .anchor-count {
+    min-width: 20px;
+    height: 17px;
+    display: grid;
+    place-items: center;
+    border: 1px solid #2b363c;
+    border-radius: 999px;
+    color: #87949b;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 9px;
+  }
+
+  .length {
+    color: var(--warn);
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .footer {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    padding: 10px 12px 12px;
+    border-top: 1px solid var(--line);
+  }
+
+  .footer button {
+    min-height: 32px;
+    border-radius: 6px;
+    border: 1px solid #2a343a;
+    background: #172025;
+    color: var(--text);
+    font-weight: 650;
+  }
+</style>
+</head>
+<body>
+  <main class="frame">
+    <section class="stage">
+      <div class="sheet"></div>
+    </section>
+
+    <aside class="side" aria-label="All pages mockup">
+      <section class="total">
+        <div class="eyebrow">Grand Total</div>
+        <div class="total-value"><span class="dash">—</span><span class="unit">ft</span></div>
+        <div class="summary">9 runs · 4 unscaled excluded</div>
+      </section>
+
+      <section class="tabs">
+        <div class="tab">This Page</div>
+        <div class="tab active">All Pages</div>
+      </section>
+
+      <section class="pages">
+        <article class="page-block open">
+          <button class="page-header" type="button" aria-expanded="true">
+            <span class="chevron"><svg viewBox="0 0 12 12"><path d="M4.5 3 7.5 6 4.5 9"></path></svg></span>
+            <span class="page-title">Page <strong>1</strong></span>
+            <span class="page-actions">
+              <span class="scale-pill warn">No scale</span>
+              <span class="info" title="3 unscaled excluded on page 1">i</span>
+              <span class="go" role="button">Go</span>
+            </span>
+          </button>
+          <div class="children">
+            <div class="run"><span class="dot" style="background:#b6ff3c;color:#b6ff3c"></span><span class="run-name">Run 1</span><span class="anchor-count">2</span><span class="length">unscaled</span></div>
+            <div class="run"><span class="dot" style="background:#50d7ff;color:#50d7ff"></span><span class="run-name">Run 2</span><span class="anchor-count">3</span><span class="length">unscaled</span></div>
+            <div class="run"><span class="dot" style="background:#ff6b6b;color:#ff6b6b"></span><span class="run-name">Run 3</span><span class="anchor-count">4</span><span class="length">unscaled</span></div>
+          </div>
+        </article>
+
+        <article class="page-block open">
+          <button class="page-header" type="button" aria-expanded="true">
+            <span class="chevron"><svg viewBox="0 0 12 12"><path d="M4.5 3 7.5 6 4.5 9"></path></svg></span>
+            <span class="page-title">Page <strong>2</strong></span>
+            <span class="page-actions">
+              <span class="scale-pill good">40.94 ft</span>
+              <span class="go" role="button">Go</span>
+            </span>
+          </button>
+          <div class="children">
+            <div class="run"><span class="dot" style="background:#b6ff3c;color:#b6ff3c"></span><span class="run-name">Lobby conduit</span><span class="anchor-count">5</span><span class="length">18.24 ft</span></div>
+            <div class="run"><span class="dot" style="background:#50d7ff;color:#50d7ff"></span><span class="run-name">North wall pull</span><span class="anchor-count">4</span><span class="length">11.65 ft</span></div>
+            <div class="run"><span class="dot" style="background:#ffb13c;color:#ffb13c"></span><span class="run-name">Door frame route</span><span class="anchor-count">6</span><span class="length">11.05 ft</span></div>
+          </div>
+        </article>
+
+        <article class="page-block">
+          <button class="page-header" type="button" aria-expanded="false">
+            <span class="chevron"><svg viewBox="0 0 12 12"><path d="M4.5 3 7.5 6 4.5 9"></path></svg></span>
+            <span class="page-title">Page <strong>3</strong></span>
+            <span class="page-actions">
+              <span class="scale-pill good">22.18 ft</span>
+              <span class="go" role="button">Go</span>
+            </span>
+          </button>
+          <div class="children">
+            <div class="run"><span class="dot" style="background:#b6ff3c;color:#b6ff3c"></span><span class="run-name">Back office loop</span><span class="anchor-count">3</span><span class="length">9.40 ft</span></div>
+            <div class="run"><span class="dot" style="background:#50d7ff;color:#50d7ff"></span><span class="run-name">Data rack path</span><span class="anchor-count">5</span><span class="length">7.12 ft</span></div>
+            <div class="run"><span class="dot" style="background:#ff6b6b;color:#ff6b6b"></span><span class="run-name">Ceiling branch</span><span class="anchor-count">2</span><span class="length">5.66 ft</span></div>
+          </div>
+        </article>
+
+        <article class="page-block">
+          <button class="page-header" type="button" aria-expanded="false">
+            <span class="chevron"><svg viewBox="0 0 12 12"><path d="M4.5 3 7.5 6 4.5 9"></path></svg></span>
+            <span class="page-title">Page <strong>4</strong></span>
+            <span class="page-actions">
+              <span class="scale-pill warn">No scale</span>
+              <span class="info" title="1 unscaled excluded on page 4">i</span>
+              <span class="go" role="button">Go</span>
+            </span>
+          </button>
+          <div class="children">
+            <div class="run"><span class="dot" style="background:#b6ff3c;color:#b6ff3c"></span><span class="run-name">Unscaled sketch</span><span class="anchor-count">2</span><span class="length">unscaled</span></div>
+            <div class="run"><span class="dot" style="background:#50d7ff;color:#50d7ff"></span><span class="run-name">Spare run</span><span class="anchor-count">2</span><span class="length">unscaled</span></div>
+            <div class="run"><span class="dot" style="background:#ffb13c;color:#ffb13c"></span><span class="run-name">Future route</span><span class="anchor-count">3</span><span class="length">unscaled</span></div>
+          </div>
+        </article>
+      </section>
+
+      <footer class="footer">
+        <button>feet (ft)</button>
+        <button>Clear All</button>
+      </footer>
+    </aside>
+  </main>
+
+<script>
+  document.querySelectorAll('.page-header').forEach((header) => {
+    header.addEventListener('click', (event) => {
+      if (event.target.closest('.go') || event.target.closest('.info')) return;
+      const block = header.closest('.page-block');
+      const isOpen = block.classList.toggle('open');
+      header.setAttribute('aria-expanded', String(isOpen));
+    });
+  });
+
+  document.querySelectorAll('.go').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      button.textContent = 'Here';
+      setTimeout(() => { button.textContent = 'Go'; }, 900);
+    });
+  });
+</script>
+</body>
+</html>

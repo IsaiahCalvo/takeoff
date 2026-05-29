@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cable Type Icon Options</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0f11;
+    --panel: #12181b;
+    --panel-2: #171f23;
+    --line: #283238;
+    --text: #f5f8f9;
+    --muted: #93a0a7;
+    --accent: #b6ff3c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 18% 10%, rgba(182,255,60,0.08), transparent 26%),
+      linear-gradient(135deg, #080b0d 0%, #111719 52%, #090d0f 100%);
+    color: var(--text);
+    font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  main {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 24px 24px 40px;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: end;
+    gap: 24px;
+    padding-bottom: 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    line-height: 1.05;
+    letter-spacing: 0;
+  }
+  header p {
+    margin: 10px 0 0;
+    color: var(--muted);
+    max-width: 680px;
+  }
+  .toolbar-preview {
+    min-width: 174px;
+    background: rgba(18,24,27,0.92);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: 0 18px 36px rgba(0,0,0,0.38);
+  }
+  .toolbar-preview strong {
+    display: block;
+    margin: 0 0 8px;
+    color: var(--muted);
+    font: 700 10px/1 "JetBrains Mono", ui-monospace, monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+  .toolbar-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .mini-button {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #0f1417;
+  }
+  section {
+    margin-top: 28px;
+  }
+  .section-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 18px;
+    margin-bottom: 14px;
+  }
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    letter-spacing: 0;
+  }
+  .section-title p {
+    margin: 0;
+    color: var(--muted);
+    max-width: 720px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .iteration-grid {
+    display: grid;
+    gap: 12px;
+  }
+  .iteration-row {
+    min-width: 0;
+    background: rgba(18,24,27,0.9);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .iteration-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+  .iteration-head strong {
+    font-size: 13px;
+  }
+  .iteration-head span {
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .variant-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .variant {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid #1f292e;
+    border-radius: 7px;
+    background: #0d1214;
+  }
+  .variant .mini-button {
+    width: 42px;
+    height: 42px;
+  }
+  .variant-label {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+  .variant-label strong {
+    font-size: 12px;
+    line-height: 1;
+  }
+  .variant-label span {
+    color: var(--muted);
+    font: 700 9px/1 "JetBrains Mono", ui-monospace, monospace;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .card {
+    min-width: 0;
+    background: rgba(18,24,27,0.9);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .label {
+    min-width: 0;
+  }
+  .label strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+  }
+  .label span {
+    color: var(--muted);
+    font: 700 9px/1.5 "JetBrains Mono", ui-monospace, monospace;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+  }
+  .style-pill {
+    flex: 0 0 auto;
+    padding: 4px 7px;
+    border: 1px solid rgba(182,255,60,0.25);
+    border-radius: 5px;
+    color: var(--accent);
+    background: rgba(182,255,60,0.06);
+    font: 700 10px/1 "JetBrains Mono", ui-monospace, monospace;
+    text-transform: uppercase;
+  }
+  .icon-box {
+    display: grid;
+    place-items: center;
+    min-height: 76px;
+    border-radius: 7px;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(0deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+      #0d1214;
+    background-size: 18px 18px;
+    border: 1px solid #1f292e;
+  }
+  svg {
+    width: 42px;
+    height: 42px;
+    overflow: visible;
+  }
+  .mini-button svg {
+    width: 34px;
+    height: 34px;
+  }
+  .meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .swatch-row {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .swatch {
+    flex: 0 0 auto;
+    width: 13px;
+    height: 13px;
+    border-radius: 4px;
+    border: 1px solid rgba(255,255,255,0.35);
+  }
+  .stroke-solid { stroke-dasharray: none; }
+  .stroke-dashed { stroke-dasharray: 18 13; }
+  .stroke-dotted { stroke-dasharray: 1 16; stroke-linecap: round; }
+  .line {
+    fill: none;
+    stroke-width: 9;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+  }
+  .anchor {
+    stroke-width: 5;
+  }
+  .tail {
+    fill: none;
+    stroke-width: 8;
+    stroke-linecap: round;
+  }
+  .measure-icon .line {
+    stroke-width: 2.2;
+  }
+  .measure-icon .anchor {
+    stroke-width: 1.15;
+  }
+  .measure-icon .stroke-dashed {
+    stroke-dasharray: 3.4 2.4;
+  }
+  .measure-icon .stroke-dotted {
+    stroke-dasharray: 0.1 3.15;
+    stroke-linecap: round;
+  }
+  .wide-zigzag-icon .line {
+    stroke-width: 9;
+  }
+  .wide-zigzag-icon .anchor {
+    stroke-width: 5;
+  }
+  .wide-zigzag-icon .stroke-dashed {
+    stroke-dasharray: 18 13;
+  }
+  .wide-zigzag-icon .stroke-dotted {
+    stroke-dasharray: 1 16;
+    stroke-linecap: round;
+  }
+  .note {
+    margin-top: 26px;
+    padding: 13px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--muted);
+    background: rgba(18,24,27,0.75);
+  }
+  @media (max-width: 880px) {
+    header { display: block; }
+    .toolbar-preview { margin-top: 18px; min-width: 0; }
+    .section-title { display: block; }
+    .section-title p { margin-top: 7px; }
+    .grid { grid-template-columns: 1fr; }
+    .variant-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Cable Type Icon Options</h1>
+      <p>Standalone mockup for template picker icons at actual button scale. Each option mirrors stroke color, stroke pattern, anchor fill, and anchor border.</p>
+    </div>
+    <div class="toolbar-preview">
+      <strong>42px button scale</strong>
+      <div class="toolbar-row">
+        <div class="mini-button">
+          <svg class="measure-icon" viewBox="0 2 24 24" aria-hidden="true">
+            <path class="line stroke-solid" d="M4 20l6-6 4 4 6-10" stroke="#2f8cff"/>
+            <circle class="anchor" cx="4" cy="20" r="1.65" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="10" cy="14" r="1.65" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="14" cy="18" r="1.65" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="20" cy="8" r="1.65" fill="#ff3b66" stroke="#ffffff"/>
+          </svg>
+        </div>
+        <div class="mini-button">
+          <svg viewBox="-3 -42 170 170" aria-hidden="true">
+            <path class="tail stroke-dashed" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" stroke="#36d399"/>
+            <circle class="anchor" cx="20" cy="52" r="13" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="144" cy="43" r="13" fill="#0b0f11" stroke="#36d399"/>
+          </svg>
+        </div>
+        <div class="mini-button">
+          <svg class="wide-zigzag-icon" viewBox="-10 -42 190 170" aria-hidden="true">
+            <path class="line stroke-dotted" d="M24 62 L70 28 L116 54 L166 18" stroke="#ffb13c"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#7c3cff" stroke="#ffd166"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-title">
+      <h2>Option A: Measurement Zigzag</h2>
+      <p>This copies the current Measure icon language directly, but the preview adopts the cable type's actual visual style.</p>
+    </div>
+    <div class="grid">
+      <article class="card">
+        <div class="card-head"><div class="label"><strong>Cat 6</strong><span>Blue line, red anchors</span></div><span class="style-pill">Solid</span></div>
+        <div class="icon-box">
+          <svg class="measure-icon" viewBox="0 2 24 24">
+            <path class="line stroke-solid" d="M4 20l6-6 4 4 6-10" stroke="#2f8cff"/>
+            <circle class="anchor" cx="4" cy="20" r="1.65" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="10" cy="14" r="1.65" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="14" cy="18" r="1.65" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="20" cy="8" r="1.65" fill="#ff3b66" stroke="#ffffff"/>
+          </svg>
+        </div>
+        <div class="meta"><span class="swatch-row"><i class="swatch" style="background:#2f8cff"></i>Stroke</span><span class="swatch-row"><i class="swatch" style="background:#ff3b66"></i>Fill</span><span class="swatch-row"><i class="swatch" style="background:#fff"></i>Border</span></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><div class="label"><strong>Fiber</strong><span>Green dashed, dark anchors</span></div><span class="style-pill">Dashed</span></div>
+        <div class="icon-box">
+          <svg class="measure-icon" viewBox="0 2 24 24">
+            <path class="line stroke-dashed" d="M4 20l6-6 4 4 6-10" stroke="#36d399"/>
+            <circle class="anchor" cx="4" cy="20" r="1.65" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="10" cy="14" r="1.65" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="14" cy="18" r="1.65" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="20" cy="8" r="1.65" fill="#0b0f11" stroke="#36d399"/>
+          </svg>
+        </div>
+        <div class="meta"><span class="swatch-row"><i class="swatch" style="background:#36d399"></i>Stroke</span><span class="swatch-row"><i class="swatch" style="background:#0b0f11"></i>Fill</span><span class="swatch-row"><i class="swatch" style="background:#36d399"></i>Border</span></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><div class="label"><strong>Composite</strong><span>Orange dotted, purple anchors</span></div><span class="style-pill">Dotted</span></div>
+        <div class="icon-box">
+          <svg class="measure-icon" viewBox="0 2 24 24">
+            <path class="line stroke-dotted" d="M4 20l6-6 4 4 6-10" stroke="#ffb13c"/>
+            <circle class="anchor" cx="4" cy="20" r="1.65" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="10" cy="14" r="1.65" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="14" cy="18" r="1.65" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="20" cy="8" r="1.65" fill="#7c3cff" stroke="#ffd166"/>
+          </svg>
+        </div>
+        <div class="meta"><span class="swatch-row"><i class="swatch" style="background:#ffb13c"></i>Stroke</span><span class="swatch-row"><i class="swatch" style="background:#7c3cff"></i>Fill</span><span class="swatch-row"><i class="swatch" style="background:#ffd166"></i>Border</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">
+      <h2>Option B: Two Anchors With Tail</h2>
+      <p>This uses anchors on both ends, with the cable leaving the right anchor from its left midpoint, making one peak and one valley.</p>
+    </div>
+    <div class="grid">
+      <article class="card">
+        <div class="card-head"><div class="label"><strong>Cat 6</strong><span>Blue tail, red anchor</span></div><span class="style-pill">Solid</span></div>
+        <div class="icon-box">
+          <svg viewBox="-3 -42 170 170">
+            <path class="tail stroke-solid" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" stroke="#2f8cff"/>
+            <circle class="anchor" cx="20" cy="52" r="13" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="144" cy="43" r="13" fill="#ff3b66" stroke="#ffffff"/>
+          </svg>
+        </div>
+        <div class="meta"><span class="swatch-row"><i class="swatch" style="background:#2f8cff"></i>Stroke</span><span class="swatch-row"><i class="swatch" style="background:#ff3b66"></i>Fill</span><span class="swatch-row"><i class="swatch" style="background:#fff"></i>Border</span></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><div class="label"><strong>Fiber</strong><span>Green dashed tail</span></div><span class="style-pill">Dashed</span></div>
+        <div class="icon-box">
+          <svg viewBox="-3 -42 170 170">
+            <path class="tail stroke-dashed" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" stroke="#36d399"/>
+            <circle class="anchor" cx="20" cy="52" r="13" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="144" cy="43" r="13" fill="#0b0f11" stroke="#36d399"/>
+          </svg>
+        </div>
+        <div class="meta"><span class="swatch-row"><i class="swatch" style="background:#36d399"></i>Stroke</span><span class="swatch-row"><i class="swatch" style="background:#0b0f11"></i>Fill</span><span class="swatch-row"><i class="swatch" style="background:#36d399"></i>Border</span></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><div class="label"><strong>Composite</strong><span>Orange dotted tail</span></div><span class="style-pill">Dotted</span></div>
+        <div class="icon-box">
+          <svg viewBox="-3 -42 170 170">
+            <path class="tail stroke-dotted" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" stroke="#ffb13c"/>
+            <circle class="anchor" cx="20" cy="52" r="13" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="144" cy="43" r="13" fill="#7c3cff" stroke="#ffd166"/>
+          </svg>
+        </div>
+        <div class="meta"><span class="swatch-row"><i class="swatch" style="background:#ffb13c"></i>Stroke</span><span class="swatch-row"><i class="swatch" style="background:#7c3cff"></i>Fill</span><span class="swatch-row"><i class="swatch" style="background:#ffd166"></i>Border</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">
+      <h2>Option C: Original Wide Zigzag</h2>
+      <p>This is the first wider four-anchor shape from the original mockup, kept here so it can be compared against the exact app icon and the two-anchor squiggle.</p>
+    </div>
+    <div class="grid">
+      <article class="card">
+        <div class="card-head"><div class="label"><strong>Cat 6</strong><span>Blue line, red anchors</span></div><span class="style-pill">Solid</span></div>
+        <div class="icon-box">
+          <svg class="wide-zigzag-icon" viewBox="-10 -42 190 170">
+            <path class="line stroke-solid" d="M24 62 L70 28 L116 54 L166 18" stroke="#2f8cff"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#ff3b66" stroke="#ffffff"/>
+          </svg>
+        </div>
+        <div class="meta"><span class="swatch-row"><i class="swatch" style="background:#2f8cff"></i>Stroke</span><span class="swatch-row"><i class="swatch" style="background:#ff3b66"></i>Fill</span><span class="swatch-row"><i class="swatch" style="background:#fff"></i>Border</span></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><div class="label"><strong>Fiber</strong><span>Green dashed, dark anchors</span></div><span class="style-pill">Dashed</span></div>
+        <div class="icon-box">
+          <svg class="wide-zigzag-icon" viewBox="-10 -42 190 170">
+            <path class="line stroke-dashed" d="M24 62 L70 28 L116 54 L166 18" stroke="#36d399"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#0b0f11" stroke="#36d399"/>
+          </svg>
+        </div>
+        <div class="meta"><span class="swatch-row"><i class="swatch" style="background:#36d399"></i>Stroke</span><span class="swatch-row"><i class="swatch" style="background:#0b0f11"></i>Fill</span><span class="swatch-row"><i class="swatch" style="background:#36d399"></i>Border</span></div>
+      </article>
+      <article class="card">
+        <div class="card-head"><div class="label"><strong>Composite</strong><span>Orange dotted, purple anchors</span></div><span class="style-pill">Dotted</span></div>
+        <div class="icon-box">
+          <svg class="wide-zigzag-icon" viewBox="-10 -42 190 170">
+            <path class="line stroke-dotted" d="M24 62 L70 28 L116 54 L166 18" stroke="#ffb13c"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#7c3cff" stroke="#ffd166"/>
+          </svg>
+        </div>
+        <div class="meta"><span class="swatch-row"><i class="swatch" style="background:#ffb13c"></i>Stroke</span><span class="swatch-row"><i class="swatch" style="background:#7c3cff"></i>Fill</span><span class="swatch-row"><i class="swatch" style="background:#ffd166"></i>Border</span></div>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">
+      <h2>Two-Anchor Squiggle Iterations</h2>
+      <p>Five variations of the preferred icon, each shown as solid, dashed, and dotted at button scale.</p>
+    </div>
+    <div class="iteration-grid">
+      <article class="iteration-row">
+        <div class="iteration-head"><strong>Iteration 1</strong><span>Balanced wave, current favorite</span></div>
+        <div class="variant-row">
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-solid" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" stroke="#2f8cff"/><circle class="anchor" cx="20" cy="52" r="13" fill="#ff3b66" stroke="#ffffff"/><circle class="anchor" cx="144" cy="43" r="13" fill="#ff3b66" stroke="#ffffff"/></svg></div><div class="variant-label"><strong>Solid</strong><span>Cat 6</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dashed" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" stroke="#36d399"/><circle class="anchor" cx="20" cy="52" r="13" fill="#0b0f11" stroke="#36d399"/><circle class="anchor" cx="144" cy="43" r="13" fill="#0b0f11" stroke="#36d399"/></svg></div><div class="variant-label"><strong>Dashed</strong><span>Fiber</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dotted" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" stroke="#ffb13c"/><circle class="anchor" cx="20" cy="52" r="13" fill="#7c3cff" stroke="#ffd166"/><circle class="anchor" cx="144" cy="43" r="13" fill="#7c3cff" stroke="#ffd166"/></svg></div><div class="variant-label"><strong>Dotted</strong><span>Composite</span></div></div>
+        </div>
+      </article>
+
+      <article class="iteration-row">
+        <div class="iteration-head"><strong>Iteration 2</strong><span>Flatter, calmer wave</span></div>
+        <div class="variant-row">
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-solid" d="M130 46 C112 46 108 35 89 35 C66 35 65 55 43 55 C31 55 25 51 20 49" stroke="#2f8cff"/><circle class="anchor" cx="20" cy="49" r="13" fill="#ff3b66" stroke="#ffffff"/><circle class="anchor" cx="144" cy="46" r="13" fill="#ff3b66" stroke="#ffffff"/></svg></div><div class="variant-label"><strong>Solid</strong><span>Cat 6</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dashed" d="M130 46 C112 46 108 35 89 35 C66 35 65 55 43 55 C31 55 25 51 20 49" stroke="#36d399"/><circle class="anchor" cx="20" cy="49" r="13" fill="#0b0f11" stroke="#36d399"/><circle class="anchor" cx="144" cy="46" r="13" fill="#0b0f11" stroke="#36d399"/></svg></div><div class="variant-label"><strong>Dashed</strong><span>Fiber</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dotted" d="M130 46 C112 46 108 35 89 35 C66 35 65 55 43 55 C31 55 25 51 20 49" stroke="#ffb13c"/><circle class="anchor" cx="20" cy="49" r="13" fill="#7c3cff" stroke="#ffd166"/><circle class="anchor" cx="144" cy="46" r="13" fill="#7c3cff" stroke="#ffd166"/></svg></div><div class="variant-label"><strong>Dotted</strong><span>Composite</span></div></div>
+        </div>
+      </article>
+
+      <article class="iteration-row">
+        <div class="iteration-head"><strong>Iteration 2A</strong><span>Slightly longer, same calm wave</span></div>
+        <div class="variant-row">
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-solid" d="M132 46 C114 46 109 34 88 34 C65 34 64 56 41 56 C30 56 24 51 19 48" stroke="#2f8cff"/><circle class="anchor" cx="19" cy="48" r="13" fill="#ff3b66" stroke="#ffffff"/><circle class="anchor" cx="146" cy="46" r="13" fill="#ff3b66" stroke="#ffffff"/></svg></div><div class="variant-label"><strong>Solid</strong><span>Cat 6</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dashed" d="M132 46 C114 46 109 34 88 34 C65 34 64 56 41 56 C30 56 24 51 19 48" stroke="#36d399"/><circle class="anchor" cx="19" cy="48" r="13" fill="#0b0f11" stroke="#36d399"/><circle class="anchor" cx="146" cy="46" r="13" fill="#0b0f11" stroke="#36d399"/></svg></div><div class="variant-label"><strong>Dashed</strong><span>Fiber</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dotted" d="M132 46 C114 46 109 34 88 34 C65 34 64 56 41 56 C30 56 24 51 19 48" stroke="#ffb13c"/><circle class="anchor" cx="19" cy="48" r="13" fill="#7c3cff" stroke="#ffd166"/><circle class="anchor" cx="146" cy="46" r="13" fill="#7c3cff" stroke="#ffd166"/></svg></div><div class="variant-label"><strong>Dotted</strong><span>Composite</span></div></div>
+        </div>
+      </article>
+
+      <article class="iteration-row">
+        <div class="iteration-head"><strong>Iteration 2B</strong><span>Lower amplitude, tighter middle</span></div>
+        <div class="variant-row">
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-solid" d="M130 47 C113 47 109 38 90 38 C68 38 66 53 44 53 C32 53 25 50 20 48" stroke="#2f8cff"/><circle class="anchor" cx="20" cy="48" r="13" fill="#ff3b66" stroke="#ffffff"/><circle class="anchor" cx="144" cy="47" r="13" fill="#ff3b66" stroke="#ffffff"/></svg></div><div class="variant-label"><strong>Solid</strong><span>Cat 6</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dashed" d="M130 47 C113 47 109 38 90 38 C68 38 66 53 44 53 C32 53 25 50 20 48" stroke="#36d399"/><circle class="anchor" cx="20" cy="48" r="13" fill="#0b0f11" stroke="#36d399"/><circle class="anchor" cx="144" cy="47" r="13" fill="#0b0f11" stroke="#36d399"/></svg></div><div class="variant-label"><strong>Dashed</strong><span>Fiber</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dotted" d="M130 47 C113 47 109 38 90 38 C68 38 66 53 44 53 C32 53 25 50 20 48" stroke="#ffb13c"/><circle class="anchor" cx="20" cy="48" r="13" fill="#7c3cff" stroke="#ffd166"/><circle class="anchor" cx="144" cy="47" r="13" fill="#7c3cff" stroke="#ffd166"/></svg></div><div class="variant-label"><strong>Dotted</strong><span>Composite</span></div></div>
+        </div>
+      </article>
+
+      <article class="iteration-row">
+        <div class="iteration-head"><strong>Iteration 2C</strong><span>More open wave, still restrained</span></div>
+        <div class="variant-row">
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-solid" d="M130 45 C112 45 108 32 88 32 C65 32 65 58 43 58 C31 58 24 52 20 49" stroke="#2f8cff"/><circle class="anchor" cx="20" cy="49" r="13" fill="#ff3b66" stroke="#ffffff"/><circle class="anchor" cx="144" cy="45" r="13" fill="#ff3b66" stroke="#ffffff"/></svg></div><div class="variant-label"><strong>Solid</strong><span>Cat 6</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dashed" d="M130 45 C112 45 108 32 88 32 C65 32 65 58 43 58 C31 58 24 52 20 49" stroke="#36d399"/><circle class="anchor" cx="20" cy="49" r="13" fill="#0b0f11" stroke="#36d399"/><circle class="anchor" cx="144" cy="45" r="13" fill="#0b0f11" stroke="#36d399"/></svg></div><div class="variant-label"><strong>Dashed</strong><span>Fiber</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dotted" d="M130 45 C112 45 108 32 88 32 C65 32 65 58 43 58 C31 58 24 52 20 49" stroke="#ffb13c"/><circle class="anchor" cx="20" cy="49" r="13" fill="#7c3cff" stroke="#ffd166"/><circle class="anchor" cx="144" cy="45" r="13" fill="#7c3cff" stroke="#ffd166"/></svg></div><div class="variant-label"><strong>Dotted</strong><span>Composite</span></div></div>
+        </div>
+      </article>
+
+      <article class="iteration-row">
+        <div class="iteration-head"><strong>Iteration 3</strong><span>Sharper peak and valley</span></div>
+        <div class="variant-row">
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-solid" d="M130 44 C111 44 109 18 88 18 C64 18 65 68 42 68 C31 68 24 58 20 53" stroke="#2f8cff"/><circle class="anchor" cx="20" cy="53" r="13" fill="#ff3b66" stroke="#ffffff"/><circle class="anchor" cx="144" cy="44" r="13" fill="#ff3b66" stroke="#ffffff"/></svg></div><div class="variant-label"><strong>Solid</strong><span>Cat 6</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dashed" d="M130 44 C111 44 109 18 88 18 C64 18 65 68 42 68 C31 68 24 58 20 53" stroke="#36d399"/><circle class="anchor" cx="20" cy="53" r="13" fill="#0b0f11" stroke="#36d399"/><circle class="anchor" cx="144" cy="44" r="13" fill="#0b0f11" stroke="#36d399"/></svg></div><div class="variant-label"><strong>Dashed</strong><span>Fiber</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dotted" d="M130 44 C111 44 109 18 88 18 C64 18 65 68 42 68 C31 68 24 58 20 53" stroke="#ffb13c"/><circle class="anchor" cx="20" cy="53" r="13" fill="#7c3cff" stroke="#ffd166"/><circle class="anchor" cx="144" cy="44" r="13" fill="#7c3cff" stroke="#ffd166"/></svg></div><div class="variant-label"><strong>Dotted</strong><span>Composite</span></div></div>
+        </div>
+      </article>
+
+      <article class="iteration-row">
+        <div class="iteration-head"><strong>Iteration 4</strong><span>Shorter cable segment</span></div>
+        <div class="variant-row">
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-solid" d="M118 45 C101 45 100 29 83 29 C64 29 64 61 45 61 C35 61 30 55 27 51" stroke="#2f8cff"/><circle class="anchor" cx="27" cy="51" r="13" fill="#ff3b66" stroke="#ffffff"/><circle class="anchor" cx="132" cy="45" r="13" fill="#ff3b66" stroke="#ffffff"/></svg></div><div class="variant-label"><strong>Solid</strong><span>Cat 6</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dashed" d="M118 45 C101 45 100 29 83 29 C64 29 64 61 45 61 C35 61 30 55 27 51" stroke="#36d399"/><circle class="anchor" cx="27" cy="51" r="13" fill="#0b0f11" stroke="#36d399"/><circle class="anchor" cx="132" cy="45" r="13" fill="#0b0f11" stroke="#36d399"/></svg></div><div class="variant-label"><strong>Dashed</strong><span>Fiber</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dotted" d="M118 45 C101 45 100 29 83 29 C64 29 64 61 45 61 C35 61 30 55 27 51" stroke="#ffb13c"/><circle class="anchor" cx="27" cy="51" r="13" fill="#7c3cff" stroke="#ffd166"/><circle class="anchor" cx="132" cy="45" r="13" fill="#7c3cff" stroke="#ffd166"/></svg></div><div class="variant-label"><strong>Dotted</strong><span>Composite</span></div></div>
+        </div>
+      </article>
+
+      <article class="iteration-row">
+        <div class="iteration-head"><strong>Iteration 5</strong><span>More symmetrical S curve</span></div>
+        <div class="variant-row">
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-solid" d="M130 48 C109 48 109 30 88 30 C66 30 65 58 44 58 C32 58 25 51 20 46" stroke="#2f8cff"/><circle class="anchor" cx="20" cy="46" r="13" fill="#ff3b66" stroke="#ffffff"/><circle class="anchor" cx="144" cy="48" r="13" fill="#ff3b66" stroke="#ffffff"/></svg></div><div class="variant-label"><strong>Solid</strong><span>Cat 6</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dashed" d="M130 48 C109 48 109 30 88 30 C66 30 65 58 44 58 C32 58 25 51 20 46" stroke="#36d399"/><circle class="anchor" cx="20" cy="46" r="13" fill="#0b0f11" stroke="#36d399"/><circle class="anchor" cx="144" cy="48" r="13" fill="#0b0f11" stroke="#36d399"/></svg></div><div class="variant-label"><strong>Dashed</strong><span>Fiber</span></div></div>
+          <div class="variant"><div class="mini-button"><svg viewBox="-3 -42 170 170"><path class="tail stroke-dotted" d="M130 48 C109 48 109 30 88 30 C66 30 65 58 44 58 C32 58 25 51 20 46" stroke="#ffb13c"/><circle class="anchor" cx="20" cy="46" r="13" fill="#7c3cff" stroke="#ffd166"/><circle class="anchor" cx="144" cy="48" r="13" fill="#7c3cff" stroke="#ffd166"/></svg></div><div class="variant-label"><strong>Dotted</strong><span>Composite</span></div></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <div class="note">
+    This is only a visual mockup. It does not change the Takeoff app.
+  </div>
+</main>
+</body>
+</html>
