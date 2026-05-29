@@ -94,6 +94,11 @@ test('all-pages page group nests full-width child runs under each page', async (
   const collapsedChildrenRule = html.match(/\.page-group\.collapsed \.page-children\s*\{[^}]+\}/)?.[0] || '';
   const childItemRule = html.match(/\.page-group \.meas-item\s*\{[^}]+\}/)?.[0] || '';
   const childRowRule = html.match(/\.page-group \.meas-item \.row\s*\{[^}]+\}/)?.[0] || '';
+  const itemRule = html.match(/\n\s*\.meas-item\s*\{[^}]+\}/)?.[0] || '';
+  const rowRule = html.match(/\n\s*\.meas-item \.row\s*\{[^}]+\}/)?.[0] || '';
+  const inputRule = html.match(/\n\s*\.meas-item input\.name\s*\{[^}]+\}/)?.[0] || '';
+  const lengthRule = html.match(/\n\s*\.meas-item \.len\s*\{[^}]+\}/)?.[0] || '';
+  const deleteRule = html.match(/\n\s*\.meas-item \.del\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(html, /groupEl\.className = `page-group \$\{group\.collapsed \? 'collapsed' : 'open'\}`;/);
   assert.match(html, /header\.className = 'page-header';/);
@@ -112,10 +117,21 @@ test('all-pages page group nests full-width child runs under each page', async (
   assert.match(childrenInnerRule, /min-height:\s*0/);
   assert.match(childrenInnerRule, /overflow:\s*hidden/);
   assert.match(childrenInnerRule, /gap:\s*3px/);
+  assert.match(itemRule, /display:\s*flex/);
+  assert.match(itemRule, /align-items:\s*center/);
+  assert.match(rowRule, /align-items:\s*center/);
+  assert.match(rowRule, /width:\s*100%/);
+  assert.match(inputRule, /height:\s*20px/);
+  assert.match(inputRule, /line-height:\s*20px/);
+  assert.match(lengthRule, /display:\s*inline-flex/);
+  assert.match(lengthRule, /align-items:\s*center/);
+  assert.match(deleteRule, /display:\s*inline-flex/);
+  assert.match(deleteRule, /align-items:\s*center/);
   assert.match(childItemRule, /width:\s*100%/);
   assert.match(childItemRule, /min-height:\s*31px/);
   assert.match(childItemRule, /padding:\s*3px 5px/);
   assert.match(childRowRule, /grid-template-columns:\s*8px minmax\(0,\s*1fr\) auto auto auto/);
+  assert.match(childRowRule, /min-height:\s*17px/);
 });
 
 test('all-pages unscaled info icon opens a real tooltip on hover, focus, and click', async () => {
