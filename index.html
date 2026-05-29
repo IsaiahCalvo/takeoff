@@ -1126,6 +1126,9 @@
     display: grid;
     gap: 3px;
   }
+  .page-group.open .page-children-inner {
+    overflow: visible;
+  }
   .page-group .meas-item {
     width: 100%;
     min-height: 31px;
@@ -1193,6 +1196,11 @@
   .meas-item.unscaled {
     border-color: rgba(255,177,60,0.34);
     background: rgba(255,177,60,0.045);
+  }
+  .meas-item.selected.unscaled {
+    border-color: var(--accent);
+    background: rgba(182,255,60,0.055);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 14px rgba(182,255,60,0.12);
   }
   .meas-item .swatch {
     width: 10px; height: 10px; border-radius: 3px;

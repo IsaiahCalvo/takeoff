@@ -91,6 +91,7 @@ test('all-pages page group nests full-width child runs under each page', async (
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const childrenRule = html.match(/\.page-group \.page-children\s*\{[^}]+\}/)?.[0] || '';
   const childrenInnerRule = html.match(/\.page-group \.page-children-inner\s*\{[^}]+\}/)?.[0] || '';
+  const openChildrenInnerRule = html.match(/\.page-group\.open \.page-children-inner\s*\{[^}]+\}/)?.[0] || '';
   const collapsedChildrenRule = html.match(/\.page-group\.collapsed \.page-children\s*\{[^}]+\}/)?.[0] || '';
   const childItemRule = html.match(/\.page-group \.meas-item\s*\{[^}]+\}/)?.[0] || '';
   const childRowRule = html.match(/\.page-group \.meas-item \.row\s*\{[^}]+\}/)?.[0] || '';
@@ -99,6 +100,7 @@ test('all-pages page group nests full-width child runs under each page', async (
   const inputRule = html.match(/\n\s*\.meas-item input\.name\s*\{[^}]+\}/)?.[0] || '';
   const lengthRule = html.match(/\n\s*\.meas-item \.len\s*\{[^}]+\}/)?.[0] || '';
   const deleteRule = html.match(/\n\s*\.meas-item \.del\s*\{[^}]+\}/)?.[0] || '';
+  const selectedUnscaledRule = html.match(/\.meas-item\.selected\.unscaled\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(html, /groupEl\.className = `page-group \$\{group\.collapsed \? 'collapsed' : 'open'\}`;/);
   assert.match(html, /header\.className = 'page-header';/);
@@ -117,6 +119,7 @@ test('all-pages page group nests full-width child runs under each page', async (
   assert.match(childrenInnerRule, /min-height:\s*0/);
   assert.match(childrenInnerRule, /overflow:\s*hidden/);
   assert.match(childrenInnerRule, /gap:\s*3px/);
+  assert.match(openChildrenInnerRule, /overflow:\s*visible/);
   assert.match(itemRule, /display:\s*flex/);
   assert.match(itemRule, /align-items:\s*center/);
   assert.match(rowRule, /align-items:\s*center/);
@@ -127,6 +130,8 @@ test('all-pages page group nests full-width child runs under each page', async (
   assert.match(lengthRule, /align-items:\s*center/);
   assert.match(deleteRule, /display:\s*inline-flex/);
   assert.match(deleteRule, /align-items:\s*center/);
+  assert.match(selectedUnscaledRule, /border-color:\s*var\(--accent\)/);
+  assert.match(selectedUnscaledRule, /box-shadow:\s*0 0 0 1px var\(--accent\)/);
   assert.match(childItemRule, /width:\s*100%/);
   assert.match(childItemRule, /min-height:\s*31px/);
   assert.match(childItemRule, /padding:\s*3px 5px/);
