@@ -65,6 +65,7 @@ test('describeKeyDown maps mode hotkeys and skips text targets', async () => {
   assert.deepEqual(plain(input.describeKeyDown({ key: 'v' }, {})), { action: 'set-mode', mode: 'selection' });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'C' }, {})), { action: 'set-mode', mode: 'calibrate' });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'm' }, {})), { action: 'set-mode', mode: 'measure' });
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'M', shiftKey: true }, {})), { action: 'set-mode', mode: 'measure' });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'p' }, {})), { action: 'set-mode', mode: 'pan' });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'e' }, {})), { action: 'set-mode', mode: 'erase' });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'f' }, {})), { action: 'fit-view' });

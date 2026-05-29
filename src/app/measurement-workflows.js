@@ -1,4 +1,28 @@
 (function () {
+  const LINE_DRAW_MODE = 'line';
+  const FREEHAND_DRAW_MODE = 'freehand';
+
+  function normalizeDrawMode(value) {
+    return value === FREEHAND_DRAW_MODE ? FREEHAND_DRAW_MODE : LINE_DRAW_MODE;
+  }
+
+  function resolveMeasureStartDrawMode({ rememberedDrawMode, shiftKey = false } = {}) {
+    const mode = normalizeDrawMode(rememberedDrawMode);
+    if (!shiftKey) return mode;
+    return mode === FREEHAND_DRAW_MODE ? LINE_DRAW_MODE : FREEHAND_DRAW_MODE;
+  }
+
+  function resolveActiveMeasureDrawMode({
+    rememberedDrawMode,
+    shiftKey = false,
+    inProgress = null,
+    freehandDraft = null,
+  } = {}) {
+    if (freehandDraft) return FREEHAND_DRAW_MODE;
+    if (inProgress && inProgress.type === 'measure') return LINE_DRAW_MODE;
+    return resolveMeasureStartDrawMode({ rememberedDrawMode, shiftKey });
+  }
+
   function deleteMeasurementResult({ measurements, selectedId, deletedId } = {}) {
     const before = measurements || [];
     const after = before.filter(measurement => measurement.id !== deletedId);
@@ -32,6 +56,8 @@
   }
 
   window.TakeoffMeasurementWorkflows = {
+    resolveMeasureStartDrawMode,
+    resolveActiveMeasureDrawMode,
     deleteMeasurementResult,
     appendMeasurementResult,
     recomputeMeasurementLength,

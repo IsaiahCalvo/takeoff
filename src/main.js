@@ -1012,7 +1012,13 @@ stage.addEventListener('mousedown', (e) => {
       redraw(getEffectiveCursor());
       return;
     }
-    if (state.drawMode === 'freehand') {
+    const activeDrawMode = measurementWorkflows.resolveActiveMeasureDrawMode({
+      rememberedDrawMode: state.drawMode,
+      shiftKey: e.shiftKey,
+      inProgress: state.inProgress,
+      freehandDraft: state.freehandDraft,
+    });
+    if (activeDrawMode === 'freehand') {
       if (state.freehandDraft) {
         const raw = state.freehandDraft.rawPoints;
         const last = raw[raw.length - 1];
