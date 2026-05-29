@@ -1014,7 +1014,7 @@ stage.addEventListener('mousedown', (e) => {
     }
     const activeDrawMode = measurementWorkflows.resolveActiveMeasureDrawMode({
       rememberedDrawMode: state.drawMode,
-      shiftKey: e.shiftKey,
+      altKey: e.altKey,
       inProgress: state.inProgress,
       freehandDraft: state.freehandDraft,
     });
@@ -1439,7 +1439,6 @@ function finishFreehandMeasurement() {
   });
   stateStore.setMeasurements(state, result.measurements, { selectedId: result.selectedId });
   recordHistory(historyBefore, 'run creation');
-  setMode('selection');
   renderList();
   redraw();
   requestAnimationFrame(() => {

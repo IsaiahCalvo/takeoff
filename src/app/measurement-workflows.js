@@ -6,21 +6,21 @@
     return value === FREEHAND_DRAW_MODE ? FREEHAND_DRAW_MODE : LINE_DRAW_MODE;
   }
 
-  function resolveMeasureStartDrawMode({ rememberedDrawMode, shiftKey = false } = {}) {
+  function resolveMeasureStartDrawMode({ rememberedDrawMode, altKey = false } = {}) {
     const mode = normalizeDrawMode(rememberedDrawMode);
-    if (!shiftKey) return mode;
+    if (!altKey) return mode;
     return mode === FREEHAND_DRAW_MODE ? LINE_DRAW_MODE : FREEHAND_DRAW_MODE;
   }
 
   function resolveActiveMeasureDrawMode({
     rememberedDrawMode,
-    shiftKey = false,
+    altKey = false,
     inProgress = null,
     freehandDraft = null,
   } = {}) {
     if (freehandDraft) return FREEHAND_DRAW_MODE;
     if (inProgress && inProgress.type === 'measure') return LINE_DRAW_MODE;
-    return resolveMeasureStartDrawMode({ rememberedDrawMode, shiftKey });
+    return resolveMeasureStartDrawMode({ rememberedDrawMode, altKey });
   }
 
   function deleteMeasurementResult({ measurements, selectedId, deletedId } = {}) {
