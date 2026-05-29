@@ -928,20 +928,7 @@
   }
   .tab:hover { color: var(--text); background: transparent; }
   .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: transparent; }
-  .tabs[hidden], .single-scope-title[hidden] { display: none !important; }
-  .single-scope-title {
-    min-height: 34px;
-    display: flex;
-    align-items: center;
-    padding: 0 18px;
-    border-bottom: 1px solid var(--line);
-    background: var(--panel);
-    color: var(--accent);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-  }
+  .tabs[hidden] { display: none !important; }
 
   .page-group {
     margin: 0 0 6px;
@@ -1177,7 +1164,7 @@
     padding: 10px 12px;
   }
   .meas-list:empty::before {
-    content: 'No runs measured yet.';
+    content: 'Nothing measured yet.';
     display: block;
     color: var(--muted);
     text-align: center;
@@ -1561,7 +1548,6 @@
     <div class="sub"><span id="runCount">0 runs</span></div>
   </div>
 
-  <div id="singleScopeTitle" class="single-scope-title" hidden>Runs</div>
   <div id="scopeTabs" class="tabs">
     <button class="tab active" data-tab="page">This Page</button>
     <button class="tab" data-tab="all">All Pages</button>
@@ -1684,10 +1670,7 @@ function documentPageCount() { return state.pdf ? state.pdfPages : (state.baseW 
 
 function updateSidebarScopeChrome(model) {
   const scopeTabs = $('scopeTabs');
-  const singleScopeTitle = $('singleScopeTitle');
   scopeTabs.hidden = !model.showScopeTabs;
-  singleScopeTitle.hidden = model.showScopeTabs;
-  singleScopeTitle.textContent = model.scopeTitle;
   $('totalHeading').textContent = model.totalHeadingText;
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === model.effectiveSidebarTab));
 }

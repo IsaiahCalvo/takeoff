@@ -98,7 +98,6 @@
       effectiveSidebarTab,
       isSinglePage,
       showScopeTabs: !isSinglePage,
-      scopeTitle: isSinglePage ? 'Runs' : '',
       totalHeadingText: isSinglePage ? 'Total' : (effectiveSidebarTab === 'page' ? 'This Page Total' : 'Grand Total'),
       pageGroups: effectiveSidebarTab === 'all' ? pageGroups(all, pageScales, unit, collapsedPageGroups) : [],
     };

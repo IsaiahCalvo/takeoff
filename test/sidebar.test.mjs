@@ -41,7 +41,7 @@ test('buildSidebarModel summarizes the current page tab', async () => {
   assert.equal(model.totalUnitText, 'ft');
 });
 
-test('buildSidebarModel simplifies single-page documents to a Runs scope', async () => {
+test('buildSidebarModel simplifies single-page documents without scope tabs', async () => {
   const sidebar = await loadSidebar();
   const model = sidebar.buildSidebarModel({
     measurements: measurements.filter(measurement => measurement.page === 1),
@@ -55,7 +55,6 @@ test('buildSidebarModel simplifies single-page documents to a Runs scope', async
 
   assert.equal(model.effectiveSidebarTab, 'page');
   assert.equal(model.showScopeTabs, false);
-  assert.equal(model.scopeTitle, 'Runs');
   assert.equal(model.totalHeadingText, 'Total');
   assert.deepEqual(plain(model.pageGroups), []);
   assert.deepEqual(plain(model.measurementsForTab.map(measurement => measurement.id)), [1, 2]);
@@ -77,7 +76,6 @@ test('buildSidebarModel groups all measurements by page with page totals', async
   assert.equal(model.runCountText, '3 runs · 1 unscaled excluded');
   assert.equal(model.effectiveSidebarTab, 'all');
   assert.equal(model.showScopeTabs, true);
-  assert.equal(model.scopeTitle, '');
   assert.equal(model.totalHeadingText, 'Grand Total');
   assert.deepEqual(plain(model.pageGroups.map(group => ({
     page: group.page,
