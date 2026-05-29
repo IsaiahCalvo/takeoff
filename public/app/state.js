@@ -115,10 +115,33 @@
     state.navToken++;
   }
 
+  function setMeasurements(state, measurements, { selectedId = state.selectedId } = {}) {
+    state.measurements = measurements || [];
+    state.selectedId = selectedId;
+    return state.measurements;
+  }
+
+  function clearMeasurements(state) {
+    return setMeasurements(state, [], { selectedId: null });
+  }
+
+  function hasPageScale(state, page) {
+    return !!state.pageScales[page];
+  }
+
+  function syncCurrentPageScale(state, page) {
+    state.pxPerInch = state.pageScales[page] || null;
+    return state.pxPerInch;
+  }
+
   window.TakeoffState = {
     createInitialState,
     clearHistoryState,
     resetDocumentState,
     restoreDocumentState,
+    setMeasurements,
+    clearMeasurements,
+    hasPageScale,
+    syncCurrentPageScale,
   };
 })();

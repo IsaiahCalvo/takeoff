@@ -151,3 +151,32 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.dragLabel, null);
   assert.equal(state.navToken, 8);
 });
+
+test('measurement state helpers replace and clear measurements with selection ownership', async () => {
+  const store = await loadStateStore();
+  const state = store.createInitialState();
+  state.measurements = [{ id: 1 }];
+  state.selectedId = 1;
+
+  store.setMeasurements(state, [{ id: 2 }], { selectedId: 2 });
+  assert.deepEqual(plain(state.measurements), [{ id: 2 }]);
+  assert.equal(state.selectedId, 2);
+
+  store.clearMeasurements(state);
+  assert.deepEqual(plain(state.measurements), []);
+  assert.equal(state.selectedId, null);
+});
+
+test('page scale helpers own current-page scale mirroring', async () => {
+  const store = await loadStateStore();
+  const state = store.createInitialState();
+  state.pageScales = { 3: 8 };
+  state.pxPerInch = 99;
+
+  assert.equal(store.hasPageScale(state, 3), true);
+  assert.equal(store.hasPageScale(state, 4), false);
+  assert.equal(store.syncCurrentPageScale(state, 3), 8);
+  assert.equal(state.pxPerInch, 8);
+  assert.equal(store.syncCurrentPageScale(state, 4), null);
+  assert.equal(state.pxPerInch, null);
+});
