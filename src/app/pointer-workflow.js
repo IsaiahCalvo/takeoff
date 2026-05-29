@@ -1,4 +1,32 @@
 (function () {
+  const geometry = window.TakeoffGeometry;
+
+  function isCurveMeasurement(measurement) {
+    return !!(measurement && Array.isArray(measurement.segments) && measurement.segments.length);
+  }
+
+  function clonePoint(point) {
+    return { x: point.x, y: point.y };
+  }
+
+  function clonePoints(points) {
+    return (points || []).map(clonePoint);
+  }
+
+  function cloneSegment(segment) {
+    return {
+      ...segment,
+      from: clonePoint(segment.from),
+      c1: clonePoint(segment.c1),
+      c2: clonePoint(segment.c2),
+      to: clonePoint(segment.to),
+    };
+  }
+
+  function cloneSegments(segments) {
+    return segments ? segments.map(cloneSegment) : null;
+  }
+
   function buildContextMenuHit({ labelHit = null, anchorHit = null, pathHit = null } = {}) {
     const hitId = labelHit?.measurementId ?? anchorHit?.measurementId ?? pathHit?.measurementId ?? null;
     const target = anchorHit
@@ -17,8 +45,133 @@
     };
   }
 
+  function createRotationDrag({ measurement, frame, pointer, historyBefore }) {
+    const center = { x: frame.cx, y: frame.cy };
+    return {
+      measurementId: measurement.id,
+      historyBefore,
+      center,
+      startPointerAngle: geometry.angleDegFromCenter(center, pointer),
+      originalPoints: clonePoints(measurement.points),
+      originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalAngle: geometry.normalizeDegrees(measurement.rotationAngle || 0),
+      originalFrame: { ...frame },
+    };
+  }
+
+  function createMeasurementDrag({ measurement, pointer, historyBefore, bounds }) {
+    return {
+      measurementId: measurement.id,
+      historyBefore,
+      start: clonePoint(pointer),
+      originalPoints: clonePoints(measurement.points),
+      originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalFrame: measurement.rotationFrame ? { ...measurement.rotationFrame } : null,
+      originalBounds: bounds,
+    };
+  }
+
+  function applyMeasurementDrag({ measurement, drag, cursor, constrainDelta }) {
+    const rawDx = cursor.x - drag.start.x;
+    const rawDy = cursor.y - drag.start.y;
+    const { dx, dy } = constrainDelta(drag.originalBounds, rawDx, rawDy);
+    measurement.points = geometry.translatePoints(drag.originalPoints, dx, dy);
+    if (isCurveMeasurement(measurement) && drag.originalSegments) {
+      measurement.segments = geometry.translateSegments(drag.originalSegments, dx, dy);
+    }
+    if (drag.originalFrame) {
+      measurement.rotationFrame = {
+        ...drag.originalFrame,
+        x: drag.originalFrame.x + dx,
+        y: drag.originalFrame.y + dy,
+        cx: drag.originalFrame.cx + dx,
+        cy: drag.originalFrame.cy + dy,
+      };
+    }
+    return { dx, dy };
+  }
+
+  function applyRotationFromSnapshot({
+    measurement,
+    center,
+    originalAngle,
+    originalPoints,
+    originalSegments = null,
+    nextAngle,
+    constrainGeometry = (points, segments) => ({ points, segments }),
+    createRotationFrame = () => null,
+  }) {
+    const normalizedAngle = geometry.normalizeDegrees(nextAngle);
+    const normalizedOriginalAngle = geometry.normalizeDegrees(originalAngle);
+    const rotateDelta = normalizedAngle - normalizedOriginalAngle;
+    const isCurve = isCurveMeasurement(measurement);
+    const rotatedPoints = originalPoints.map(pt => geometry.rotatePoint(pt, center, rotateDelta));
+    const rotatedSegments = isCurve && originalSegments
+      ? geometry.rotateSegmentsAround(originalSegments, center, rotateDelta)
+      : null;
+    const constrainedGeometry = constrainGeometry(rotatedPoints, isCurve ? rotatedSegments : null);
+
+    measurement.points = constrainedGeometry.points;
+    if (isCurve && constrainedGeometry.segments) {
+      measurement.segments = constrainedGeometry.segments;
+    }
+    measurement.rotationAngle = normalizedAngle;
+    measurement.rotationFrame = createRotationFrame(measurement);
+    if (measurement.rotationFrame) measurement.rotationFrame.angle = normalizedAngle;
+
+    return { nextAngle: normalizedAngle, rotateDelta };
+  }
+
+  function applyRotationDrag({
+    measurement,
+    drag,
+    cursor,
+    shiftKey = false,
+    constrainGeometry = (points, segments) => ({ points, segments }),
+    createRotationFrame = () => null,
+  }) {
+    const pointerAngle = geometry.angleDegFromCenter(drag.center, cursor);
+    const delta = pointerAngle - drag.startPointerAngle;
+    const rawAngle = geometry.normalizeDegrees(drag.originalAngle + delta);
+    const nextAngle = shiftKey ? geometry.snapDegrees15(rawAngle) : rawAngle;
+    return applyRotationFromSnapshot({
+      measurement,
+      center: drag.center,
+      originalAngle: drag.originalAngle,
+      originalPoints: drag.originalPoints,
+      originalSegments: drag.originalSegments,
+      nextAngle,
+      constrainGeometry,
+      createRotationFrame,
+    });
+  }
+
+  function applyMeasurementRotation({
+    measurement,
+    center,
+    nextAngle,
+    constrainGeometry = (points, segments) => ({ points, segments }),
+    createRotationFrame = () => null,
+  }) {
+    return applyRotationFromSnapshot({
+      measurement,
+      center,
+      originalAngle: measurement.rotationAngle || 0,
+      originalPoints: clonePoints(measurement.points),
+      originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      nextAngle,
+      constrainGeometry,
+      createRotationFrame,
+    });
+  }
+
   window.TakeoffPointerWorkflow = {
     buildContextMenuHit,
     appendPointToDraft,
+    createRotationDrag,
+    createMeasurementDrag,
+    applyMeasurementDrag,
+    applyRotationDrag,
+    applyMeasurementRotation,
   };
 })();

@@ -26,3 +26,49 @@ test('download filenames use the export base and format suffix', async () => {
   assert.equal(exports.exportFilename('drawing-a', 'xlsx'), 'drawing-a-measurements.xlsx');
   assert.equal(exports.exportFilename('drawing-a', 'csv'), 'drawing-a-measurements.csv');
 });
+
+test('setDisclosureOpen syncs menu class and button aria state', async () => {
+  const exports = await loadExportController();
+  const classes = new Set();
+  const attrs = {};
+  const wrap = {
+    classList: {
+      toggle(name, value) {
+        if (value) classes.add(name);
+        else classes.delete(name);
+      },
+    },
+  };
+  const button = {
+    setAttribute(name, value) { attrs[name] = value; },
+  };
+
+  exports.setDisclosureOpen({ wrap, button, open: true });
+  assert.equal(classes.has('open'), true);
+  assert.equal(attrs['aria-expanded'], 'true');
+
+  exports.setDisclosureOpen({ wrap, button, open: false });
+  assert.equal(classes.has('open'), false);
+  assert.equal(attrs['aria-expanded'], 'false');
+});
+
+test('applyExportAvailability disables every export action and closes aria when empty', async () => {
+  const exports = await loadExportController();
+  const attrs = {};
+  const exportButton = {
+    disabled: false,
+    setAttribute(name, value) { attrs[name] = value; },
+  };
+  const actionButtons = [{ disabled: false }, { disabled: false }, { disabled: false }];
+
+  exports.applyExportAvailability({
+    exportButton,
+    actionButtons,
+    disabled: true,
+    isOpen: true,
+  });
+
+  assert.equal(exportButton.disabled, true);
+  assert.equal(attrs['aria-expanded'], 'false');
+  assert.deepEqual(actionButtons.map(button => button.disabled), [true, true, true]);
+});

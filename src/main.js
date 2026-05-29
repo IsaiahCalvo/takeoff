@@ -418,15 +418,11 @@ const {
   flattenSegments,
   cubicLengthPx,
   normalizeDegrees,
-  snapDegrees15,
-  angleDegFromCenter,
-  rotatePoint,
   pointsBounds,
   constrainDeltaToRect,
   translatePoints,
   rotatedFramePoint,
   translateSegments,
-  rotateSegmentsAround,
   projectPointToPolyline,
 } = window.TakeoffGeometry;
 
@@ -913,23 +909,12 @@ stage.addEventListener('mousedown', (e) => {
     const frame = getRotationFrame(m);
     if (m && frame) {
       clearActiveFitMode();
-      const center = { x: frame.cx, y: frame.cy };
-      state.rotationDrag = {
-        measurementId: m.id,
+      state.rotationDrag = pointerWorkflow.createRotationDrag({
+        measurement: m,
+        frame,
+        pointer: p,
         historyBefore: createHistorySnapshot(),
-        center,
-        startPointerAngle: angleDegFromCenter(center, p),
-        originalPoints: m.points.map(pt => ({ ...pt })),
-        originalSegments: isCurveMeasurement(m) ? m.segments.map(seg => ({
-          ...seg,
-          from: { ...seg.from },
-          c1: { ...seg.c1 },
-          c2: { ...seg.c2 },
-          to: { ...seg.to },
-        })) : null,
-        originalAngle: normalizeDegrees(m.rotationAngle || 0),
-        originalFrame: { ...frame },
-      };
+      });
       state.rotationInputVisible = true;
       stage.classList.add('dragging');
       e.preventDefault();
@@ -991,21 +976,12 @@ stage.addEventListener('mousedown', (e) => {
       const m = state.measurements.find(x => x.id === hitId);
       if (m) {
         clearActiveFitMode();
-        state.dragMeasurement = {
-          measurementId: hitId,
+        state.dragMeasurement = pointerWorkflow.createMeasurementDrag({
+          measurement: m,
+          pointer: p,
           historyBefore: createHistorySnapshot(),
-          start: p,
-          originalPoints: m.points.map(pt => ({ ...pt })),
-          originalSegments: isCurveMeasurement(m) ? m.segments.map(seg => ({
-            ...seg,
-            from: { ...seg.from },
-            c1: { ...seg.c1 },
-            c2: { ...seg.c2 },
-            to: { ...seg.to },
-          })) : null,
-          originalFrame: m.rotationFrame ? { ...m.rotationFrame } : null,
-          originalBounds: measurementBounds(m),
-        };
+          bounds: measurementBounds(m),
+        });
         stage.classList.add('dragging');
       }
     }
@@ -1136,28 +1112,14 @@ stage.addEventListener('mousemove', (e) => {
   if (state.dragMeasurement) {
     const m = state.measurements.find(x => x.id === state.dragMeasurement.measurementId);
     if (m) {
-      const rawDx = state.cursorImg.x - state.dragMeasurement.start.x;
-      const rawDy = state.cursorImg.y - state.dragMeasurement.start.y;
-      const { dx, dy } = constrainDeltaToPage(state.dragMeasurement.originalBounds, rawDx, rawDy);
-      m.points = translatePoints(state.dragMeasurement.originalPoints, dx, dy);
-      if (isCurveMeasurement(m) && state.dragMeasurement.originalSegments) {
-        m.segments = state.dragMeasurement.originalSegments.map(seg => ({
-          ...seg,
-          from: { x: seg.from.x + dx, y: seg.from.y + dy },
-          c1: { x: seg.c1.x + dx, y: seg.c1.y + dy },
-          c2: { x: seg.c2.x + dx, y: seg.c2.y + dy },
-          to: { x: seg.to.x + dx, y: seg.to.y + dy },
-        }));
+      pointerWorkflow.applyMeasurementDrag({
+        measurement: m,
+        drag: state.dragMeasurement,
+        cursor: state.cursorImg,
+        constrainDelta: constrainDeltaToPage,
+      });
+      if (isCurveMeasurement(m)) {
         updateCurveAnchors(m);
-      }
-      if (state.dragMeasurement.originalFrame) {
-        m.rotationFrame = {
-          ...state.dragMeasurement.originalFrame,
-          x: state.dragMeasurement.originalFrame.x + dx,
-          y: state.dragMeasurement.originalFrame.y + dy,
-          cx: state.dragMeasurement.originalFrame.cx + dx,
-          cy: state.dragMeasurement.originalFrame.cy + dy,
-        };
       }
       recomputeMeasurementLength(m);
       renderList();
@@ -1208,25 +1170,17 @@ function updateRotationDrag(clientX, clientY, shiftKey = false) {
   if (!m) return false;
   state.cursorImg = screenToImage(clientX, clientY);
   state.shiftHeld = !!shiftKey;
-  const pointerAngle = angleDegFromCenter(state.rotationDrag.center, state.cursorImg);
-  const delta = pointerAngle - state.rotationDrag.startPointerAngle;
-  const rawAngle = normalizeDegrees(state.rotationDrag.originalAngle + delta);
-  const nextAngle = state.shiftHeld ? snapDegrees15(rawAngle) : rawAngle;
-  const rotateDelta = nextAngle - state.rotationDrag.originalAngle;
-  m.points = state.rotationDrag.originalPoints.map(pt => rotatePoint(pt, state.rotationDrag.center, rotateDelta));
-  if (isCurveMeasurement(m) && state.rotationDrag.originalSegments) {
-    m.segments = rotateSegmentsAround(state.rotationDrag.originalSegments, state.rotationDrag.center, rotateDelta);
+  pointerWorkflow.applyRotationDrag({
+    measurement: m,
+    drag: state.rotationDrag,
+    cursor: state.cursorImg,
+    shiftKey: state.shiftHeld,
+    constrainGeometry: constrainGeometryToPage,
+    createRotationFrame,
+  });
+  if (isCurveMeasurement(m)) {
     updateCurveAnchors(m);
   }
-  const constrainedGeometry = constrainGeometryToPage(m.points, isCurveMeasurement(m) ? m.segments : null);
-  m.points = constrainedGeometry.points;
-  if (isCurveMeasurement(m) && constrainedGeometry.segments) {
-    m.segments = constrainedGeometry.segments;
-    updateCurveAnchors(m);
-  }
-  m.rotationAngle = nextAngle;
-  m.rotationFrame = createRotationFrame(m);
-  if (m.rotationFrame) m.rotationFrame.angle = nextAngle;
   recomputeMeasurementLength(m);
   renderList();
   redraw();
@@ -1820,25 +1774,20 @@ function commitRotationInput() {
     return;
   }
   const nextAngle = normalizeDegrees(parsed);
-  const delta = nextAngle - normalizeDegrees(m.rotationAngle || 0);
   const historyBefore = createHistorySnapshot();
   const frame = getRotationFrame(m);
   if (!frame) return;
   const center = { x: frame.cx, y: frame.cy };
-  m.points = m.points.map(pt => rotatePoint(pt, center, delta));
+  pointerWorkflow.applyMeasurementRotation({
+    measurement: m,
+    center,
+    nextAngle,
+    constrainGeometry: constrainGeometryToPage,
+    createRotationFrame,
+  });
   if (isCurveMeasurement(m)) {
-    m.segments = rotateSegmentsAround(m.segments, center, delta);
     updateCurveAnchors(m);
   }
-  const constrainedGeometry = constrainGeometryToPage(m.points, isCurveMeasurement(m) ? m.segments : null);
-  m.points = constrainedGeometry.points;
-  if (isCurveMeasurement(m) && constrainedGeometry.segments) {
-    m.segments = constrainedGeometry.segments;
-    updateCurveAnchors(m);
-  }
-  m.rotationAngle = nextAngle;
-  m.rotationFrame = createRotationFrame(m);
-  if (m.rotationFrame) m.rotationFrame.angle = nextAngle;
   recomputeMeasurementLength(m);
   rotationInput.blur();
   recordHistory(historyBefore, 'run rotation');
@@ -1850,24 +1799,33 @@ function commitRotationInput() {
 let pendingCalibration = null;
 function openCalibModal() {
   const modalState = calibrationWorkflow.initialModalState(state.unit);
-  $('calibModal').classList.add('show');
-  $('calibValue').value = modalState.value;
-  updateCalibValueValidity();
-  $('calibUnit').value = modalState.unit;
-  $('calibScope').value = modalState.scope;
-  $('calibRange').value = modalState.range;
-  $('calibRangeField').style.display = modalState.rangeDisplay;
+  calibrationController.applyModalState({
+    modal: $('calibModal'),
+    valueInput: $('calibValue'),
+    okButton: $('calibOk'),
+    unitSelect: $('calibUnit'),
+    scopeSelect: $('calibScope'),
+    rangeInput: $('calibRange'),
+    rangeField: $('calibRangeField'),
+    modalState,
+    isPositiveCalibrationValue: calibrationWorkflow.isPositiveCalibrationValue,
+  });
   setTimeout(() => $('calibValue').focus(), 50);
 }
 function closeCalibModal() {
-  $('calibModal').classList.remove('show');
+  calibrationController.setModalOpen($('calibModal'), false);
   state.inProgress = null;
   pendingCalibration = null;
   redraw();
 }
 $('calibScope').addEventListener('change', (e) => {
-  $('calibRangeField').style.display = calibrationWorkflow.rangeDisplayForScope(e.target.value);
-  if (e.target.value === 'custom') setTimeout(() => $('calibRange').focus(), 30);
+  calibrationController.applyScopeRangeState({
+    scope: e.target.value,
+    rangeField: $('calibRangeField'),
+    rangeInput: $('calibRange'),
+    rangeDisplayForScope: calibrationWorkflow.rangeDisplayForScope,
+    focusLater: input => setTimeout(() => input.focus(), 30),
+  });
 });
 $('calibCancel').addEventListener('click', closeCalibModal);
 $('calibOk').addEventListener('click', () => {
@@ -1911,7 +1869,7 @@ $('calibOk').addEventListener('click', () => {
 
   state.inProgress = null;
   pendingCalibration = null;
-  $('calibModal').classList.remove('show');
+  calibrationController.setModalOpen($('calibModal'), false);
   setMode('measure');
   renderList();
   updatePageLabel();
@@ -2002,23 +1960,26 @@ const exportDownloads = exportController.createDownloadHelpers({
 
 function updateExportButtons() {
   const disabled = state.measurements.length === 0;
-  exportButton.disabled = disabled;
-  exportButton.setAttribute('aria-expanded', exportWrap.classList.contains('open') ? 'true' : 'false');
-  exportXlsxButton.disabled = disabled;
-  exportCsvButton.disabled = disabled;
-  copySummaryButton.disabled = disabled;
+  exportController.applyExportAvailability({
+    exportButton,
+    actionButtons: [exportXlsxButton, exportCsvButton, copySummaryButton],
+    disabled,
+    isOpen: exportWrap.classList.contains('open'),
+  });
   if (disabled) closeExportMenu();
 }
 
 function closeExportMenu() {
-  exportWrap.classList.remove('open');
-  exportButton.setAttribute('aria-expanded', 'false');
+  exportController.setDisclosureOpen({ wrap: exportWrap, button: exportButton, open: false });
 }
 
 function toggleExportMenu() {
   if (exportButton.disabled) return;
-  const isOpen = exportWrap.classList.toggle('open');
-  exportButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  exportController.setDisclosureOpen({
+    wrap: exportWrap,
+    button: exportButton,
+    open: !exportWrap.classList.contains('open'),
+  });
 }
 
 function exportExcel() {
@@ -2057,15 +2018,21 @@ async function copyMeasurementSummary() {
 }
 
 function closeUnitMenu() {
-  document.querySelector('.select-wrap').classList.remove('open');
-  $('unitSelectButton').setAttribute('aria-expanded', 'false');
+  exportController.setDisclosureOpen({
+    wrap: document.querySelector('.select-wrap'),
+    button: $('unitSelectButton'),
+    open: false,
+  });
 }
 
 $('unitSelectButton').addEventListener('click', (e) => {
   e.stopPropagation();
   const wrap = document.querySelector('.select-wrap');
-  const isOpen = wrap.classList.toggle('open');
-  $('unitSelectButton').setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  exportController.setDisclosureOpen({
+    wrap,
+    button: $('unitSelectButton'),
+    open: !wrap.classList.contains('open'),
+  });
 });
 
 document.querySelectorAll('.unit-option').forEach(option => {
@@ -2244,24 +2211,21 @@ function syncSidebarSelection() {
 
 function buildMeasItem(m) {
   const item = document.createElement('div');
-  const onOtherPage = m.page !== currentPage();
-  m.name = cleanMeasurementName(m.name, m);
-  const isUnscaled = m.lengthInches == null;
-  item.className = sidebarView.measurementItemClass({
-    selected: state.selectedId === m.id,
-    isUnscaled,
+  const itemModel = sidebarController.buildMeasurementItemViewModel({
+    measurement: m,
+    currentPage: currentPage(),
+    selectedId: state.selectedId,
+    unit: state.unit,
+    cleanMeasurementName,
+    formatLength: formatLen,
+    unitLabel: unitModel.unitLabel,
+    measurementItemClass: sidebarView.measurementItemClass,
   });
+  const onOtherPage = itemModel.onOtherPage;
+  m.name = itemModel.name;
+  item.className = itemModel.className;
   item.dataset.measId = m.id;
-  item.innerHTML = sidebarView.buildMeasurementItemMarkup({
-    color: m.color,
-    name: m.name,
-    pointCount: m.points.length,
-    page: m.page,
-    onOtherPage,
-    isUnscaled,
-    lengthHtml: isUnscaled ? 'unscaled' : `${formatLen(m.lengthInches)} <span class="unit">${unitModel.unitLabel(state.unit)}</span>`,
-    measurementId: m.id,
-  });
+  item.innerHTML = sidebarView.buildMeasurementItemMarkup(itemModel);
   const nameInput = item.querySelector('.name');
   const startNameEdit = () => {
     nameInput.dataset.originalName = cleanMeasurementName(m.name, m);
@@ -2364,15 +2328,13 @@ function renderList() {
         const isCollapsed = groupEl.classList.contains('collapsed');
         const nextCollapsed = !isCollapsed;
         state.collapsedPageGroups[group.page] = nextCollapsed;
-        groupEl.classList.toggle('collapsed', nextCollapsed);
-        groupEl.classList.toggle('open', !nextCollapsed);
-        header.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
-        const toggle = header.querySelector('.collapse-toggle');
-        const iconPath = header.querySelector('.collapse-toggle-icon path');
-        toggle.setAttribute('aria-expanded', nextCollapsed ? 'false' : 'true');
-        toggle.setAttribute('aria-label', `${nextCollapsed ? 'Expand' : 'Collapse'} page ${group.page}`);
-        toggle.title = `${nextCollapsed ? 'Expand' : 'Collapse'} page ${group.page}`;
-        iconPath.setAttribute('d', sidebarView.collapseIconPath(nextCollapsed));
+        sidebarController.applyPageGroupCollapsedState({
+          groupEl,
+          header,
+          page: group.page,
+          collapsed: nextCollapsed,
+          collapseIconPath: sidebarView.collapseIconPath,
+        });
         saveActiveDocument();
       };
       header.addEventListener('click', (e) => {
@@ -2392,12 +2354,10 @@ function renderList() {
       if (pageInfoButton) {
         pageInfoButton.addEventListener('click', (e) => {
           e.stopPropagation();
-          const isOpen = pageInfoButton.classList.toggle('is-open');
-          pageInfoButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          sidebarController.setPageInfoOpen(pageInfoButton, !pageInfoButton.classList.contains('is-open'));
         });
         pageInfoButton.addEventListener('blur', () => {
-          pageInfoButton.classList.remove('is-open');
-          pageInfoButton.setAttribute('aria-expanded', 'false');
+          sidebarController.setPageInfoOpen(pageInfoButton, false);
         });
       }
       header.querySelector('.jump').addEventListener('click', (e) => {

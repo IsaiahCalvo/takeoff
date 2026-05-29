@@ -6,13 +6,13 @@ Date: 2026-05-29
 
 This audit answers one question: can multiple engineers or agents work on Takeoff without colliding in the same files?
 
-Current answer: much safer than the original codebase. `index.html` is now a small shell, app code is loaded from `src/main.js`, and many rules live in tested `src/app/*.js` modules. The remaining blocker is that `src/main.js` still owns too much runtime orchestration.
+Current answer: much safer than the original codebase. `index.html` is now a small shell, app code is loaded from `src/main.js`, and most domain rules live in tested `src/app/*.js` modules. The remaining concentration is `src/main.js`, but it is now mostly runtime wiring instead of owning every rule directly.
 
 ## Current Snapshot
 
 - `index.html`: 264 lines. It is markup-only app shell plus one module entrypoint.
-- `src/main.js`: 2,426 lines after this pass. It still wires PDF rendering, broad pointer input, sidebar list DOM, calibration modal DOM, unit menu DOM, and redraw orchestration.
-- Tests: 118 `node:test` tests pass.
+- `src/main.js`: 2,386 lines after this pass. It still wires PDF rendering, broad pointer input, sidebar list DOM, and redraw orchestration, but pointer drag rules, sidebar chrome rules, calibration modal chrome, and export/menu chrome now live in controllers.
+- Tests: 130 `node:test` checks pass.
 - Build: Vite builds the GitHub Pages bundle with relative asset paths.
 
 ## Healthy Modules
@@ -30,8 +30,8 @@ These areas now have a real module seam and matching test coverage:
 - Page state: `src/app/page-state.js`, `test/page-state.test.mjs`
 - Viewer math and PDF cache: `src/app/viewer.js`, `src/app/pdf-page-cache.js`, matching tests
 - Hit testing: `src/app/hit-testing.js`, `test/hit-testing.test.mjs`
-- Input decisions: `src/app/input-controller.js`, `src/app/pointer-controller.js`, `src/app/pointer-workflow.js`, matching tests
-- Sidebar model/view templates and scope chrome: `src/app/sidebar.js`, `src/app/sidebar-view.js`, `src/app/sidebar-controller.js`, matching tests
+- Input decisions: `src/app/input-controller.js`, `src/app/pointer-controller.js`, `src/app/pointer-workflow.js`, matching tests. Measurement drag, rotation drag, and typed rotation are covered there.
+- Sidebar model/view templates, row view-models, page-group chrome, tooltip state, and scope chrome: `src/app/sidebar.js`, `src/app/sidebar-view.js`, `src/app/sidebar-controller.js`, matching tests
 - SVG rendering helpers: `src/app/svg-renderer.js`, `test/svg-renderer.test.mjs`
 - Units and formatting: `src/app/units.js`, `test/units.test.mjs`
 - Tooltip controller: `src/app/tooltip-controller.js`, `test/tooltip-controller.test.mjs`
@@ -42,41 +42,41 @@ These areas now have a real module seam and matching test coverage:
 
 ### P0: `src/main.js` Still Coordinates Too Much
 
-`src/main.js` is no longer the entire app, but it still has 121 top-level functions, 76 event listener bindings, and 398 direct `state.` references. That makes it the main place where unrelated changes can collide.
+`src/main.js` is no longer the entire app, but it still has 121 top-level functions, 76 event listener bindings, and 383 direct `state.` references. That makes it the main place where unrelated changes can collide.
 
-Next best split: continue extracting pointer-mode workflows from `src/main.js` into a controller that receives page/viewer helpers and returns commands.
+Next best split when a related feature needs it: move `buildMeasItem()`/`renderList()` into a DOM-oriented sidebar controller, or move PDF render orchestration into a viewer runtime controller. Do not do a broad mechanical move without a focused test because those areas coordinate many callbacks.
 
 ### P0: Pointer Handlers Are Still Broad
 
-The mouse section still handles selection, panning, measuring, freehand drawing, calibration, dragging, erasing, label movement, and rotation. Any future work on measuring behavior can still collide there.
+The mouse section still handles selection, panning, measuring, freehand drawing, calibration, erasing, and label movement. Rotation and whole-measurement drag math have moved into `src/app/pointer-workflow.js`, but the event branch itself remains in `src/main.js`.
 
 Target module: continue deepening `src/app/pointer-workflow.js`.
 
 ### P1: Sidebar DOM Rendering Is Still In The Runtime
 
-Sidebar grouping rules and HTML snippets are separated, but `buildMeasItem()` and `renderList()` still live in `src/main.js` because they coordinate navigation, deletion, editing, selection, and redraw.
+Sidebar grouping rules, HTML snippets, row view-models, page-group collapse chrome, and page-info state are separated. `buildMeasItem()` and `renderList()` still live in `src/main.js` because they coordinate navigation, deletion, editing, selection, and redraw.
 
 Target module: `src/app/sidebar-controller.js`.
 
 ### P1: Export And Unit Menus Are Still Inline
 
-Export data rules, filenames, messages, and low-level download helpers are separated. Unit menu DOM and export menu open/close wiring still live in `src/main.js`.
+Export data rules, filenames, messages, low-level download helpers, export availability, and disclosure open/close state are separated. The remaining inline code chooses when to export, copy, or change units.
 
 Target module: continue deepening `src/app/export-controller.js`.
 
 ### P1: Calibration Modal DOM Is Still Inline
 
-Calibration parsing, reset messaging, and application rules are tested, but modal open/close, input validation wiring, history, and redraw coordination remain in `src/main.js`.
+Calibration parsing, reset messaging, application rules, modal open/close chrome, and range-scope display are tested. History and redraw coordination remain in `src/main.js`.
 
 Target module: continue deepening `src/app/calibration-controller.js`.
 
 ## Recommended Next Sequence
 
-1. Continue extracting pointer drag and selection branches into `src/app/pointer-workflow.js`.
-2. Move `buildMeasItem()` and `renderList()` into `src/app/sidebar-controller.js`.
-3. Move calibration modal open/close and validation wiring into `src/app/calibration-controller.js`.
-4. Move unit menu and export menu open/close wiring into `src/app/export-controller.js`.
-5. Tighten the `src/main.js` source-size guard after each successful split.
+1. Keep `src/main.js` under the tightened 2,400-line guard.
+2. Move the rest of `buildMeasItem()` and `renderList()` only when doing right-panel feature work, with focused sidebar-controller tests first.
+3. Move PDF page rendering orchestration only when doing document/viewer feature work, with viewer/cache tests first.
+4. Keep new pointer behavior in `src/app/pointer-workflow.js`, not inline in mouse handlers.
+5. Keep new modal/menu chrome in the matching controller, not inline in `src/main.js`.
 
 ## Ownership Rules
 

@@ -54,7 +54,7 @@ test('main runtime stays below the current coordination ceiling', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const lineCount = main.trimEnd().split('\n').length;
 
-  assert.equal(lineCount < 2450, true, `src/main.js has ${lineCount} lines`);
+  assert.equal(lineCount < 2400, true, `src/main.js has ${lineCount} lines`);
   assert.doesNotMatch(main, /function downloadBytes\(/);
   assert.doesNotMatch(main, /function positionToolTip\(/);
   assert.match(main, /TakeoffPointerWorkflow/);
@@ -211,7 +211,8 @@ test('all-pages unscaled info icon opens a real tooltip on hover, focus, and cli
   assert.match(source, /role="tooltip"/);
   assert.match(source, /const tooltipId = `page-info-\$\{group\.page\}`;/);
   assert.match(source, /pageInfoButton\.addEventListener\('click'/);
-  assert.match(source, /pageInfoButton\.classList\.toggle\('is-open'/);
+  assert.match(source, /sidebarController\.setPageInfoOpen\(pageInfoButton/);
+  assert.match(source, /function setPageInfoOpen\(button, isOpen\)/);
   assert.match(pageInfoRule, /position:\s*relative/);
   assert.match(tooltipRule, /position:\s*absolute/);
   assert.match(tooltipRule, /opacity:\s*0/);

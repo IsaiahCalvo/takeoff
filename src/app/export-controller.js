@@ -30,9 +30,24 @@
     return { downloadBytes, downloadText };
   }
 
+  function setDisclosureOpen({ wrap, button, open }) {
+    wrap.classList.toggle('open', open);
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function applyExportAvailability({ exportButton, actionButtons = [], disabled, isOpen }) {
+    exportButton.disabled = disabled;
+    exportButton.setAttribute('aria-expanded', !disabled && isOpen ? 'true' : 'false');
+    for (const button of actionButtons) {
+      button.disabled = disabled;
+    }
+  }
+
   window.TakeoffExportController = {
     exportFilename,
     excelStatusMessage,
     createDownloadHelpers,
+    setDisclosureOpen,
+    applyExportAvailability,
   };
 })();
