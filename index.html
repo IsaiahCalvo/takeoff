@@ -950,6 +950,49 @@
   }
   .page-group .jump:hover { color: var(--accent); border-color: var(--accent); }
   .page-group .no-scale { color: var(--calib); }
+  .group-totals {
+    display: none;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(255,255,255,0.012);
+  }
+  .group-totals.active { display: grid; gap: 7px; }
+  .group-totals h4 {
+    margin: 0 0 1px;
+    font-size: 9px;
+    line-height: 1;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .group-total-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 24px;
+    font-size: 11px;
+    color: var(--text);
+  }
+  .group-total-row strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .group-total-row span {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .group-total-row small {
+    color: var(--muted);
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+  }
 
   .meas-list {
     flex: 1;
@@ -1056,6 +1099,76 @@
     flex: 0 0 auto;
   }
   .meas-item .del:hover { color: var(--danger); background: rgba(255,91,91,0.1); }
+  .meas-meta-line {
+    display: none;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+    padding: 0 0 2px 20px;
+    color: var(--muted);
+    font-size: 10px;
+    line-height: 1.35;
+  }
+  .meas-item.has-meta:not(.selected) .meas-meta-line { display: grid; }
+  .category-chip {
+    width: fit-content;
+    max-width: 100%;
+    padding: 2px 6px;
+    border: 1px solid rgba(182,255,60,0.28);
+    border-radius: 4px;
+    color: var(--accent);
+    background: rgba(182,255,60,0.055);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .notes-preview {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .meas-meta-editor {
+    display: none;
+    grid-template-columns: 1fr;
+    gap: 7px;
+    padding: 2px 0 0 20px;
+  }
+  .meas-item.selected .meas-meta-editor { display: grid; }
+  .meas-field {
+    display: grid;
+    gap: 4px;
+  }
+  .meas-field span {
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+  .meas-field input,
+  .meas-field textarea {
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: #0f1417;
+    color: var(--text);
+    font: 11px/1.35 'Inter', sans-serif;
+    padding: 7px 8px;
+    outline: none;
+  }
+  .meas-field textarea {
+    min-height: 52px;
+    resize: vertical;
+  }
+  .meas-field input:focus,
+  .meas-field textarea:focus {
+    border-color: rgba(182,255,60,0.65);
+    box-shadow: 0 0 0 1px rgba(182,255,60,0.16);
+  }
 
   .footer {
     padding: 12px 20px;
@@ -1348,7 +1461,9 @@
     <button class="tab" data-tab="all">All Pages</button>
   </div>
 
+  <div class="group-totals" id="groupTotals" aria-live="polite"></div>
   <div class="meas-list" id="measList"></div>
+  <datalist id="categorySuggestions"></datalist>
 
   <div class="footer">
     <div class="select-wrap">
@@ -1433,6 +1548,7 @@
 
 <script src="/export-utils.js"></script>
 <script src="/calibration-utils.js"></script>
+<script src="/organization-utils.js"></script>
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
@@ -1580,6 +1696,7 @@ const drawCtx = drawCanvas.getContext('2d');
 const empty = $('empty');
 const statusEl = $('status');
 const measList = $('measList');
+const groupTotals = $('groupTotals');
 const toolTip = $('toolTip');
 const contextMenu = $('contextMenu');
 const rotationPill = $('rotationPill');
@@ -3261,6 +3378,8 @@ function finishMeasurement() {
   state.measurements.push({
     id,
     name: `Run ${state.measurements.length + 1}`,
+    category: '',
+    notes: '',
     color: nextMeasurementColor(),
     drawType: 'line',
     points: pts.slice(),
@@ -3312,6 +3431,8 @@ function finishFreehandMeasurement() {
   state.measurements.push({
     id,
     name: `Run ${state.measurements.length + 1}`,
+    category: '',
+    notes: '',
     color: nextMeasurementColor(),
     drawType: 'freehand',
     points: points.map(pt => ({ ...pt })),
@@ -4627,12 +4748,77 @@ function svgNode(tag, attrs = {}) {
   return el;
 }
 // ------- Sidebar list -------
+function normalizeMeasurementMeta(m) {
+  const utils = window.TakeoffOrganizationUtils;
+  const normalized = utils
+    ? utils.normalizeMeasurementMeta(m)
+    : { category: String(m.category || '').trim(), notes: String(m.notes || '').trim() };
+  m.category = normalized.category;
+  m.notes = normalized.notes;
+  return normalized;
+}
+
+function categoryName(value) {
+  return window.TakeoffOrganizationUtils
+    ? window.TakeoffOrganizationUtils.categoryName(value)
+    : (String(value || '').trim() || 'Uncategorized');
+}
+
+function updateCategorySuggestions() {
+  const defaults = ['Cat6', 'Fiber', 'Camera', 'Access Control', 'Fire Alarm', 'Speaker'];
+  const values = new Set(defaults);
+  for (const m of state.measurements) {
+    const category = String(m.category || '').trim();
+    if (category) values.add(category);
+  }
+  const list = $('categorySuggestions');
+  list.replaceChildren();
+  for (const value of [...values].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))) {
+    const option = document.createElement('option');
+    option.value = value;
+    list.appendChild(option);
+  }
+}
+
+function formatGroupTotal(group) {
+  const total = inchesToUnit(group.totalInches).toFixed(2);
+  const unit = UNIT_LABEL[state.unit];
+  const excluded = group.unscaledCount ? ` · ${group.unscaledCount} unscaled` : '';
+  return `${total} ${unit}<small>${excluded}</small>`;
+}
+
+function renderGroupTotals(measurements) {
+  groupTotals.replaceChildren();
+  const groups = window.TakeoffOrganizationUtils
+    ? window.TakeoffOrganizationUtils.groupByCategory(measurements)
+    : [];
+  groupTotals.classList.toggle('active', groups.length > 0);
+  if (!groups.length) return;
+  const heading = document.createElement('h4');
+  heading.textContent = 'Grouped totals';
+  groupTotals.appendChild(heading);
+  for (const group of groups) {
+    const row = document.createElement('div');
+    row.className = 'group-total-row';
+    row.innerHTML = `
+      <strong title="${escapeHtml(group.category)}">${escapeHtml(group.category)}</strong>
+      <span>${formatGroupTotal(group)}</span>
+    `;
+    groupTotals.appendChild(row);
+  }
+}
+
 function buildMeasItem(m) {
   const item = document.createElement('div');
   const onOtherPage = m.page !== currentPage();
   m.name = cleanMeasurementName(m.name, m);
+  const meta = normalizeMeasurementMeta(m);
   const isUnscaled = m.lengthInches == null;
-  item.className = 'meas-item' + (state.selectedId === m.id ? ' selected' : '') + (isUnscaled ? ' unscaled' : '');
+  const hasMeta = !!(meta.category || meta.notes);
+  item.className = 'meas-item'
+    + (state.selectedId === m.id ? ' selected' : '')
+    + (isUnscaled ? ' unscaled' : '')
+    + (hasMeta ? ' has-meta' : '');
   item.dataset.measId = m.id;
   item.innerHTML = `
     <div class="row head">
@@ -4642,8 +4828,24 @@ function buildMeasItem(m) {
       <span class="len" title="${isUnscaled ? 'No page scale; excluded from totals.' : ''}">${isUnscaled ? 'unscaled' : `${formatLen(m.lengthInches)} <span class="unit">${UNIT_LABEL[state.unit]}</span>`}</span>
       <button class="del" data-id="${m.id}" title="Delete">×</button>
     </div>
+    <div class="meas-meta-line">
+      ${meta.category ? `<span class="category-chip" title="${escapeHtml(categoryName(meta.category))}">${escapeHtml(categoryName(meta.category))}</span>` : ''}
+      ${meta.notes ? `<span class="notes-preview" title="${escapeHtml(meta.notes)}">${escapeHtml(meta.notes)}</span>` : ''}
+    </div>
+    <div class="meas-meta-editor">
+      <label class="meas-field">
+        <span>Category</span>
+        <input class="category-input" list="categorySuggestions" value="${escapeHtml(meta.category)}" placeholder="Optional" />
+      </label>
+      <label class="meas-field">
+        <span>Notes</span>
+        <textarea class="notes-input" placeholder="Optional">${escapeHtml(meta.notes)}</textarea>
+      </label>
+    </div>
   `;
   const nameInput = item.querySelector('.name');
+  const categoryInput = item.querySelector('.category-input');
+  const notesInput = item.querySelector('.notes-input');
   const startNameEdit = () => {
     nameInput.dataset.originalName = cleanMeasurementName(m.name, m);
     nameInput.removeAttribute('readonly');
@@ -4678,6 +4880,38 @@ function buildMeasItem(m) {
     }
   });
   nameInput.addEventListener('blur', commitNameEdit);
+  const beginMetaEdit = () => {
+    if (!item.metaHistoryBefore) item.metaHistoryBefore = createHistorySnapshot();
+  };
+  const commitMetaEdit = () => {
+    const before = item.metaHistoryBefore;
+    m.category = categoryInput.value.trim();
+    m.notes = notesInput.value.trim();
+    categoryInput.value = m.category;
+    notesInput.value = m.notes;
+    if (recordHistory(before, 'measurement details')) {
+      updateCategorySuggestions();
+      renderGroupTotals(state.sidebarTab === 'page' ? measurementsOnCurrentPage() : state.measurements);
+    } else {
+      saveActiveDocument();
+    }
+    item.metaHistoryBefore = null;
+  };
+  for (const input of [categoryInput, notesInput]) {
+    input.addEventListener('focus', beginMetaEdit);
+    input.addEventListener('blur', commitMetaEdit);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const original = item.metaHistoryBefore?.measurements?.find(x => x.id === m.id);
+        categoryInput.value = original?.category || '';
+        notesInput.value = original?.notes || '';
+        item.metaHistoryBefore = null;
+        input.blur();
+        e.stopPropagation();
+        e.preventDefault();
+      }
+    });
+  }
   item.startNameEdit = startNameEdit;
   item.querySelector('.del').addEventListener('click', (e) => {
     e.stopPropagation();
@@ -4690,7 +4924,7 @@ function buildMeasItem(m) {
   });
   item.addEventListener('click', async (e) => {
     const tag = e.target.tagName;
-    if (tag === 'INPUT' || e.target.classList.contains('del')) return;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.classList.contains('del')) return;
     if (onOtherPage) await goToPage(m.page);
     setMode('selection');
     state.selectedId = m.id;
@@ -4704,6 +4938,8 @@ function renderList() {
   measList.innerHTML = '';
   updateExportButtons();
   const pageMs = measurementsOnCurrentPage();
+  updateCategorySuggestions();
+  renderGroupTotals(state.sidebarTab === 'page' ? pageMs : state.measurements);
   const summary = window.TakeoffCalibrationUtils
     ? window.TakeoffCalibrationUtils.summarizeMeasurements(state.measurements, currentPage())
     : null;
