@@ -32,34 +32,41 @@ test('all-pages page group header keeps its label left aligned', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const pageGroupRule = html.match(/\.page-group\s*\{[^}]+\}/)?.[0] || '';
   const pageLabelRule = html.match(/\.page-group \.page-label\s*\{[^}]+\}/)?.[0] || '';
-  const jumpRule = html.match(/\.page-group \.jump\s*\{[^}]+\}/)?.[0] || '';
+  const pageActionsRule = html.match(/\.page-group \.page-actions\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(pageGroupRule, /justify-items:\s*start/);
   assert.match(pageGroupRule, /text-align:\s*left/);
   assert.match(pageLabelRule, /justify-self:\s*start/);
-  assert.match(jumpRule, /justify-self:\s*end/);
+  assert.match(pageActionsRule, /justify-self:\s*end/);
 });
 
-test('all-pages page group keeps page, scale, info, and go in one compact row', async () => {
+test('all-pages page group keeps page controls left and scale/info/go right', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const pageGroupRule = html.match(/\.page-group\s*\{[^}]+\}/)?.[0] || '';
   const pageLabelRule = html.match(/\.page-group \.page-label\s*\{[^}]+\}/)?.[0] || '';
+  const pageActionsRule = html.match(/\.page-group \.page-actions\s*\{[^}]+\}/)?.[0] || '';
   const pageStatusRule = html.match(/\.page-group \.page-status\s*\{[^}]+\}/)?.[0] || '';
   const pageInfoRule = html.match(/\.page-group \.page-info\s*\{[^}]+\}/)?.[0] || '';
 
-  assert.match(pageGroupRule, /grid-template-columns:\s*18px minmax\(0,\s*1fr\) auto auto auto/);
-  assert.match(pageGroupRule, /grid-template-areas:\s*"toggle label scale info jump"/);
+  assert.match(pageGroupRule, /grid-template-columns:\s*18px auto minmax\(12px,\s*1fr\) auto/);
+  assert.match(pageGroupRule, /grid-template-areas:\s*"toggle label spacer actions"/);
   assert.doesNotMatch(pageGroupRule, /meta/);
   assert.doesNotMatch(html, /class="page-meta"/);
+  assert.match(html, /class="page-actions"/);
   assert.match(html, /class="page-status page-status-scale/);
   assert.match(html, /class="page-info"/);
   assert.match(html, /const excludedTitle = excludedText \? `\$\{excludedText\} on page \$\{group\.page\}` : '';/);
   assert.match(html, /aria-label="\$\{excludedTitle\}"/);
   assert.match(pageLabelRule, /white-space:\s*nowrap/);
   assert.doesNotMatch(pageLabelRule, /display:\s*flex/);
-  assert.match(pageStatusRule, /grid-area:\s*scale/);
+  assert.match(pageActionsRule, /grid-area:\s*actions/);
+  assert.match(pageActionsRule, /justify-self:\s*end/);
+  assert.match(pageActionsRule, /display:\s*inline-flex/);
+  assert.doesNotMatch(pageStatusRule, /grid-area:\s*scale/);
+  assert.match(pageStatusRule, /font-size:\s*9px/);
+  assert.match(pageStatusRule, /padding:\s*2px 4px/);
   assert.match(pageStatusRule, /white-space:\s*nowrap/);
-  assert.match(pageInfoRule, /grid-area:\s*info/);
+  assert.doesNotMatch(pageInfoRule, /grid-area:\s*info/);
 });
 
 test('all-pages unscaled info icon opens a real tooltip on hover, focus, and click', async () => {

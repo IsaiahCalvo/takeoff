@@ -934,8 +934,8 @@
     padding: 6px 8px;
     position: relative;
     display: grid;
-    grid-template-columns: 18px minmax(0, 1fr) auto auto auto;
-    grid-template-areas: "toggle label scale info jump";
+    grid-template-columns: 18px auto minmax(12px, 1fr) auto;
+    grid-template-areas: "toggle label spacer actions";
     align-items: center;
     justify-items: start;
     gap: 6px;
@@ -986,25 +986,31 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .page-group .page-actions {
+    grid-area: actions;
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
+  }
   .page-group .page-status {
-    grid-area: scale;
     display: inline-flex;
     align-items: center;
     max-width: 100%;
     min-width: 0;
-    padding: 3px 6px;
+    padding: 2px 4px;
     border: 1px solid rgba(125,138,145,0.22);
     border-radius: 4px;
     background: rgba(255,255,255,0.025);
     color: var(--muted);
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    font-size: 9px;
+    letter-spacing: 0.04em;
     line-height: 1;
     white-space: nowrap;
   }
   .page-group .page-status-scale:not(.no-scale) { color: var(--accent); border-color: rgba(182,255,60,0.24); }
   .page-group .page-info {
-    grid-area: info;
     position: relative;
     width: 18px;
     height: 18px;
@@ -1075,7 +1081,6 @@
   }
   .page-group strong { color: var(--text); font-weight: 500; }
   .page-group .jump {
-    grid-area: jump;
     background: transparent; border: 1px solid var(--line);
     color: var(--muted);
     font-size: 10px; padding: 2px 8px; border-radius: 4px;
@@ -3916,9 +3921,11 @@ function renderList() {
           <svg class="collapse-toggle-icon" viewBox="0 0 12 12" aria-hidden="true"><path d="${group.collapsed ? 'M4.5 3 7.5 6 4.5 9' : 'M2.5 4.5 6 8l3.5-3.5'}"></path></svg>
         </button>
         <span class="page-label">Page <strong>${group.page}</strong></span>
-        <span class="page-status page-status-scale${group.hasScale ? '' : ' no-scale'}">${scaleText}</span>
-        ${excludedText ? `<button class="page-info" type="button" aria-label="${excludedTitle}" aria-describedby="${tooltipId}" aria-expanded="false"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"></circle><path d="M8 7.2v3.8"></path><path d="M8 5h.01"></path></svg><span class="page-info-tooltip" id="${tooltipId}" role="tooltip">${excludedTitle}</span></button>` : ''}
-        <button class="jump" data-page="${group.page}">Go</button>
+        <span class="page-actions">
+          <span class="page-status page-status-scale${group.hasScale ? '' : ' no-scale'}">${scaleText}</span>
+          ${excludedText ? `<button class="page-info" type="button" aria-label="${excludedTitle}" aria-describedby="${tooltipId}" aria-expanded="false"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5.5"></circle><path d="M8 7.2v3.8"></path><path d="M8 5h.01"></path></svg><span class="page-info-tooltip" id="${tooltipId}" role="tooltip">${excludedTitle}</span></button>` : ''}
+          <button class="jump" data-page="${group.page}">Go</button>
+        </span>
       `;
       header.querySelector('.collapse-toggle').addEventListener('click', () => {
         state.collapsedPageGroups[group.page] = !state.collapsedPageGroups[group.page];
