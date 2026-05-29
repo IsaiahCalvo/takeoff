@@ -3,13 +3,14 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 
 async function readIndexAndSidebarView() {
-  const [html, main, sidebarView, styles] = await Promise.all([
+  const [html, main, sidebarView, sidebarController, styles] = await Promise.all([
     readFile(new URL('../index.html', import.meta.url), 'utf8'),
     readFile(new URL('../src/main.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/sidebar-view.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/sidebar-controller.js', import.meta.url), 'utf8'),
     readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8'),
   ]);
-  return { html, main, sidebarView, styles, source: `${html}\n${main}\n${sidebarView}\n${styles}` };
+  return { html, main, sidebarView, sidebarController, styles, source: `${html}\n${main}\n${sidebarView}\n${sidebarController}\n${styles}` };
 }
 
 test('index uses relative local asset paths for GitHub Pages subpath deploys', async () => {
@@ -49,6 +50,19 @@ test('index stays a small app shell instead of owning app logic', async () => {
   assert.doesNotMatch(html, /addEventListener\('mousedown'/);
 });
 
+test('main runtime stays below the current coordination ceiling', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const lineCount = main.trimEnd().split('\n').length;
+
+  assert.equal(lineCount < 2450, true, `src/main.js has ${lineCount} lines`);
+  assert.doesNotMatch(main, /function downloadBytes\(/);
+  assert.doesNotMatch(main, /function positionToolTip\(/);
+  assert.match(main, /TakeoffPointerWorkflow/);
+  assert.match(main, /TakeoffExportController/);
+  assert.match(main, /TakeoffCalibrationController/);
+  assert.match(main, /TakeoffSidebarController/);
+});
+
 test('vite builds bundled assets with relative paths for GitHub Pages', async () => {
   const config = await readFile(new URL('../vite.config.js', import.meta.url), 'utf8');
 
@@ -69,7 +83,7 @@ test('single-page documents remove scope chrome entirely', async () => {
   assert.match(source, /function documentPageCount\(\)/);
   assert.match(source, /function updateSidebarScopeChrome\(model\)/);
   assert.match(source, /scopeTabs\.hidden = !model\.showScopeTabs;/);
-  assert.match(source, /totalHeading'\)\.textContent = model\.totalHeadingText;/);
+  assert.match(source, /totalHeading\.textContent = model\.totalHeadingText;/);
   assert.match(hiddenRule, /display:\s*none !important/);
   assert.doesNotMatch(html, /singleScopeTitle/);
   assert.doesNotMatch(html, /single-scope-title/);

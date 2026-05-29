@@ -2,6 +2,7 @@ import './export-utils.js';
 import './calibration-utils.js';
 import './app/sidebar.js';
 import './app/sidebar-view.js';
+import './app/sidebar-controller.js';
 import './app/state.js';
 import './app/geometry.js';
 import './app/measurements.js';
@@ -13,9 +14,12 @@ import './app/viewer.js';
 import './app/pdf-page-cache.js';
 import './app/input-controller.js';
 import './app/pointer-controller.js';
+import './app/pointer-workflow.js';
 import './app/document-loader.js';
 import './app/document-adapters.js';
 import './app/document-store.js';
+import './app/export-controller.js';
+import './app/calibration-controller.js';
 import './app/calibration-workflow.js';
 import './app/svg-renderer.js';
 import './app/history.js';
@@ -31,10 +35,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 const ONBOARDING_STATUS_KEY = 'cableRunStatusSeen';
 const stateStore = window.TakeoffState;
 const sidebarView = window.TakeoffSidebarView;
+const sidebarController = window.TakeoffSidebarController;
 const pointerController = window.TakeoffPointerController;
+const pointerWorkflow = window.TakeoffPointerWorkflow;
 const documentLoader = window.TakeoffDocumentLoader;
 const documentAdapters = window.TakeoffDocumentAdapters;
 const documentStore = window.TakeoffDocumentStore;
+const exportController = window.TakeoffExportController;
+const calibrationController = window.TakeoffCalibrationController;
 const calibrationWorkflow = window.TakeoffCalibrationWorkflow;
 const measurementWorkflows = window.TakeoffMeasurementWorkflows;
 const pageState = window.TakeoffPageState;
@@ -55,10 +63,12 @@ function totalPages() { return pageState.totalPages(state); }
 function documentPageCount() { return pageState.documentPageCount(state); }
 
 function updateSidebarScopeChrome(model) {
-  const scopeTabs = $('scopeTabs');
-  scopeTabs.hidden = !model.showScopeTabs;
-  $('totalHeading').textContent = model.totalHeadingText;
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === model.effectiveSidebarTab));
+  sidebarController.applyScopeChrome({
+    scopeTabs: $('scopeTabs'),
+    totalHeading: $('totalHeading'),
+    tabs: document.querySelectorAll('.tab'),
+    model,
+  });
 }
 
 function scaleHudText() {
@@ -886,10 +896,7 @@ stage.addEventListener('contextmenu', (e) => {
   const labelHit = findLabelHit(p);
   const anchorHit = findNearestAnchor(p, 10 / state.zoom);
   const pathHit = anchorHit ? null : findNearestPathPoint(p, 10 / state.zoom);
-  const hitId = labelHit?.measurementId ?? anchorHit?.measurementId ?? pathHit?.measurementId ?? null;
-  const target = anchorHit
-    ? { ...anchorHit, kind: 'anchor-hit', anchorKind: anchorHit.kind }
-    : (pathHit ? { kind: 'path-hit', ...pathHit } : null);
+  const { hitId, target } = pointerWorkflow.buildContextMenuHit({ labelHit, anchorHit, pathHit });
   openContextMenu(e.clientX, e.clientY, hitId, target);
   renderList();
   redraw();
@@ -1013,8 +1020,12 @@ stage.addEventListener('mousedown', (e) => {
     if (!state.inProgress) {
       state.inProgress = { type: 'calib', points: [p] };
     } else {
-      const placePoint = e.shiftKey ? snapAngle(state.inProgress.points[state.inProgress.points.length - 1], p) : p;
-      state.inProgress.points.push(placePoint);
+      state.inProgress = pointerWorkflow.appendPointToDraft({
+        inProgress: state.inProgress,
+        point: p,
+        shiftKey: e.shiftKey,
+        snapPoint: snapAngle,
+      });
       pendingCalibration = state.inProgress;
       openCalibModal();
     }
@@ -1043,8 +1054,12 @@ stage.addEventListener('mousedown', (e) => {
     if (!state.inProgress) {
       state.inProgress = { type: 'measure', points: [p] };
     } else {
-      const placePoint = e.shiftKey ? snapAngle(state.inProgress.points[state.inProgress.points.length - 1], p) : p;
-      state.inProgress.points.push(placePoint);
+      state.inProgress = pointerWorkflow.appendPointToDraft({
+        inProgress: state.inProgress,
+        point: p,
+        shiftKey: e.shiftKey,
+        snapPoint: snapAngle,
+      });
     }
     redraw();
   } else if (state.mode === 'erase') {
@@ -1925,8 +1940,8 @@ function updateCalibValueValidity() {
 $('resetScale').addEventListener('click', () => {
   const p = currentPage();
   if (!stateStore.hasPageScale(state, p)) return;
-  const affectedCount = state.measurements.filter(m => m.page === p).length;
-  if (!confirm(`Reset calibration for page ${p}? ${affectedCount} run${affectedCount === 1 ? '' : 's'} on this page will be marked unscaled and excluded from totals. You can undo this.`)) return;
+  const affectedCount = calibrationController.countPageMeasurements(state.measurements, p);
+  if (!confirm(calibrationController.resetScaleConfirmMessage({ page: p, affectedCount }))) return;
   const historyBefore = createHistorySnapshot();
   clearPageScale({ measurements: state.measurements, pageScales: state.pageScales, page: p });
   stateStore.syncCurrentPageScale(state, p);
@@ -1977,21 +1992,13 @@ function getExportRows() {
   return utils.buildExportRows(state.measurements, { unit: state.unit });
 }
 
-function downloadBytes(bytes, filename, type) {
-  const blob = window.TakeoffExportUtils.makeDownloadBlob(bytes, type);
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-function downloadText(text, filename, type) {
-  downloadBytes(new TextEncoder().encode(text), filename, type);
-}
+const exportDownloads = exportController.createDownloadHelpers({
+  exportUtils: window.TakeoffExportUtils,
+  documentRef: document,
+  createObjectURL: URL.createObjectURL.bind(URL),
+  revokeObjectURL: URL.revokeObjectURL.bind(URL),
+  textEncoder: TextEncoder,
+});
 
 function updateExportButtons() {
   const disabled = state.measurements.length === 0;
@@ -2018,21 +2025,20 @@ function exportExcel() {
   const rows = getExportRows();
   if (!rows.length) return;
   const bytes = window.TakeoffExportUtils.generateXlsxPackage(rows);
-  downloadBytes(
+  exportDownloads.downloadBytes(
     bytes,
-    `${exportBaseName()}-measurements.xlsx`,
+    exportController.exportFilename(exportBaseName(), 'xlsx'),
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   );
-  const unscaled = rows.filter(row => row.scaled === 'N').length;
-  showStatus(unscaled ? `Excel export downloaded. ${unscaled} unscaled run${unscaled === 1 ? '' : 's'} marked N.` : 'Excel export downloaded.', 2400);
+  showStatus(exportController.excelStatusMessage(rows), 2400);
 }
 
 function exportCsv() {
   const rows = getExportRows();
   if (!rows.length) return;
-  downloadText(
+  exportDownloads.downloadText(
     window.TakeoffExportUtils.generateCsv(rows),
-    `${exportBaseName()}-measurements.csv`,
+    exportController.exportFilename(exportBaseName(), 'csv'),
     'text/csv;charset=utf-8'
   );
   showStatus('CSV export downloaded.', 1800);
