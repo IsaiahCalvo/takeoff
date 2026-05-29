@@ -23,8 +23,16 @@ test('initialModalState resets calibration modal values for the active unit', as
     unit: 'm',
     scope: 'this',
     range: '',
-    rangeDisplay: 'none',
   });
+});
+
+test('labels the compact apply scope combo options', async () => {
+  const workflow = await loadCalibrationWorkflow();
+
+  assert.equal(workflow.scopeLabel('this'), 'Apply to the current page');
+  assert.equal(workflow.scopeLabel('all'), 'Apply to all pages');
+  assert.equal(workflow.scopeLabel('custom'), 'Apply to a selected group of pages');
+  assert.equal(workflow.scopeLabel('unknown'), 'Apply to the current page');
 });
 
 test('sanitizes and validates positive calibration values', async () => {
@@ -35,6 +43,12 @@ test('sanitizes and validates positive calibration values', async () => {
   assert.equal(workflow.isPositiveCalibrationValue('0'), false);
   assert.equal(workflow.isPositiveCalibrationValue('0.25'), true);
   assert.equal(workflow.isPositiveCalibrationValue('abc'), false);
+});
+
+test('sanitizes selected page ranges to numbers, commas, spaces, and dashes', async () => {
+  const workflow = await loadCalibrationWorkflow();
+
+  assert.equal(workflow.sanitizePageRangeInput('1, page 3 - 5; 7'), '1,  3 - 5 7');
 });
 
 test('resolves target pages for this page, all pages, and custom ranges', async () => {

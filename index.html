@@ -228,17 +228,19 @@
         <option value="cm">cm</option>
       </select>
     </div>
-    <div class="field" style="margin-top: 14px">
-      <label style="color:var(--muted); font-size:12px; min-width:70px">Apply to</label>
-      <select id="calibScope" style="flex:1">
-        <option value="this">This page only</option>
-        <option value="all">All pages</option>
-        <option value="custom">Specific pages…</option>
-      </select>
-    </div>
-    <div class="field" id="calibRangeField" style="margin-top: 8px; display:none">
-      <label style="color:var(--muted); font-size:12px; min-width:70px">Pages</label>
-      <input type="text" id="calibRange" placeholder="e.g. 1, 3, 5-7" />
+    <div class="field calibration-apply-field">
+      <label for="calibRange">Apply</label>
+      <div class="calib-scope-combo" id="calibScopeCombo" data-scope="this">
+        <input type="hidden" id="calibScope" value="this" />
+        <button class="calib-scope-display" id="calibScopeDisplay" type="button">Apply to the current page</button>
+        <input type="text" id="calibRange" class="calib-scope-range" inputmode="numeric" autocomplete="off" placeholder="e.g. 1, 3, 5-7" aria-label="Selected pages" />
+        <button class="calib-scope-menu" id="calibScopeMenu" type="button" aria-label="Change apply option" aria-haspopup="menu" aria-expanded="false" aria-controls="calibScopeOptions"></button>
+        <div class="calib-scope-options" id="calibScopeOptions" role="menu">
+          <button class="calib-scope-option active" type="button" role="menuitemradio" aria-checked="true" data-scope="this">Apply to the current page</button>
+          <button class="calib-scope-option" type="button" role="menuitemradio" aria-checked="false" data-scope="all">Apply to all pages</button>
+          <button class="calib-scope-option" type="button" role="menuitemradio" aria-checked="false" data-scope="custom">Apply to a selected group of pages</button>
+        </div>
+      </div>
     </div>
     <div class="actions">
       <button id="calibCancel">Cancel</button>
