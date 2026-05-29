@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import net from 'node:net';
 import { once } from 'node:events';
+import path from 'node:path';
 
 async function getFreePort() {
   const server = net.createServer();
@@ -12,10 +13,10 @@ async function getFreePort() {
   return port;
 }
 
-async function waitForServer(baseUrl, process, timeoutMs = 6000) {
+async function waitForServer(baseUrl, child, timeoutMs = 6000) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < timeoutMs) {
-    if (process.exitCode != null) break;
+    if (child.exitCode != null) break;
     try {
       const response = await fetch(baseUrl);
       if (response.ok) return;
@@ -29,8 +30,8 @@ async function waitForServer(baseUrl, process, timeoutMs = 6000) {
 export async function withViteServer(callback) {
   const port = await getFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
-  const vite = spawn('npx', [
-    'vite',
+  const viteBin = path.join(process.cwd(), 'node_modules/.bin/vite');
+  const vite = spawn(viteBin, [
     '--host',
     '127.0.0.1',
     '--port',
@@ -38,6 +39,7 @@ export async function withViteServer(callback) {
     '--strictPort',
   ], {
     cwd: new URL('../..', import.meta.url),
+    detached: true,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -52,6 +54,16 @@ export async function withViteServer(callback) {
     error.message += `\nVite output:\n${output}`;
     throw error;
   } finally {
-    if (vite.exitCode == null && !vite.killed) vite.kill('SIGTERM');
+    if (vite.exitCode == null && !vite.killed) {
+      try {
+        process.kill(-vite.pid, 'SIGTERM');
+      } catch (_) {
+        vite.kill('SIGTERM');
+      }
+      await Promise.race([
+        once(vite, 'close'),
+        new Promise(resolve => setTimeout(resolve, 500)),
+      ]);
+    }
   }
 }
