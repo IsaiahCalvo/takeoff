@@ -10,6 +10,7 @@ import './app/measurement-commands.js';
 import './app/measurement-workflows.js';
 import './app/page-state.js';
 import './app/continuous-scroll.js';
+import './app/continuous-renderer.js';
 import './app/hit-testing.js';
 import './app/viewer.js';
 import './app/pdf-page-cache.js';
@@ -48,6 +49,7 @@ const calibrationWorkflow = window.TakeoffCalibrationWorkflow;
 const measurementWorkflows = window.TakeoffMeasurementWorkflows;
 const pageState = window.TakeoffPageState;
 const continuousScroll = window.TakeoffContinuousScroll;
+const continuousRenderer = window.TakeoffContinuousRenderer;
 const unitModel = window.TakeoffUnits;
 const tooltipController = window.TakeoffTooltipController;
 const state = stateStore.createInitialState();
@@ -105,17 +107,26 @@ function updatePageLabel() {
 function updateContinuousScrollControl(eligibility = sameScalePdfEligibility(state)) {
   if (!eligibility.eligible) state.continuousScrollMode = false;
   const model = continuousScroll.controlModel({ state, eligibility });
-  const button = $('continuousScrollToggle');
-  const divider = document.querySelector('.continuous-scroll-divider');
-  button.hidden = !model.visible;
-  if (divider) divider.hidden = !model.visible;
-  button.disabled = !model.enabled;
+  const button = $('continuousScrollToggle'), divider = document.querySelector('.continuous-scroll-divider');
+  button.hidden = divider.hidden = !model.visible; button.disabled = !model.enabled;
   button.classList.toggle('active', model.active);
   button.setAttribute('aria-pressed', model.ariaPressed);
   button.setAttribute('aria-label', model.ariaLabel);
-  button.title = model.title;
-  button.dataset.tooltip = model.title;
+  button.title = button.dataset.tooltip = model.title;
   return model;
+}
+
+function focusContinuousPage(page = state.pdfPage) {
+  const panY = continuousRenderer.panYForPage({ layout: state.continuousPageLayout, page, zoom: state.zoom, stageHeight: stage.clientHeight });
+  if (Number.isFinite(panY)) state.panY = panY;
+}
+
+function syncContinuousPageFromView() {
+  if (!state.continuousScrollMode || !state.continuousPageLayout) return;
+  const page = continuousRenderer.nearestPageForViewport({ layout: state.continuousPageLayout, panY: state.panY, zoom: state.zoom, stageHeight: stage.clientHeight });
+  if (!page || page === state.pdfPage) return;
+  state.pdfPage = page; stateStore.syncCurrentPageScale(state, page);
+  updatePageLabel(); updateScaleLabel(); renderList();
 }
 
 function recomputeLengthsForPage(p) {
@@ -660,11 +671,31 @@ function blitToBase(entry) {
   configureCanvasCssSize(baseCanvas, entry.cssWidth, entry.cssHeight);
   state.baseW = entry.cssWidth;
   state.baseH = entry.cssHeight;
+  state.continuousPageLayout = null;
   configureDrawCanvas();
   baseCtx.drawImage(entry.canvas, 0, 0);
 }
 
+async function renderContinuousPdfPage({ fit = true, resetInteraction = true, minRenderScale = desiredPdfRenderScale() } = {}) {
+  state.navToken++;
+  const token = state.navToken;
+  const result = await continuousRenderer.renderContinuousPdf({
+    pageCount: state.pdfPages, requestedScale: minRenderScale, maxBitmapEdge: state.maxPdfBitmapEdge, cacheGet, renderPage: renderPageToCanvas,
+    isCurrent: () => token === state.navToken,
+    canvas: baseCanvas, context: baseCtx, configureCanvasCssSize,
+  });
+  if (!result) return;
+  state.baseW = result.layout.width; state.baseH = result.layout.height; state.continuousPageLayout = result.layout;
+  configureDrawCanvas();
+  onPageReady({ fit, resetInteraction });
+}
+
 async function renderPdfPage({ fit = true, resetInteraction = true, minRenderScale = desiredPdfRenderScale() } = {}) {
+  if (state.continuousScrollMode && sameScalePdfEligibility(state).eligible) {
+    await renderContinuousPdfPage({ fit, resetInteraction, minRenderScale });
+    return;
+  }
+  state.continuousPageLayout = null;
   state.navToken++;
   const myToken = state.navToken;
   const p = state.pdfPage;
@@ -723,7 +754,10 @@ function onPageReady({ fit = true, resetInteraction = true } = {}) {
   updatePageLabel();
   updateScaleLabel();
   renderList();
-  if (fit) fitToView();
+  if (fit) {
+    fitToView(state.continuousScrollMode ? 'width' : 'page');
+    if (state.continuousScrollMode) { focusContinuousPage(); applyTransform(); }
+  }
   redrawActivePreview();
   updateStatus();
 }
@@ -731,20 +765,30 @@ function onPageReady({ fit = true, resetInteraction = true } = {}) {
 async function goToPage(n) {
   if (!state.pdf || n < 1 || n > state.pdfPages || n === state.pdfPage) return;
   state.pdfPage = n;
+  if (state.continuousScrollMode && state.continuousPageLayout) {
+    stateStore.syncCurrentPageScale(state, n);
+    focusContinuousPage(n);
+    applyTransform();
+    updatePageLabel(); updateScaleLabel(); renderList();
+    saveActiveDocument();
+    return;
+  }
   await renderPdfPage();
 }
 
 $('prevPage').addEventListener('click', () => goToPage(state.pdfPage - 1));
 $('nextPage').addEventListener('click', () => goToPage(state.pdfPage + 1));
-$('continuousScrollToggle').addEventListener('click', () => {
+$('continuousScrollToggle').addEventListener('click', async () => {
   const eligibility = sameScalePdfEligibility(state);
   if (!eligibility.eligible) {
     const model = updateContinuousScrollControl(eligibility);
     showStatus(model.title, 2200, { force: true });
     return;
   }
+  if (state.continuousScrollMode) syncContinuousPageFromView();
   state.continuousScrollMode = !state.continuousScrollMode;
   const model = updateContinuousScrollControl(eligibility);
+  await renderPdfPage({ fit: true, resetInteraction: false });
   saveActiveDocument();
   showStatus(model.active ? 'Continuous scroll ready.' : 'Single-page view.', 1400, { force: true });
 });
@@ -888,7 +932,7 @@ function schedulePdfRerenderForZoom() {
   clearTimeout(state.zoomRenderTimer);
   state.zoomRenderTimer = setTimeout(async () => {
     const targetScale = desiredPdfRenderScale();
-    if (cacheHasUsable(state.pdfPage, targetScale)) return;
+    if (!state.continuousScrollMode && cacheHasUsable(state.pdfPage, targetScale)) return;
     showStatus(`Sharpening PDF at ${targetScale.toFixed(1)}×…`, 0);
     await renderPdfPage({ fit: false, resetInteraction: false, minRenderScale: targetScale });
     showStatus(`PDF sharpened at ${targetScale.toFixed(1)}×`);
@@ -907,6 +951,7 @@ stage.addEventListener('wheel', (e) => {
     state.panX -= e.deltaX;
     state.panY -= e.deltaY;
     applyTransform();
+    syncContinuousPageFromView();
     redrawActivePreview();
   }
 }, { passive: false });
@@ -1102,6 +1147,7 @@ stage.addEventListener('mousemove', (e) => {
     state.panX = nextPan.panX;
     state.panY = nextPan.panY;
     applyTransform();
+    syncContinuousPageFromView();
     return;
   }
   if (!state.baseW) return;
