@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grouped Calibration Source Mockup</title>
+<style>
+  :root {
+    --bg: #0b0d0e;
+    --panel: #151a1d;
+    --panel-2: #1d2529;
+    --panel-3: #0f1417;
+    --line: #2a343a;
+    --line-strong: #3b474f;
+    --text: #eef4f6;
+    --muted: #91a0a8;
+    --muted-2: #66747c;
+    --accent: #b6ff3c;
+    --accent-soft: rgba(182, 255, 60, 0.14);
+    --blue: #9ecbff;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: #090b0c;
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: 0;
+  }
+
+  button, input, select { font: inherit; }
+  button { cursor: pointer; }
+
+  .app {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .controls {
+    padding: 20px;
+    border-right: 1px solid var(--line);
+    background: #101417;
+  }
+
+  h1 {
+    margin: 0 0 8px;
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .controls p {
+    margin: 0 0 18px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+
+  .control-block {
+    display: grid;
+    gap: 10px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+
+  .control-block + .control-block { margin-top: 18px; }
+
+  .control-title {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .preset {
+    min-height: 36px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    color: var(--text);
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 13px;
+  }
+
+  .preset.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .mini-table {
+    display: grid;
+    gap: 6px;
+  }
+
+  .mini-row {
+    display: grid;
+    grid-template-columns: 58px minmax(0, 1fr);
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .mini-row strong { color: var(--text); font-weight: 650; }
+
+  .preview {
+    position: relative;
+    min-width: 0;
+    min-height: 100vh;
+    overflow: hidden;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      #0c1012;
+    background-size: 32px 32px;
+  }
+
+  .topbar {
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(15, 20, 23, 0.96);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .brand-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 18px rgba(182,255,60,0.65);
+  }
+
+  .file-chip {
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    color: var(--muted);
+    background: var(--panel-2);
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .sheet {
+    position: absolute;
+    left: 50%;
+    top: 55%;
+    width: min(560px, 60vw);
+    height: min(680px, 76vh);
+    transform: translate(-50%, -50%);
+    border-radius: 3px;
+    background: #eff2f3;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.5);
+  }
+
+  .sheet::before,
+  .sheet::after {
+    content: "";
+    position: absolute;
+    left: 12%;
+    right: 16%;
+    height: 3px;
+    border-radius: 999px;
+    background: #c7d0d4;
+  }
+
+  .sheet::before { top: 28%; }
+  .sheet::after { top: 46%; }
+
+  .modal-bg {
+    position: absolute;
+    inset: 44px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.56);
+    backdrop-filter: blur(4px);
+  }
+
+  .modal {
+    width: min(540px, calc(100vw - 40px));
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--panel);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.62);
+    padding: 22px;
+  }
+
+  .modal h2 {
+    margin: 0 0 6px;
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  .intro {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .reference-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 70px;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  input, select {
+    min-height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: #0f1417;
+    color: var(--text);
+    outline: none;
+    padding: 9px 11px;
+  }
+
+  input {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  input:disabled,
+  select:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  input:focus,
+  select:focus,
+  .source-trigger:focus,
+  .scope-trigger:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  .source-field {
+    margin-bottom: 12px;
+  }
+
+  .source-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .source-combo {
+    position: relative;
+  }
+
+  .source-trigger {
+    width: 100%;
+    min-height: 46px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 24px;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background: #0f1417;
+    color: var(--text);
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .source-title {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .source-pages {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .scale-chip,
+  .count-chip {
+    flex: 0 0 auto;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    background: var(--panel-2);
+    padding: 2px 6px;
+    font-size: 10px;
+    font-weight: 650;
+  }
+
+  .source-helper {
+    margin: 6px 2px 0;
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.2;
+  }
+
+  .chevron {
+    justify-self: center;
+    width: 10px;
+    height: 10px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg) translateY(-2px);
+  }
+
+  .source-menu {
+    position: absolute;
+    z-index: 5;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    display: none;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--line-strong);
+    border-radius: 7px;
+    background: #080c0e;
+    box-shadow: 0 18px 44px rgba(0,0,0,0.55);
+    padding: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(145,160,168,0.4) transparent;
+  }
+
+  .source-menu::-webkit-scrollbar { width: 6px; }
+  .source-menu::-webkit-scrollbar-track { background: transparent; }
+  .source-menu::-webkit-scrollbar-thumb {
+    background: rgba(145,160,168,0.4);
+    border-radius: 999px;
+  }
+
+  .source-combo.open .source-menu { display: grid; gap: 2px; }
+
+  .source-option {
+    width: 100%;
+    min-height: 42px;
+    border: 0;
+    border-radius: 5px;
+    background: transparent;
+    color: var(--text);
+    padding: 8px;
+    text-align: left;
+  }
+
+  .source-option:hover,
+  .source-option.active {
+    background: var(--panel-2);
+  }
+
+  .source-option.active .source-title {
+    color: var(--accent);
+  }
+
+  .source-option.new .source-title {
+    color: var(--text);
+  }
+
+  .apply-row {
+    display: grid;
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+
+  .apply-row label {
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .scope-trigger {
+    min-height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 0 10px;
+    text-align: left;
+  }
+
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .action {
+    min-height: 38px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 0 14px;
+    font-weight: 650;
+  }
+
+  .action.primary {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #0b0d0e;
+  }
+
+  .summary {
+    position: absolute;
+    right: 20px;
+    top: 66px;
+    width: 260px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(15,20,23,0.96);
+    padding: 12px;
+  }
+
+  .summary h3 {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+
+  .summary-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 7px 0;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    font-size: 12px;
+  }
+
+  .summary-row span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .summary-row span:last-child { color: var(--muted); }
+
+  @media (max-width: 860px) {
+    .app { grid-template-columns: 1fr; }
+    .controls { display: none; }
+    .summary { display: none; }
+    .modal { width: min(520px, calc(100vw - 24px)); padding: 18px; }
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <aside class="controls">
+      <h1>Grouped Calibration Dropdown</h1>
+      <p>Rows are grouped by unique calibration value. Page ranges compress consecutive pages.</p>
+
+      <div class="control-block">
+        <div class="control-title">Data set</div>
+        <button class="preset active" data-preset="mixed" type="button">Mixed groups</button>
+        <button class="preset" data-preset="long" type="button">Long 100-page PDF</button>
+        <button class="preset" data-preset="single" type="button">Only one source page</button>
+      </div>
+
+      <div class="control-block">
+        <div class="control-title">Detected source groups</div>
+        <div id="groupList" class="mini-table"></div>
+      </div>
+    </aside>
+
+    <main class="preview">
+      <div class="topbar">
+        <div class="brand"><span class="brand-dot"></span>Takeoff</div>
+        <div class="file-chip">SE-011 Security Shop Drawing...</div>
+      </div>
+      <div class="sheet"></div>
+      <section class="summary">
+        <h3>Source Groups</h3>
+        <div id="summaryRows"></div>
+      </section>
+      <div class="modal-bg">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+          <h2 id="modalTitle">Set scale</h2>
+          <p class="intro">How long is the line you just drew, in real-world units?</p>
+
+          <div class="reference-row" id="referenceRow">
+            <input id="lengthInput" type="text" placeholder="e.g. 10" value="" />
+            <select id="unitSelect">
+              <option>ft</option>
+              <option>yd</option>
+              <option>in</option>
+              <option>m</option>
+              <option>cm</option>
+            </select>
+          </div>
+
+          <div class="source-field">
+            <label class="source-label" for="sourceTrigger">Match calibration from</label>
+            <div class="source-combo" id="sourceCombo">
+              <button class="source-trigger" id="sourceTrigger" type="button" aria-expanded="false">
+                <span>
+                  <span class="source-title">
+                    <span class="source-pages" id="selectedTitle"></span>
+                    <span class="scale-chip" id="selectedScale"></span>
+                    <span class="count-chip" id="selectedCount"></span>
+                  </span>
+                </span>
+                <span class="chevron"></span>
+              </button>
+              <div class="source-menu" id="sourceMenu" role="menu"></div>
+            </div>
+            <div class="source-helper" id="selectedHelper"></div>
+          </div>
+
+          <div class="apply-row">
+            <label>Apply</label>
+            <button class="scope-trigger" type="button">Apply to the current page</button>
+          </div>
+
+          <div class="actions">
+            <button class="action" type="button">Cancel</button>
+            <button class="action primary" id="primaryAction" type="button">Match Scale</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<script>
+  const dataSets = {
+    mixed: {
+      currentPage: 9,
+      pages: [
+        { page: 1, scale: 74.33 },
+        { page: 2, scale: 74.33 },
+        { page: 3, scale: 80.12 },
+        { page: 5, scale: 92.5 },
+        { page: 6, scale: 92.5 },
+        { page: 7, scale: 92.5 },
+        { page: 8, scale: 92.5 },
+        { page: 10, scale: 67.02 },
+        { page: 12, scale: 67.02 },
+        { page: 14, scale: 67.02 },
+        { page: 15, scale: 67.02 },
+        { page: 16, scale: 67.02 }
+      ]
+    },
+    long: {
+      currentPage: 91,
+      pages: [
+        ...Array.from({ length: 45 }, (_, i) => ({ page: i + 1, scale: 74.33 })),
+        ...Array.from({ length: 39 }, (_, i) => ({ page: i + 50, scale: 74.33 })),
+        ...Array.from({ length: 9 }, (_, i) => ({ page: i + 92, scale: 74.33 })),
+        { page: 46, scale: 82.1 },
+        { page: 47, scale: 82.1 },
+        { page: 48, scale: 88.64 }
+      ]
+    },
+    single: {
+      currentPage: 3,
+      pages: [
+        { page: 1, scale: 74.33 }
+      ]
+    }
+  };
+
+  let activePreset = "mixed";
+  let selectedValue = null;
+
+  function formatPageRanges(pages) {
+    const sorted = [...new Set(pages)].sort((a, b) => a - b);
+    const parts = [];
+    for (let i = 0; i < sorted.length; i += 1) {
+      const start = sorted[i];
+      let end = start;
+      while (sorted[i + 1] === end + 1) {
+        end = sorted[i + 1];
+        i += 1;
+      }
+      parts.push(start === end ? String(start) : `${start}-${end}`);
+    }
+    return parts.join(",");
+  }
+
+  function pageLabel(pages) {
+    return `${pages.length === 1 ? "Page" : "Pages"} ${formatPageRanges(pages)}`;
+  }
+
+  function groupCalibrations(set) {
+    const map = new Map();
+    for (const item of set.pages) {
+      if (item.page === set.currentPage) continue;
+      const key = item.scale.toFixed(2);
+      if (!map.has(key)) map.set(key, { value: `scale:${key}`, scale: item.scale, pages: [] });
+      map.get(key).pages.push(item.page);
+    }
+    return [...map.values()].sort((a, b) => Math.min(...a.pages) - Math.min(...b.pages));
+  }
+
+  function helperFor(group) {
+    if (!group || group.value === "new") return "Enter a new reference length.";
+    return group.pages.length === 1
+      ? "Uses the scale from this page."
+      : "Uses the scale from these pages.";
+  }
+
+  function titleFor(group) {
+    if (!group || group.value === "new") return "New calibration";
+    return pageLabel(group.pages);
+  }
+
+  function scaleFor(group) {
+    return group && group.value !== "new" ? `1 ft = ${group.scale.toFixed(2)} px` : "";
+  }
+
+  function countFor(group) {
+    if (!group || group.value === "new") return "";
+    return `${group.pages.length} ${group.pages.length === 1 ? "page" : "pages"}`;
+  }
+
+  function optionTemplate(group) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `source-option${group.value === "new" ? " new" : ""}${group.value === selectedValue ? " active" : ""}`;
+    button.dataset.value = group.value;
+    button.innerHTML = `
+      <span class="source-title">
+        <span class="source-pages">${titleFor(group)}</span>
+        ${scaleFor(group) ? `<span class="scale-chip">${scaleFor(group)}</span>` : ""}
+        ${countFor(group) ? `<span class="count-chip">${countFor(group)}</span>` : ""}
+      </span>
+    `;
+    button.addEventListener("click", () => {
+      selectedValue = group.value;
+      document.getElementById("sourceCombo").classList.remove("open");
+      document.getElementById("sourceTrigger").setAttribute("aria-expanded", "false");
+      render();
+    });
+    return button;
+  }
+
+  function renderGroupList(groups) {
+    const list = document.getElementById("groupList");
+    const summary = document.getElementById("summaryRows");
+    list.replaceChildren();
+    summary.replaceChildren();
+    for (const group of groups) {
+      const row = document.createElement("div");
+      row.className = "mini-row";
+      row.innerHTML = `<strong>${group.scale.toFixed(2)}</strong><span>${pageLabel(group.pages)}</span>`;
+      list.appendChild(row);
+
+      const summaryRow = document.createElement("div");
+      summaryRow.className = "summary-row";
+      summaryRow.innerHTML = `<span>${pageLabel(group.pages)}</span><span>${group.scale.toFixed(2)}</span>`;
+      summary.appendChild(summaryRow);
+    }
+  }
+
+  function render() {
+    const set = dataSets[activePreset];
+    const groups = groupCalibrations(set);
+    const options = [{ value: "new" }, ...groups];
+    if (!selectedValue || !options.some(option => option.value === selectedValue)) {
+      selectedValue = groups[0]?.value || "new";
+    }
+    const selected = options.find(option => option.value === selectedValue) || options[0];
+    const isNew = selected.value === "new";
+
+    document.getElementById("selectedTitle").textContent = titleFor(selected);
+    document.getElementById("selectedScale").textContent = scaleFor(selected);
+    document.getElementById("selectedScale").style.display = scaleFor(selected) ? "inline-flex" : "none";
+    document.getElementById("selectedCount").textContent = countFor(selected);
+    document.getElementById("selectedCount").style.display = countFor(selected) ? "inline-flex" : "none";
+    document.getElementById("selectedHelper").textContent = helperFor(selected);
+    document.getElementById("lengthInput").disabled = !isNew;
+    document.getElementById("unitSelect").disabled = !isNew;
+    document.getElementById("primaryAction").textContent = isNew ? "Set Scale" : "Match Scale";
+
+    const menu = document.getElementById("sourceMenu");
+    menu.replaceChildren();
+    for (const group of options) menu.appendChild(optionTemplate(group));
+    renderGroupList(groups);
+
+    document.querySelectorAll(".preset").forEach(button => {
+      button.classList.toggle("active", button.dataset.preset === activePreset);
+    });
+  }
+
+  document.getElementById("sourceTrigger").addEventListener("click", () => {
+    const combo = document.getElementById("sourceCombo");
+    const isOpen = !combo.classList.contains("open");
+    combo.classList.toggle("open", isOpen);
+    document.getElementById("sourceTrigger").setAttribute("aria-expanded", String(isOpen));
+  });
+
+  document.addEventListener("click", (event) => {
+    const combo = document.getElementById("sourceCombo");
+    if (!combo.contains(event.target)) {
+      combo.classList.remove("open");
+      document.getElementById("sourceTrigger").setAttribute("aria-expanded", "false");
+    }
+  });
+
+  document.querySelectorAll(".preset").forEach(button => {
+    button.addEventListener("click", () => {
+      activePreset = button.dataset.preset;
+      selectedValue = null;
+      render();
+    });
+  });
+
+  render();
+</script>
+</body>
+</html>

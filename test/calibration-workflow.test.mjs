@@ -106,6 +106,9 @@ test('resolves selected page groups through the supplied range parser', async ()
 test('omits copied calibration sources when only the current page is calibrated', async () => {
   const workflow = await loadCalibrationWorkflow();
 
+  assert.equal(workflow.pageRangeText([1, 2, 3, 5, 8, 9]), '1-3,5,8-9');
+  assert.equal(workflow.pageRangeLabel([1, 3]), 'Pages 1,3');
+
   assert.deepEqual(plain(workflow.calibrationSourceOptions({
     pageScales: { 1: 5, 2: 0, 3: Infinity },
     currentPage: 1,
@@ -114,41 +117,57 @@ test('omits copied calibration sources when only the current page is calibrated'
   })), [{
     value: 'new',
     page: null,
+    pages: [],
     pxPerInch: null,
     label: 'New calibration',
+    pageLabel: 'New calibration',
+    scaleLabel: '',
+    pageCountLabel: '',
     helper: '',
   }]);
 });
 
-test('builds copied calibration source options from other calibrated pages', async () => {
+test('groups copied calibration source options by unique calibration scale', async () => {
   const workflow = await loadCalibrationWorkflow();
 
   assert.deepEqual(plain(workflow.calibrationSourceOptions({
-    pageScales: { 1: 2, 2: 4, 4: 0, 5: Infinity, 3: 3 },
-    currentPage: 2,
+    pageScales: { 1: 2, 2: 2, 3: 3, 4: 0, 5: Infinity, 6: 2, 8: 3, 9: 3 },
+    currentPage: 4,
     unit: 'ft',
     unitToInch: unit => unit === 'ft' ? 12 : 1,
   })), [
     {
       value: 'new',
       page: null,
+      pages: [],
       pxPerInch: null,
       label: 'New calibration',
+      pageLabel: 'New calibration',
+      scaleLabel: '',
+      pageCountLabel: '',
       helper: '',
     },
     {
-      value: 'page:1',
+      value: 'scale:2',
       page: 1,
+      pages: [1, 2, 6],
       pxPerInch: 2,
-      label: 'Page 1 (1 ft = 24.00 px)',
-      helper: "Uses Page 1's scale: 1 ft = 24.00 px.",
+      label: 'Pages 1-2,6 (1 ft = 24.00 px)',
+      pageLabel: 'Pages 1-2,6',
+      scaleLabel: '1 ft = 24.00 px',
+      pageCountLabel: '3 pages',
+      helper: 'Uses the scale from these pages.',
     },
     {
-      value: 'page:3',
+      value: 'scale:3',
       page: 3,
+      pages: [3, 8, 9],
       pxPerInch: 3,
-      label: 'Page 3 (1 ft = 36.00 px)',
-      helper: "Uses Page 3's scale: 1 ft = 36.00 px.",
+      label: 'Pages 3,8-9 (1 ft = 36.00 px)',
+      pageLabel: 'Pages 3,8-9',
+      scaleLabel: '1 ft = 36.00 px',
+      pageCountLabel: '3 pages',
+      helper: 'Uses the scale from these pages.',
     },
   ]);
 });

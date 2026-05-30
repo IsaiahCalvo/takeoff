@@ -235,9 +235,16 @@
       </select>
     </div>
     <div class="field calibration-source-field" id="calibSourceField" hidden>
-      <label for="calibSource">Match calibration from</label>
-      <div class="calib-source-control">
-        <select id="calibSource"></select>
+      <input type="hidden" id="calibSource" value="new" />
+      <div class="calib-source-control" id="calibSourceCombo">
+        <button id="calibSourceDisplay" class="calib-source-display" type="button" aria-label="Match calibration from" aria-haspopup="menu" aria-expanded="false" aria-controls="calibSourceOptions">
+          <span class="calib-source-main">
+            <span id="calibSourceTitle" class="calib-source-title">New calibration</span>
+            <span id="calibSourceScale" class="calib-source-badge" hidden></span>
+            <span id="calibSourceCount" class="calib-source-badge" hidden></span>
+          </span>
+        </button>
+        <div class="calib-source-options" id="calibSourceOptions" role="menu"></div>
         <div class="calib-source-helper" id="calibSourceHelper" hidden></div>
       </div>
     </div>

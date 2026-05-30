@@ -56,12 +56,39 @@
     return `1 ${unitLabel} = ${(pxPerInch * inchFactor).toFixed(2)} px`;
   }
 
+  function pageRangeText(pages) {
+    const sorted = [...new Set(pages || [])]
+      .map(page => Number(page))
+      .filter(page => Number.isInteger(page))
+      .sort((a, b) => a - b);
+    const parts = [];
+    for (let index = 0; index < sorted.length; index += 1) {
+      const start = sorted[index];
+      let end = start;
+      while (sorted[index + 1] === end + 1) {
+        end = sorted[index + 1];
+        index += 1;
+      }
+      parts.push(start === end ? String(start) : `${start}-${end}`);
+    }
+    return parts.join(',');
+  }
+
+  function pageRangeLabel(pages) {
+    const range = pageRangeText(pages);
+    return `${pages && pages.length === 1 ? 'Page' : 'Pages'} ${range}`;
+  }
+
   function calibrationSourceOptions({ pageScales, currentPage, unit, unitToInch } = {}) {
     const options = [{
       value: 'new',
       page: null,
+      pages: [],
       pxPerInch: null,
       label: 'New calibration',
+      pageLabel: 'New calibration',
+      scaleLabel: '',
+      pageCountLabel: '',
       helper: '',
     }];
 
@@ -73,14 +100,36 @@
     for (const page of pages) {
       const pxPerInch = pageScales[page];
       if (!Number.isFinite(pxPerInch) || pxPerInch <= 0) continue;
-      const summary = scaleSummary(pxPerInch, unit, unitToInch);
-      options.push({
-        value: `page:${page}`,
-        page,
-        pxPerInch,
-        label: `Page ${page} (${summary})`,
-        helper: `Uses Page ${page}'s scale: ${summary}.`,
-      });
+      const key = String(pxPerInch);
+      let group = options.find(option => option.value === `scale:${key}`);
+      if (!group) {
+        group = {
+          value: `scale:${key}`,
+          page,
+          pages: [],
+          pxPerInch,
+          label: '',
+          pageLabel: '',
+          scaleLabel: '',
+          pageCountLabel: '',
+          helper: '',
+        };
+        options.push(group);
+      }
+      group.pages.push(page);
+    }
+
+    for (const option of options) {
+      if (option.value === 'new') continue;
+      const summary = scaleSummary(option.pxPerInch, unit, unitToInch);
+      option.page = option.pages[0] || null;
+      option.pageLabel = pageRangeLabel(option.pages);
+      option.scaleLabel = summary;
+      option.pageCountLabel = `${option.pages.length} ${option.pages.length === 1 ? 'page' : 'pages'}`;
+      option.label = `${option.pageLabel} (${summary})`;
+      option.helper = option.pages.length === 1
+        ? 'Uses the scale from this page.'
+        : 'Uses the scale from these pages.';
     }
 
     return options;
@@ -94,6 +143,8 @@
     calibrationValueNumber,
     isPositiveCalibrationValue,
     resolveTargetPages,
+    pageRangeText,
+    pageRangeLabel,
     calibrationSourceOptions,
   };
 })();

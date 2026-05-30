@@ -79,16 +79,35 @@ test('calibration apply scope uses one compact combo row', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
   const menuRule = styles.match(/\.calib-scope-menu\s*\{[^}]+\}/)?.[0] || '';
+  const modalSelectRule = styles.match(/\.modal select\s*\{[^}]+\}/)?.[0] || '';
+  const hiddenFieldRule = styles.match(/\.modal \.field\[hidden\]\s*\{[^}]+\}/)?.[0] || '';
+  const sourceFieldRule = styles.match(/\.modal \.field\.calibration-source-field\s*\{[^}]+\}/)?.[0] || '';
+  const sourceMainRule = styles.match(/\.calib-source-main,\s*\.calib-source-option-main\s*\{[^}]+\}/)?.[0] || '';
+  const sourceMenuRule = styles.match(/\.calib-source-options\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(html, /id="calibScopeCombo"/);
   assert.match(html, /id="calibScopeMenu"[^>]+aria-expanded="false"/);
+  assert.match(html, /id="calibSourceDisplay"[^>]+aria-label="Match calibration from"/);
+  assert.match(html, /id="calibSourceOptions"[^>]+role="menu"/);
   assert.match(html, />Apply to the current page<\/button>/);
   assert.match(html, />Apply to all pages<\/button>/);
   assert.match(html, />Apply to a selected group of pages<\/button>/);
   assert.doesNotMatch(html, /id="calibRangeField"/);
   assert.match(styles, /\.calib-scope-combo\.custom input\[type=text\]\.calib-scope-range\s*\{\s*display:\s*block;/);
   assert.match(styles, /\.calib-scope-menu::before/);
+  assert.match(modalSelectRule, /appearance:\s*none/);
+  assert.match(modalSelectRule, /padding:\s*10px\s*34px\s*10px\s*12px/);
+  assert.match(modalSelectRule, /data:image\/svg\+xml/);
+  assert.match(modalSelectRule, /M2\.5 4\.5 6 8l3\.5-3\.5/);
+  assert.match(modalSelectRule, /background-position:\s*calc\(100% - 14px\)\s*50%/);
+  assert.match(modalSelectRule, /background-size:\s*12px\s*12px/);
   assert.match(menuRule, /justify-content:\s*center/);
+  assert.match(hiddenFieldRule, /display:\s*none !important/);
+  assert.match(sourceFieldRule, /display:\s*block/);
+  assert.match(sourceMainRule, /display:\s*grid/);
+  assert.match(sourceMainRule, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*96px\s*58px/);
+  assert.match(sourceMenuRule, /max-height:\s*250px/);
+  assert.match(sourceMenuRule, /scrollbar-width:\s*thin/);
 });
 
 test('measure mode menu uses Line and Freehand product wording', async () => {

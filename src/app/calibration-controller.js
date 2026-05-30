@@ -106,16 +106,55 @@
     });
   }
 
-  function replaceCalibrationSourceOptions(sourceSelect, options) {
-    if (!sourceSelect) return;
-    sourceSelect.textContent = '';
-    if (Array.isArray(sourceSelect.children)) sourceSelect.children.length = 0;
+  function setSourceMenuOpen({ sourceCombo, sourceDisplay, isOpen }) {
+    if (!sourceCombo || !sourceDisplay) return;
+    sourceCombo.classList.toggle('open', isOpen);
+    sourceDisplay.setAttribute('aria-expanded', String(isOpen));
+  }
+
+  function setSourceText(element, text, hidden = false) {
+    if (!element) return;
+    element.textContent = text || '';
+    element.hidden = hidden;
+  }
+
+  function appendSourceText(parent, className, text, hidden = false) {
+    const child = parent.ownerDocument.createElement('span');
+    child.className = className;
+    child.textContent = text || '';
+    if (hidden) child.hidden = true;
+    parent.appendChild(child);
+    return child;
+  }
+
+  function sourceOptionFromTarget(target, sourceOptions) {
+    let node = target;
+    while (node && node !== sourceOptions) {
+      if (node.dataset && node.dataset.sourceValue) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+
+  function replaceCalibrationSourceOptions({ sourceOptions, options, selectedValue }) {
+    if (!sourceOptions) return;
+    sourceOptions.textContent = '';
+    if (Array.isArray(sourceOptions.children)) sourceOptions.children.length = 0;
     for (const optionModel of options) {
-      const option = sourceSelect.ownerDocument.createElement('option');
-      option.value = optionModel.value;
-      option.textContent = optionModel.label;
-      if (optionModel.page != null) option.dataset.page = String(optionModel.page);
-      sourceSelect.appendChild(option);
+      const option = sourceOptions.ownerDocument.createElement('button');
+      option.type = 'button';
+      option.className = `calib-source-option${optionModel.value === selectedValue ? ' active' : ''}`;
+      option.dataset.sourceValue = optionModel.value;
+      option.setAttribute('role', 'menuitemradio');
+      option.setAttribute('aria-checked', String(optionModel.value === selectedValue));
+
+      const main = sourceOptions.ownerDocument.createElement('span');
+      main.className = 'calib-source-option-main';
+      appendSourceText(main, 'calib-source-title', optionModel.pageLabel || optionModel.label);
+      appendSourceText(main, 'calib-source-badge', optionModel.scaleLabel, !optionModel.scaleLabel);
+      appendSourceText(main, 'calib-source-badge', optionModel.pageCountLabel, !optionModel.pageCountLabel);
+      option.appendChild(main);
+      sourceOptions.appendChild(option);
     }
   }
 
@@ -125,7 +164,13 @@
 
   function applyCalibrationSourceState({
     sourceField,
-    sourceSelect,
+    sourceInput,
+    sourceCombo,
+    sourceDisplay,
+    sourceOptionsEl,
+    sourceTitle,
+    sourceScale,
+    sourceCount,
     sourceHelper,
     valueInput,
     unitSelect,
@@ -136,13 +181,17 @@
   }) {
     const sourceOptions = Array.isArray(options) && options.length
       ? options
-      : [{ value: 'new', label: 'New calibration', page: null, helper: '' }];
-    const selected = selectedCalibrationSource(sourceOptions, selectedValue);
-    const isCopiedCalibration = Boolean(selected && selected.page != null);
+      : [{ value: 'new', label: 'New calibration', pageLabel: 'New calibration', pages: [], page: null, helper: '' }];
+    const selected = selectedCalibrationSource(sourceOptions, selectedValue) || sourceOptions[0];
+    const isCopiedCalibration = Boolean(selected && selected.pages && selected.pages.length);
 
     if (sourceField) sourceField.hidden = sourceOptions.length <= 1;
-    replaceCalibrationSourceOptions(sourceSelect, sourceOptions);
-    if (sourceSelect && selected) sourceSelect.value = selected.value;
+    replaceCalibrationSourceOptions({ sourceOptions: sourceOptionsEl, options: sourceOptions, selectedValue: selected?.value });
+    if (sourceInput && selected) sourceInput.value = selected.value;
+    setSourceMenuOpen({ sourceCombo, sourceDisplay, isOpen: false });
+    setSourceText(sourceTitle, selected?.pageLabel || selected?.label || 'New calibration');
+    setSourceText(sourceScale, selected?.scaleLabel || '', !selected?.scaleLabel);
+    setSourceText(sourceCount, selected?.pageCountLabel || '', !selected?.pageCountLabel);
     valueInput.disabled = isCopiedCalibration;
     unitSelect.disabled = isCopiedCalibration;
     okButton.textContent = isCopiedCalibration ? 'Match Scale' : 'Set Scale';
@@ -163,7 +212,13 @@
     okButton,
     unitSelect,
     sourceField,
-    sourceSelect,
+    sourceInput,
+    sourceCombo,
+    sourceDisplay,
+    sourceOptionsEl,
+    sourceTitle,
+    sourceScale,
+    sourceCount,
     sourceHelper,
     scopeInput,
     scopeCombo,
@@ -190,10 +245,16 @@
       rangeInput,
       labelForScope,
     });
-    if (sourceSelect) {
+    if (sourceInput) {
       applyCalibrationSourceState({
         sourceField,
-        sourceSelect,
+        sourceInput,
+        sourceCombo,
+        sourceDisplay,
+        sourceOptionsEl,
+        sourceTitle,
+        sourceScale,
+        sourceCount,
         sourceHelper,
         valueInput,
         unitSelect,
@@ -244,7 +305,13 @@
     function refreshSource(selectedValue = $('calibSource').value || 'new') {
       return applyCalibrationSourceState({
         sourceField: $('calibSourceField'),
-        sourceSelect: $('calibSource'),
+        sourceInput: $('calibSource'),
+        sourceCombo: $('calibSourceCombo'),
+        sourceDisplay: $('calibSourceDisplay'),
+        sourceOptionsEl: $('calibSourceOptions'),
+        sourceTitle: $('calibSourceTitle'),
+        sourceScale: $('calibSourceScale'),
+        sourceCount: $('calibSourceCount'),
         sourceHelper: $('calibSourceHelper'),
         valueInput: $('calibValue'),
         unitSelect: $('calibUnit'),
@@ -315,7 +382,7 @@
       updatePageLabel();
       redraw();
       if (isCopiedCalibration) {
-        showStatus(`Scale matched on ${targetPages.length} page${targetPages.length > 1 ? 's' : ''} from Page ${source.page}.`, 2400);
+        showStatus(`Scale matched on ${targetPages.length} page${targetPages.length > 1 ? 's' : ''} from ${source.pageLabel}.`, 2400);
       } else {
         showStatus(`Scale set on ${targetPages.length} page${targetPages.length > 1 ? 's' : ''}: ${value} ${unit} reference`, 2400);
       }
@@ -332,6 +399,26 @@
       labelForScope: workflow.scopeLabel,
       focusLater,
     });
+    $('calibSourceDisplay').addEventListener('click', () => {
+      setSourceMenuOpen({
+        sourceCombo: $('calibSourceCombo'),
+        sourceDisplay: $('calibSourceDisplay'),
+        isOpen: !$('calibSourceCombo').classList.contains('open'),
+      });
+    });
+    $('calibSourceOptions').addEventListener('click', (event) => {
+      const option = sourceOptionFromTarget(event.target, $('calibSourceOptions'));
+      if (!option) return;
+      refreshSource(option.dataset.sourceValue);
+    });
+    root.addEventListener('click', (event) => {
+      if ($('calibSourceCombo').contains(event.target)) return;
+      setSourceMenuOpen({
+        sourceCombo: $('calibSourceCombo'),
+        sourceDisplay: $('calibSourceDisplay'),
+        isOpen: false,
+      });
+    });
     $('calibCancel').addEventListener('click', close);
     $('calibOk').addEventListener('click', save);
     $('calibValue').addEventListener('beforeinput', (event) => {
@@ -345,7 +432,6 @@
       updateValueValidity();
     });
     $('calibUnit').addEventListener('change', () => refreshSource($('calibSource').value));
-    $('calibSource').addEventListener('change', () => refreshSource($('calibSource').value));
     $('calibValue').addEventListener('keydown', (event) => {
       if (event.key === 'Enter' && !$('calibOk').disabled) $('calibOk').click();
     });
@@ -367,7 +453,13 @@
           okButton: $('calibOk'),
           unitSelect: $('calibUnit'),
           sourceField: $('calibSourceField'),
-          sourceSelect: $('calibSource'),
+          sourceInput: $('calibSource'),
+          sourceCombo: $('calibSourceCombo'),
+          sourceDisplay: $('calibSourceDisplay'),
+          sourceOptionsEl: $('calibSourceOptions'),
+          sourceTitle: $('calibSourceTitle'),
+          sourceScale: $('calibSourceScale'),
+          sourceCount: $('calibSourceCount'),
           sourceHelper: $('calibSourceHelper'),
           scopeInput: $('calibScope'),
           scopeCombo: $('calibScopeCombo'),

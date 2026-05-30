@@ -69,20 +69,33 @@ function createSelect() {
 
 function createElement(extra = {}) {
   const { classList } = createClassList();
-  return {
+  const element = {
     value: '',
     textContent: '',
     disabled: false,
     hidden: false,
+    className: '',
+    type: '',
+    children: [],
     attributes: {},
     dataset: {},
     listeners: {},
     classList,
+    ownerDocument: {
+      createElement(tagName) {
+        return createElement({ tagName });
+      },
+    },
     addEventListener(type, handler) {
       this.listeners[type] = handler;
     },
     setAttribute(name, value) {
       this.attributes[name] = value;
+    },
+    appendChild(child) {
+      child.parentNode = this;
+      this.children.push(child);
+      return child;
     },
     focus() {
       this.focused = true;
@@ -95,6 +108,7 @@ function createElement(extra = {}) {
     },
     ...extra,
   };
+  return element;
 }
 
 test('resetScaleConfirmMessage names the page and affected measurement count', async () => {
@@ -244,7 +258,13 @@ test('applyScopeComboState turns the same control into a focused custom page ran
 test('applyCalibrationSourceState hides compact mode and configures copied calibration mode', async () => {
   const calibration = await loadCalibrationController();
   const sourceField = { hidden: false };
-  const sourceSelect = createSelect();
+  const sourceInput = createElement();
+  const sourceCombo = createElement();
+  const sourceDisplay = createElement();
+  const sourceOptionsEl = createElement();
+  const sourceTitle = createElement();
+  const sourceScale = createElement();
+  const sourceCount = createElement();
   const sourceHelper = { hidden: false, textContent: 'stale' };
   const valueInput = { value: '', disabled: false };
   const unitSelect = { disabled: false };
@@ -252,7 +272,13 @@ test('applyCalibrationSourceState hides compact mode and configures copied calib
 
   calibration.applyCalibrationSourceState({
     sourceField,
-    sourceSelect,
+    sourceInput,
+    sourceCombo,
+    sourceDisplay,
+    sourceOptionsEl,
+    sourceTitle,
+    sourceScale,
+    sourceCount,
     sourceHelper,
     valueInput,
     unitSelect,
@@ -267,11 +293,21 @@ test('applyCalibrationSourceState hides compact mode and configures copied calib
   assert.equal(unitSelect.disabled, false);
   assert.equal(okButton.textContent, 'Set Scale');
   assert.equal(okButton.disabled, true);
+  assert.equal(sourceInput.value, 'new');
+  assert.equal(sourceTitle.textContent, 'New calibration');
+  assert.equal(sourceScale.hidden, true);
+  assert.equal(sourceCount.hidden, true);
   assert.equal(sourceHelper.hidden, true);
 
   calibration.applyCalibrationSourceState({
     sourceField,
-    sourceSelect,
+    sourceInput,
+    sourceCombo,
+    sourceDisplay,
+    sourceOptionsEl,
+    sourceTitle,
+    sourceScale,
+    sourceCount,
     sourceHelper,
     valueInput,
     unitSelect,
@@ -279,26 +315,35 @@ test('applyCalibrationSourceState hides compact mode and configures copied calib
     options: [
       { value: 'new', label: 'New calibration', page: null, helper: '' },
       {
-        value: 'page:1',
+        value: 'scale:2',
         label: 'Page 1 (1 ft = 24.00 px)',
+        pageLabel: 'Page 1',
+        scaleLabel: '1 ft = 24.00 px',
+        pageCountLabel: '1 page',
         page: 1,
-        helper: "Uses Page 1's scale: 1 ft = 24.00 px.",
+        pages: [1],
+        helper: 'Uses the scale from this page.',
       },
     ],
-    selectedValue: 'page:1',
+    selectedValue: 'scale:2',
     isPositiveCalibrationValue: value => Number(value) > 0,
   });
 
   assert.equal(sourceField.hidden, false);
-  assert.equal(sourceSelect.children.length, 2);
-  assert.equal(sourceSelect.children[1].textContent, 'Page 1 (1 ft = 24.00 px)');
-  assert.equal(sourceSelect.value, 'page:1');
+  assert.equal(sourceOptionsEl.children.length, 2);
+  assert.equal(sourceOptionsEl.children[1].dataset.sourceValue, 'scale:2');
+  assert.equal(sourceInput.value, 'scale:2');
+  assert.equal(sourceTitle.textContent, 'Page 1');
+  assert.equal(sourceScale.textContent, '1 ft = 24.00 px');
+  assert.equal(sourceScale.hidden, false);
+  assert.equal(sourceCount.textContent, '1 page');
+  assert.equal(sourceCount.hidden, false);
   assert.equal(valueInput.disabled, true);
   assert.equal(unitSelect.disabled, true);
   assert.equal(okButton.textContent, 'Match Scale');
   assert.equal(okButton.disabled, false);
   assert.equal(sourceHelper.hidden, false);
-  assert.equal(sourceHelper.textContent, "Uses Page 1's scale: 1 ft = 24.00 px.");
+  assert.equal(sourceHelper.textContent, 'Uses the scale from this page.');
 });
 
 test('createCalibrationModal copies selected source scale to target pages and records history', async () => {
@@ -310,7 +355,13 @@ test('createCalibrationModal copies selected source scale to target pages and re
     calibOk: createElement(),
     calibUnit: createElement({ value: 'ft' }),
     calibSourceField: createElement({ hidden: true }),
-    calibSource: createSelect(),
+    calibSource: createElement({ value: 'new' }),
+    calibSourceCombo: createElement(),
+    calibSourceDisplay: createElement(),
+    calibSourceOptions: createElement(),
+    calibSourceTitle: createElement(),
+    calibSourceScale: createElement(),
+    calibSourceCount: createElement(),
     calibSourceHelper: createElement({ hidden: true }),
     calibScope: createElement({ value: 'this' }),
     calibScopeCombo: createElement(),
@@ -342,18 +393,26 @@ test('createCalibrationModal copies selected source scale to target pages and re
     calibrationSourceOptions: () => [
       { value: 'new', page: null, pxPerInch: null, label: 'New calibration', helper: '' },
       {
-        value: 'page:1',
+        value: 'scale:2',
         page: 1,
+        pages: [1],
         pxPerInch: 2,
         label: 'Page 1 (1 ft = 24.00 px)',
-        helper: "Uses Page 1's scale: 1 ft = 24.00 px.",
+        pageLabel: 'Page 1',
+        scaleLabel: '1 ft = 24.00 px',
+        pageCountLabel: '1 page',
+        helper: 'Uses the scale from this page.',
       },
       {
-        value: 'page:3',
+        value: 'scale:4',
         page: 3,
+        pages: [3],
         pxPerInch: 4,
         label: 'Page 3 (1 ft = 48.00 px)',
-        helper: "Uses Page 3's scale: 1 ft = 48.00 px.",
+        pageLabel: 'Page 3',
+        scaleLabel: '1 ft = 48.00 px',
+        pageCountLabel: '1 page',
+        helper: 'Uses the scale from this page.',
       },
     ],
     scopeLabel: scope => `scope:${scope}`,
@@ -404,22 +463,19 @@ test('createCalibrationModal copies selected source scale to target pages and re
   });
 
   modal.open({ points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] });
-  elements.calibSource.value = 'page:1';
-  elements.calibSource.listeners.change();
+  elements.calibSourceOptions.listeners.click({ target: elements.calibSourceOptions.children[1] });
 
   assert.equal(elements.calibValue.disabled, true);
   assert.equal(elements.calibUnit.disabled, true);
   assert.equal(elements.calibOk.textContent, 'Match Scale');
 
   elements.calibValue.value = '10';
-  elements.calibSource.value = 'new';
-  elements.calibSource.listeners.change();
+  elements.calibSourceOptions.listeners.click({ target: elements.calibSourceOptions.children[0] });
   assert.equal(elements.calibValue.disabled, false);
   assert.equal(elements.calibUnit.disabled, false);
   assert.equal(elements.calibOk.disabled, false);
 
-  elements.calibSource.value = 'page:1';
-  elements.calibSource.listeners.change();
+  elements.calibSourceOptions.listeners.click({ target: elements.calibSourceOptions.children[1] });
   elements.calibOk.click();
 
   assert.equal(state.pageScales[2], 2);
