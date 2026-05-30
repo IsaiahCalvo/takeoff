@@ -65,6 +65,13 @@ test('parsePageRange accepts lists, ranges, and clamps to document bounds', asyn
   );
 });
 
+test('parsePageRange rejects empty and invalid selected groups', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(plain(utils.parsePageRange('', 8)), []);
+  assert.deepEqual(plain(utils.parsePageRange('page two, 0, 12', 8)), []);
+});
+
 test('computePxPerInch converts a calibration line into pixels per inch', async () => {
   const utils = await loadUtils();
   const pxPerInch = utils.computePxPerInch([
@@ -191,6 +198,47 @@ test('applyScaleToPages updates page scales and recomputes page measurements', a
   assert.equal(measurements[0].lengthPx, 24);
   assert.equal(measurements[0].lengthInches, 12);
   assert.equal(measurements[1].lengthPx, 0);
+});
+
+test('applyScaleToPages keeps copied calibration values independent from later source recalibration', async () => {
+  const utils = await loadUtils();
+  const sourceScale = 3.333333333;
+  const measurements = [
+    { page: 1, lengthPx: 0, lengthInches: 9 },
+    { page: 2, lengthPx: 0, lengthInches: null },
+    { page: 3, lengthPx: 0, lengthInches: null },
+  ];
+  const pageScales = { 1: sourceScale };
+  const lengthPxByPage = { 1: 45, 2: 30, 3: 60 };
+  const measureLengthPx = measurement => lengthPxByPage[measurement.page];
+
+  utils.applyScaleToPages({
+    measurements,
+    pageScales,
+    pages: [2, 3],
+    pxPerInch: pageScales[1],
+    measureLengthPx,
+  });
+
+  assert.equal(pageScales[2], sourceScale);
+  assert.equal(pageScales[3], sourceScale);
+  assert.equal(measurements[1].lengthInches, 30 / sourceScale);
+  assert.equal(measurements[2].lengthInches, 60 / sourceScale);
+
+  utils.applyScaleToPages({
+    measurements,
+    pageScales,
+    pages: [1],
+    pxPerInch: 5,
+    measureLengthPx,
+  });
+
+  assert.equal(pageScales[1], 5);
+  assert.equal(pageScales[2], sourceScale);
+  assert.equal(pageScales[3], sourceScale);
+  assert.equal(measurements[0].lengthInches, 9);
+  assert.equal(measurements[1].lengthInches, 30 / sourceScale);
+  assert.equal(measurements[2].lengthInches, 60 / sourceScale);
 });
 
 test('clearPageScale removes scale and marks page measurements unscaled', async () => {

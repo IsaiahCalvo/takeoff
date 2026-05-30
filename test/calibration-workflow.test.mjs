@@ -85,6 +85,41 @@ test('resolves target pages for this page, all pages, and custom ranges', async 
   })), { pages: [], error: 'empty-custom-range' });
 });
 
+test('resolves selected page groups through the supplied range parser', async () => {
+  const workflow = await loadCalibrationWorkflow();
+  const calls = [];
+  const parsePageRange = (text, totalPages) => {
+    calls.push({ text, totalPages });
+    return text === '1, 3-4' && totalPages === 5 ? [1, 3, 4] : [];
+  };
+
+  assert.deepEqual(plain(workflow.resolveTargetPages({
+    scope: 'custom',
+    currentPage: 2,
+    totalPages: 5,
+    rangeText: '1, 3-4',
+    parsePageRange,
+  })), { pages: [1, 3, 4], error: null });
+  assert.deepEqual(calls, [{ text: '1, 3-4', totalPages: 5 }]);
+});
+
+test('omits copied calibration sources when only the current page is calibrated', async () => {
+  const workflow = await loadCalibrationWorkflow();
+
+  assert.deepEqual(plain(workflow.calibrationSourceOptions({
+    pageScales: { 1: 5, 2: 0, 3: Infinity },
+    currentPage: 1,
+    unit: 'ft',
+    unitToInch: unit => unit === 'ft' ? 12 : 1,
+  })), [{
+    value: 'new',
+    page: null,
+    pxPerInch: null,
+    label: 'New calibration',
+    helper: '',
+  }]);
+});
+
 test('builds copied calibration source options from other calibrated pages', async () => {
   const workflow = await loadCalibrationWorkflow();
 
