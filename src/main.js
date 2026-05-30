@@ -11,6 +11,7 @@ import './app/measurement-workflows.js';
 import './app/page-state.js';
 import './app/continuous-scroll.js';
 import './app/continuous-renderer.js';
+import './app/continuous-measurements.js';
 import './app/hit-testing.js';
 import './app/viewer.js';
 import './app/pdf-page-cache.js';
@@ -50,6 +51,7 @@ const measurementWorkflows = window.TakeoffMeasurementWorkflows;
 const pageState = window.TakeoffPageState;
 const continuousScroll = window.TakeoffContinuousScroll;
 const continuousRenderer = window.TakeoffContinuousRenderer;
+const continuousMeasurements = window.TakeoffContinuousMeasurements;
 const unitModel = window.TakeoffUnits;
 const tooltipController = window.TakeoffTooltipController;
 const state = stateStore.createInitialState();
@@ -76,9 +78,7 @@ function updateSidebarScopeChrome(model) {
   });
 }
 
-function scaleHudText() {
-  return unitModel.scaleHudText({ pxPerInch: state.pxPerInch, unit: state.unit });
-}
+function scaleHudText() { return unitModel.scaleHudText({ pxPerInch: state.pxPerInch, unit: state.unit }); }
 
 function updateCursorHud() {
   const x = state.cursorImg ? state.cursorImg.x.toFixed(0) : '—';
@@ -87,11 +87,7 @@ function updateCursorHud() {
 }
 
 function updateScaleLabel() {
-  if (state.pxPerInch) {
-    $('resetScale').disabled = false;
-  } else {
-    $('resetScale').disabled = true;
-  }
+  $('resetScale').disabled = !state.pxPerInch;
   updateCursorHud();
   updateContinuousScrollControl();
 }
@@ -129,9 +125,7 @@ function syncContinuousPageFromView() {
   updatePageLabel(); updateScaleLabel(); renderList();
 }
 
-function recomputeLengthsForPage(p) {
-  recomputePageLengths(state.measurements, state.pageScales, p, measurementLengthPx);
-}
+function recomputeLengthsForPage(p) { recomputePageLengths(state.measurements, state.pageScales, p, measurementLengthPx); }
 
 // distinct, dark-bg-friendly palette (red reserved for erase hover)
 const PALETTE = [
@@ -164,13 +158,9 @@ const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
 const copySummaryButton = $('copySummary');
 
-function setDocumentLoaded(loaded) {
-  document.body.classList.toggle('no-document', !loaded);
-}
+function setDocumentLoaded(loaded) { document.body.classList.toggle('no-document', !loaded); }
 
-function snapshotActiveDocument(nameOverride = null) {
-  return documentStore.createDocumentSnapshot(state, nameOverride);
-}
+function snapshotActiveDocument(nameOverride = null) { return documentStore.createDocumentSnapshot(state, nameOverride); }
 
 function saveActiveDocument(nameOverride = null) {
   const doc = documentStore.saveDocumentSnapshot(state, nameOverride);
@@ -178,9 +168,7 @@ function saveActiveDocument(nameOverride = null) {
   renderDocumentTabs();
 }
 
-function createHistorySnapshot() {
-  return window.TakeoffHistory.createHistorySnapshot(state);
-}
+function createHistorySnapshot() { return window.TakeoffHistory.createHistorySnapshot(state); }
 
 function recordHistory(before, label = 'Edit') {
   if (!window.TakeoffHistory.recordHistory(state, before, label)) return false;
@@ -220,15 +208,9 @@ function redoHistory() {
   return true;
 }
 
-function clearHistory() {
-  window.TakeoffHistory.clearHistory(state);
-  updateHistoryButtons();
-}
+function clearHistory() { window.TakeoffHistory.clearHistory(state); updateHistoryButtons(); }
 
-function updateHistoryButtons() {
-  undoButton.disabled = state.undoStack.length === 0;
-  redoButton.disabled = state.redoStack.length === 0;
-}
+function updateHistoryButtons() { undoButton.disabled = state.undoStack.length === 0; redoButton.disabled = state.redoStack.length === 0; }
 
 function renderDocumentTabs() {
   const tabs = $('docTabs');
@@ -316,9 +298,9 @@ function updateStatus() {
   statusEl.classList.add('show');
 }
 function markOnboardingStatusSeen() {
-  if (state.onboardingStatusSeen) return;
-  state.onboardingStatusSeen = true;
-  try { localStorage.setItem(ONBOARDING_STATUS_KEY, '1'); } catch (_) { /* ignore */ }
+  if (!state.onboardingStatusSeen) {
+    state.onboardingStatusSeen = true; try { localStorage.setItem(ONBOARDING_STATUS_KEY, '1'); } catch (_) { /* ignore */ }
+  }
 }
 function showStatus(text, ms = 1800, opts = {}) {
   if (state.baseW && !opts.force) {
@@ -331,10 +313,7 @@ function showStatus(text, ms = 1800, opts = {}) {
   if (ms) showStatus._t = setTimeout(() => updateStatus(), ms);
 }
 
-function closeContextMenu() {
-  contextMenu.classList.remove('show');
-  state.contextTarget = null;
-}
+function closeContextMenu() { contextMenu.classList.remove('show'); state.contextTarget = null; }
 
 function openContextMenu(clientX, clientY, measurementId = null, target = null) {
   if (measurementId != null) state.selectedId = measurementId;
@@ -435,14 +414,6 @@ function imageToScreen(x, y) {
   });
 }
 
-function clampImagePoint(point) {
-  if (!point || !state.baseW || !state.baseH) return point;
-  return {
-    x: Math.max(0, Math.min(state.baseW, point.x)),
-    y: Math.max(0, Math.min(state.baseH, point.y)),
-  };
-}
-
 const {
   distancePx,
   polylineLengthPx,
@@ -471,26 +442,38 @@ const pdfPageCache = window.TakeoffPdfPageCache;
 const inputController = window.TakeoffInputController;
 const sidebarModel = window.TakeoffSidebar;
 
-function pxToInches(px) {
-  return unitModel.pxToInches(px, state.pxPerInch);
-}
-function formatLen(inches) {
-  return unitModel.formatLengthInUnit(inches, state.unit);
+function scaleForPage(page) { return state.pageScales[page] || (page === currentPage() ? state.pxPerInch : null); }
+function pxToInches(px, page = currentPage()) { return unitModel.pxToInches(px, scaleForPage(page)); }
+function formatLen(inches) { return unitModel.formatLengthInUnit(inches, state.unit); }
+
+function constrainDeltaToPage(bounds, dx, dy, page = currentPage()) {
+  const size = continuousMeasurements.pageSize(state, page);
+  return constrainDeltaToRect(bounds, dx, dy, size.width, size.height);
 }
 
-function constrainDeltaToPage(bounds, dx, dy) {
-  return constrainDeltaToRect(bounds, dx, dy, state.baseW, state.baseH);
-}
-
-function constrainGeometryToPage(points, segments = null) {
+function constrainGeometryToPage(points, segments = null, page = currentPage()) {
   const displayPoints = segments ? flattenSegments(segments, 18) : points;
   const bounds = pointsBounds(displayPoints);
-  const constrained = constrainDeltaToPage(bounds, 0, 0);
+  const constrained = constrainDeltaToPage(bounds, 0, 0, page);
   if (!constrained.dx && !constrained.dy) return { points, segments };
   return {
     points: translatePoints(points, constrained.dx, constrained.dy),
     segments: segments ? translateSegments(segments, constrained.dx, constrained.dy) : null,
   };
+}
+
+function setContinuousCurrentPage(page) {
+  if (!continuousMeasurements.isActive(state) || !page || page === state.pdfPage) return;
+  state.pdfPage = page; stateStore.syncCurrentPageScale(state, page);
+  updatePageLabel(); updateScaleLabel(); renderList();
+}
+
+function localPointForMeasurement(m, point = state.cursorImg) { return continuousMeasurements.localPointForMeasurement(state, m, point); }
+
+function drawingPointInfo(point, page = null) {
+  const info = continuousMeasurements.pagePointInfo(state, point, page);
+  if (info?.page) setContinuousCurrentPage(info.page);
+  return info;
 }
 
 function createRotationFrame(m) {
@@ -980,6 +963,7 @@ stage.addEventListener('mousedown', (e) => {
   if (e.button !== 2) closeContextMenu();
   if (e.button !== 0 && e.button !== 1) return;
   const p = screenToImage(e.clientX, e.clientY);
+  state.cursorImg = p;
   state.shiftHeld = e.shiftKey;
   if (e.button === 0 && state.rotateModeId && isPointInBox(p, state.rotationHandleHitbox)) {
     const m = state.measurements.find(x => x.id === state.rotateModeId);
@@ -989,7 +973,7 @@ stage.addEventListener('mousedown', (e) => {
       state.rotationDrag = pointerWorkflow.createRotationDrag({
         measurement: m,
         frame,
-        pointer: p,
+        pointer: localPointForMeasurement(m, p),
         historyBefore: createHistorySnapshot(),
       });
       state.rotationInputVisible = true;
@@ -1055,7 +1039,7 @@ stage.addEventListener('mousedown', (e) => {
         clearActiveFitMode();
         state.dragMeasurement = pointerWorkflow.createMeasurementDrag({
           measurement: m,
-          pointer: p,
+          pointer: localPointForMeasurement(m, p),
           historyBefore: createHistorySnapshot(),
           bounds: measurementBounds(m),
         });
@@ -1095,28 +1079,32 @@ stage.addEventListener('mousedown', (e) => {
       freehandDraft: state.freehandDraft,
     });
     if (activeDrawMode === 'freehand') {
+      const drawInfo = drawingPointInfo(p, state.freehandDraft?.page || null);
+      if (!drawInfo) return;
       if (state.freehandDraft) {
         const raw = state.freehandDraft.rawPoints;
         const last = raw[raw.length - 1];
-        if (!last || distancePx(last, p) > 0.5) raw.push(p);
+        if (!last || distancePx(last, drawInfo.point) > 0.5) raw.push(drawInfo.point);
         finishFreehandMeasurement();
         e.preventDefault();
         return;
       }
       state.inProgress = null;
-      state.freehandDraft = { rawPoints: [p], previewSegments: [] };
+      state.freehandDraft = { page: drawInfo.page, rawPoints: [drawInfo.point], previewSegments: [] };
       redraw();
       e.preventDefault();
       return;
     }
+    const drawInfo = drawingPointInfo(p, state.inProgress?.page || null);
+    if (!drawInfo) return;
     if (!state.inProgress) {
-      state.inProgress = { type: 'measure', points: [p] };
+      state.inProgress = { type: 'measure', page: drawInfo.page, points: [drawInfo.point] };
     } else {
       state.inProgress = pointerWorkflow.appendPointToDraft({
         inProgress: state.inProgress,
-        point: p,
+        point: drawInfo.point,
         shiftKey: e.shiftKey,
-        snapPoint: snapAngle,
+        snapPoint: (from, to) => snapAngle(from, to, state.inProgress.page),
       });
     }
     redraw();
@@ -1156,15 +1144,15 @@ stage.addEventListener('mousemove', (e) => {
 
   if (state.freehandDraft) {
     const raw = state.freehandDraft.rawPoints;
-    const previewPoint = state.cursorImg;
+    const previewPoint = continuousMeasurements.localPointForPage(state, state.freehandDraft.page, state.cursorImg);
     if (previewPoint && (!raw.length || distancePx(raw[raw.length - 1], previewPoint) > 0)) {
       const previewRaw = [...raw, previewPoint];
       state.freehandDraft.previewSegments = previewRaw.length > 2 ? buildFreehandSegments(previewRaw, 8) : [];
       redraw();
     }
     const last = raw[raw.length - 1];
-    if (!last || distancePx(last, state.cursorImg) >= Math.max(1.5, 2.5 / state.zoom)) {
-      raw.push({ ...state.cursorImg });
+    if (!last || distancePx(last, previewPoint) >= Math.max(1.5, 2.5 / state.zoom)) {
+      raw.push({ ...previewPoint });
       state.freehandDraft.previewSegments = raw.length > 2 ? buildFreehandSegments(raw, 8) : [];
       redraw();
     }
@@ -1184,7 +1172,7 @@ stage.addEventListener('mousemove', (e) => {
   if (state.dragVertex) {
     const m = state.measurements.find(x => x.id === state.dragVertex.measurementId);
     if (m) {
-      applyVertexDrag(m, state.dragVertex, state.cursorImg);
+      applyVertexDrag(m, state.dragVertex, localPointForMeasurement(m));
       recomputeMeasurementLength(m);
       renderList();
       redraw();
@@ -1198,8 +1186,8 @@ stage.addEventListener('mousemove', (e) => {
       pointerWorkflow.applyMeasurementDrag({
         measurement: m,
         drag: state.dragMeasurement,
-        cursor: state.cursorImg,
-        constrainDelta: constrainDeltaToPage,
+        cursor: localPointForMeasurement(m),
+        constrainDelta: (bounds, dx, dy) => constrainDeltaToPage(bounds, dx, dy, m.page),
       });
       if (isCurveMeasurement(m)) {
         updateCurveAnchors(m);
@@ -1214,7 +1202,7 @@ stage.addEventListener('mousemove', (e) => {
   if (state.dragLabel) {
     const m = state.measurements.find(x => x.id === state.dragLabel.measurementId);
     if (m) {
-      const projection = projectPointToPolyline(state.cursorImg, measurementDisplayPoints(m));
+      const projection = projectPointToPolyline(localPointForMeasurement(m), measurementDisplayPoints(m));
       if (projection) {
         m.labelT = projection.t;
         redraw();
@@ -1256,9 +1244,9 @@ function updateRotationDrag(clientX, clientY, shiftKey = false) {
   pointerWorkflow.applyRotationDrag({
     measurement: m,
     drag: state.rotationDrag,
-    cursor: state.cursorImg,
+    cursor: localPointForMeasurement(m),
     shiftKey: state.shiftHeld,
-    constrainGeometry: constrainGeometryToPage,
+    constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, m.page),
     createRotationFrame,
   });
   if (isCurveMeasurement(m)) {
@@ -1455,14 +1443,15 @@ window.addEventListener('keyup', (e) => {
 function finishMeasurement() {
   const historyBefore = createHistorySnapshot();
   const pts = state.inProgress.points;
+  const page = state.inProgress.page || currentPage();
   const id = Date.now();
   const measurement = measurementCommands.createLineMeasurement({
     id,
     points: pts.slice(),
     existingMeasurements: state.measurements,
     palette: PALETTE,
-    page: currentPage(),
-    pxPerInch: state.pxPerInch,
+    page,
+    pxPerInch: scaleForPage(page),
   });
   const result = measurementWorkflows.appendMeasurementResult({
     measurements: state.measurements,
@@ -1494,15 +1483,16 @@ function finishFreehandMeasurement() {
   const historyBefore = createHistorySnapshot();
   const raw = draft.rawPoints || [];
   state.freehandDraft = null;
+  const page = draft.page || currentPage();
   const id = Date.now();
   const measurement = measurementCommands.createFreehandMeasurement({
     id,
     rawPoints: raw,
     existingMeasurements: state.measurements,
     palette: PALETTE,
-    page: currentPage(),
-    pxPerInch: state.pxPerInch,
-    constrainGeometry: constrainGeometryToPage,
+    page,
+    pxPerInch: scaleForPage(page),
+    constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, page),
   });
   if (!measurement) {
     redraw();
@@ -1524,7 +1514,7 @@ function finishFreehandMeasurement() {
   });
 }
 
-function snapAngle(from, to) {
+function snapAngle(from, to, page = currentPage()) {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const dist = Math.hypot(dx, dy);
@@ -1532,15 +1522,23 @@ function snapAngle(from, to) {
   const angle = Math.atan2(dy, dx);
   const step = Math.PI / 12; // 15 degrees
   const snapped = Math.round(angle / step) * step;
-  return clampImagePoint({ x: from.x + Math.cos(snapped) * dist, y: from.y + Math.sin(snapped) * dist });
+  const size = continuousMeasurements.pageSize(state, page);
+  return {
+    x: Math.max(0, Math.min(size.width, from.x + Math.cos(snapped) * dist)),
+    y: Math.max(0, Math.min(size.height, from.y + Math.sin(snapped) * dist)),
+  };
 }
 
 function getEffectiveCursor() {
-  if (!state.shiftHeld || !state.inProgress || state.inProgress.points.length < 1 || !state.cursorImg) {
-    return state.cursorImg;
+  if (!state.inProgress || !state.cursorImg) return state.cursorImg;
+  if (state.inProgress.type !== 'measure') {
+    if (!state.shiftHeld || state.inProgress.points.length < 1) return state.cursorImg;
+    return snapAngle(state.inProgress.points[state.inProgress.points.length - 1], state.cursorImg);
   }
+  const cursor = continuousMeasurements.localPointForPage(state, state.inProgress.page, state.cursorImg);
+  if (!state.shiftHeld || state.inProgress.points.length < 1) return cursor;
   const last = state.inProgress.points[state.inProgress.points.length - 1];
-  return snapAngle(last, state.cursorImg);
+  return snapAngle(last, cursor, state.inProgress.page);
 }
 
 function cleanMeasurementName(value, m) {
@@ -1560,7 +1558,7 @@ function deleteMeasurementFromState(id) {
 
 function recomputeMeasurementLength(m) {
   return measurementWorkflows.recomputeMeasurementLength(m, {
-    pxPerInch: state.pxPerInch,
+    pxPerInch: scaleForPage(m.page),
     measureLengthPx: measurementLengthPx,
   });
 }
@@ -1607,16 +1605,19 @@ function pasteCopiedMeasurement(mode = null) {
   const historyBefore = createHistorySnapshot();
   const source = state.copiedMeasurement;
   const pasteAt = state.pendingPaste?.cursorImg || state.cursorImg || screenToImage(stageCenter().clientX, stageCenter().clientY);
+  const pastePage = continuousMeasurements.pageForStackPoint(state, pasteAt, currentPage());
+  const pastePoint = continuousMeasurements.localPointForPage(state, pastePage, pasteAt);
+  setContinuousCurrentPage(pastePage);
   const pasted = measurementCommands.createPastedMeasurement({
     source,
     id: Date.now(),
     existingMeasurements: state.measurements,
     palette: PALETTE,
-    pasteAt,
-    currentPage: currentPage(),
-    pxPerInch: state.pxPerInch,
+    pasteAt: pastePoint,
+    currentPage: pastePage,
+    pxPerInch: scaleForPage(pastePage),
     mode,
-    constrainGeometry: constrainGeometryToPage,
+    constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, pastePage),
   });
   if (!pasted) return false;
   const result = measurementWorkflows.appendMeasurementResult({
@@ -1634,9 +1635,11 @@ function pasteCopiedMeasurement(mode = null) {
 }
 
 function shouldAskPasteMode(source) {
+  const cursor = state.pendingPaste?.cursorImg || state.cursorImg;
+  const page = cursor ? continuousMeasurements.pageForStackPoint(state, cursor, currentPage()) : currentPage();
   return measurementCommands.shouldAskPasteMode(source, {
-    currentPage: currentPage(),
-    pxPerInch: state.pxPerInch,
+    currentPage: page,
+    pxPerInch: scaleForPage(page),
   });
 }
 
@@ -1651,7 +1654,11 @@ function closePasteChoice() {
 }
 
 function measurementsOnCurrentPage() {
-  return pageState.measurementsForCurrentPage(state, state.measurements);
+  return continuousMeasurements.measurementsForView({
+    state,
+    measurements: state.measurements,
+    pageMeasurements: pageState.measurementsForCurrentPage,
+  });
 }
 
 function findNearestVertex(p, tol) {
@@ -1665,10 +1672,6 @@ function findNearestVertex(p, tol) {
 
 function findNearestAnchor(p, tol) {
   return window.TakeoffHitTesting.findNearestAnchor(measurementsOnCurrentPage(), p, tol);
-}
-
-function curveEditHandles(m) {
-  return window.TakeoffHitTesting.curveEditHandles(m);
 }
 
 function applyVertexDrag(m, drag, point) {
@@ -1688,7 +1691,7 @@ function addAnchorFromContext() {
   if (!m) return false;
   const historyBefore = createHistorySnapshot();
   const labelPoint = currentMeasurementLabelPoint(m);
-  if (!measurementCommands.addAnchorToMeasurement(m, target)) return false;
+  if (!measurementCommands.addAnchorToMeasurement(m, continuousMeasurements.localizeTarget(state, m, target))) return false;
   finalizeMeasurementGeometry(m, labelPoint);
   recordHistory(historyBefore, 'anchor add');
   showStatus('Anchor added');
@@ -1711,7 +1714,7 @@ function removeAnchorFromContext() {
 
 function finalizeMeasurementGeometry(m, preservedLabelPoint = null) {
   measurementCommands.finalizeMeasurementGeometry(m, {
-    pxPerInch: state.pxPerInch,
+    pxPerInch: scaleForPage(m.page),
     preservedLabelPoint,
   });
   state.selectedId = m.id;
@@ -1720,25 +1723,15 @@ function finalizeMeasurementGeometry(m, preservedLabelPoint = null) {
   redraw();
 }
 
-function currentMeasurementLabelPoint(m) {
-  return measurementCommands.measurementLabelPoint(m);
-}
+function currentMeasurementLabelPoint(m) { return measurementCommands.measurementLabelPoint(m); }
 
-function findNearestPathPoint(p, tol) {
-  return window.TakeoffHitTesting.findNearestPathPoint(measurementsOnCurrentPage(), p, tol);
-}
+function findNearestPathPoint(p, tol) { return window.TakeoffHitTesting.findNearestPathPoint(measurementsOnCurrentPage(), p, tol); }
 
-function findNearestMeasurement(p, tol) {
-  return window.TakeoffHitTesting.findNearestMeasurement(measurementsOnCurrentPage(), p, tol);
-}
+function findNearestMeasurement(p, tol) { return window.TakeoffHitTesting.findNearestMeasurement(measurementsOnCurrentPage(), p, tol); }
 
-function findLabelHit(p) {
-  return window.TakeoffHitTesting.findLabelHit(state.labelHitboxes, p, overlayPageSize(6));
-}
+function findLabelHit(p) { return window.TakeoffHitTesting.findLabelHit(state.labelHitboxes, p, overlayPageSize(6)); }
 
-function isPointInBox(p, box) {
-  return window.TakeoffHitTesting.isPointInBox(p, box);
-}
+function isPointInBox(p, box) { return window.TakeoffHitTesting.isPointInBox(p, box); }
 
 function beginRotateMode(id) {
   const m = state.measurements.find(x => x.id === id);
@@ -1864,7 +1857,7 @@ function commitRotationInput() {
     measurement: m,
     center,
     nextAngle,
-    constrainGeometry: constrainGeometryToPage,
+    constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, m.page),
     createRotationFrame,
   });
   if (isCurveMeasurement(m)) {
@@ -2111,7 +2104,7 @@ function redraw(previewTo) {
   state.labelHitboxes = [];
   state.rotationHandleHitbox = null;
 
-  // existing measurements (filtered to current page)
+  // existing measurements for the active view
   for (const m of measurementsOnCurrentPage()) {
     const isEraseHover = state.hoverId === m.id && state.mode === 'erase';
     const isSelected = state.selectedId === m.id;
@@ -2139,37 +2132,42 @@ function redraw(previewTo) {
     const pts = state.inProgress.points.slice();
     if (previewTo) pts.push(previewTo);
     const isCalib = state.inProgress.type === 'calib';
-    drawPolyline(pts, {
+    const page = state.inProgress.page || currentPage();
+    const drawPts = isCalib ? pts : continuousMeasurements.stackPointsForPage(state, page, pts);
+    drawPolyline(drawPts, {
       color: isCalib ? '#ffb13c' : '#b6ff3c',
       width: 2,
       dashed: true,
       dots: true,
       labelColor: isCalib ? '#ffb13c' : '#b6ff3c',
-      label: !isCalib && state.pxPerInch
-        ? `${formatLen(pxToInches(polylineLengthPx(pts)))} ${unitModel.unitLabel(state.unit)}`
+      label: !isCalib && scaleForPage(page)
+        ? `${formatLen(pxToInches(polylineLengthPx(pts), page))} ${unitModel.unitLabel(state.unit)}`
         : null,
     });
   }
 
   if (state.freehandDraft) {
+    const page = state.freehandDraft.page || currentPage();
     const raw = state.freehandDraft.rawPoints || [];
     const livePx = state.freehandDraft.previewSegments?.length
       ? state.freehandDraft.previewSegments.reduce((sum, seg) => sum + cubicLengthPx(seg), 0)
       : polylineLengthPx(raw);
-    const liveLabel = state.pxPerInch ? `${formatLen(pxToInches(livePx))} ${unitModel.unitLabel(state.unit)}` : 'no scale';
+    const liveLabel = scaleForPage(page) ? `${formatLen(pxToInches(livePx, page))} ${unitModel.unitLabel(state.unit)}` : 'no scale';
+    const drawRaw = continuousMeasurements.stackPointsForPage(state, page, raw);
+    const drawSegments = continuousMeasurements.stackSegmentsForPage(state, page, state.freehandDraft.previewSegments);
     if (state.freehandDraft.previewSegments?.length) {
-      drawBezierSegments(state.freehandDraft.previewSegments, {
+      drawBezierSegments(drawSegments, {
         color: '#b6ff3c',
         width: 2,
         dashed: true,
         dots: false,
         label: liveLabel,
         labelColor: '#b6ff3c',
-        labelPoints: flattenSegments(state.freehandDraft.previewSegments, 18),
-        rawPoints: raw,
+        labelPoints: flattenSegments(drawSegments, 18),
+        rawPoints: drawRaw,
       });
     } else {
-      drawPolyline(raw, {
+      drawPolyline(drawRaw, {
         color: '#b6ff3c',
         width: 2,
         dashed: true,
@@ -2178,13 +2176,11 @@ function redraw(previewTo) {
         labelColor: '#b6ff3c',
       });
     }
-    drawEndpointAnchors(raw, '#b6ff3c');
+    drawEndpointAnchors(drawRaw, '#b6ff3c');
   }
 }
 
-function redrawActivePreview() {
-  redraw(state.inProgress ? getEffectiveCursor() : undefined);
-}
+function redrawActivePreview() { redraw(state.inProgress ? getEffectiveCursor() : undefined); }
 
 function drawMeasurementPath(m, opts) {
   if (isCurveMeasurement(m)) {
@@ -2199,21 +2195,13 @@ function drawMeasurementPath(m, opts) {
   }
 }
 
-function drawBezierSegments(segments, opts) {
-  svgRenderer.drawBezierSegments(segments, { ...opts, labelHitboxes: state.labelHitboxes });
-}
+function drawBezierSegments(segments, opts) { svgRenderer.drawBezierSegments(segments, { ...opts, labelHitboxes: state.labelHitboxes }); }
 
-function drawEndpointAnchors(points, color) {
-  svgRenderer.drawEndpointAnchors(points, color);
-}
+function drawEndpointAnchors(points, color) { svgRenderer.drawEndpointAnchors(points, color); }
 
-function drawPolyline(points, opts) {
-  svgRenderer.drawPolyline(points, { ...opts, labelHitboxes: state.labelHitboxes });
-}
+function drawPolyline(points, opts) { svgRenderer.drawPolyline(points, { ...opts, labelHitboxes: state.labelHitboxes }); }
 
-function svgNode(tag, attrs = {}) {
-  return window.TakeoffSvgRenderer.svgNode(tag, attrs);
-}
+function svgNode(tag, attrs = {}) { return window.TakeoffSvgRenderer.svgNode(tag, attrs); }
 // ------- Sidebar list -------
 function syncSidebarSelection() {
   measList.querySelectorAll('.meas-item').forEach(item => {

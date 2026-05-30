@@ -13,6 +13,68 @@
     return { width, height: Math.max(1, y - pageGap), pageGap, pages };
   }
 
+  function pageBoxForPage(layout, page) {
+    return layout?.pages?.find(candidate => candidate.page === page) || null;
+  }
+
+  function pageAtStackPoint(layout, point) {
+    if (!point) return null;
+    return (layout?.pages || []).find(page => (
+      point.x >= page.x &&
+      point.x <= page.x + page.width &&
+      point.y >= page.y &&
+      point.y <= page.y + page.height
+    )) || null;
+  }
+
+  function stackPointToPagePoint(layout, point, { page = null } = {}) {
+    const pageBox = page == null ? pageAtStackPoint(layout, point) : pageBoxForPage(layout, page);
+    if (!pageBox || !point) return null;
+    return {
+      page: pageBox.page,
+      point: { x: point.x - pageBox.x, y: point.y - pageBox.y },
+      pageBox,
+    };
+  }
+
+  function pagePointToStackPoint(layout, page, point) {
+    const pageBox = pageBoxForPage(layout, page);
+    if (!pageBox || !point) return null;
+    return { x: point.x + pageBox.x, y: point.y + pageBox.y };
+  }
+
+  function translateSegment(segment, dx, dy) {
+    return {
+      ...segment,
+      from: { x: segment.from.x + dx, y: segment.from.y + dy },
+      c1: { x: segment.c1.x + dx, y: segment.c1.y + dy },
+      c2: { x: segment.c2.x + dx, y: segment.c2.y + dy },
+      to: { x: segment.to.x + dx, y: segment.to.y + dy },
+    };
+  }
+
+  function measurementToStackMeasurement(measurement, layout) {
+    const pageBox = pageBoxForPage(layout, measurement?.page);
+    if (!measurement || !pageBox) return null;
+    const dx = pageBox.x;
+    const dy = pageBox.y;
+    const translated = {
+      ...measurement,
+      points: (measurement.points || []).map(point => ({ x: point.x + dx, y: point.y + dy })),
+      segments: measurement.segments ? measurement.segments.map(segment => translateSegment(segment, dx, dy)) : null,
+    };
+    if (measurement.rotationFrame) {
+      translated.rotationFrame = {
+        ...measurement.rotationFrame,
+        x: measurement.rotationFrame.x + dx,
+        y: measurement.rotationFrame.y + dy,
+        cx: measurement.rotationFrame.cx + dx,
+        cy: measurement.rotationFrame.cy + dy,
+      };
+    }
+    return translated;
+  }
+
   function continuousRenderScale({ requestedScale, layout, maxBitmapEdge }) {
     const maxEdge = Math.max(layout.width, layout.height, 1);
     return Math.max(0.1, Math.min(requestedScale, maxBitmapEdge / maxEdge));
@@ -84,6 +146,11 @@
 
   window.TakeoffContinuousRenderer = {
     buildContinuousPageLayout,
+    pageBoxForPage,
+    pageAtStackPoint,
+    stackPointToPagePoint,
+    pagePointToStackPoint,
+    measurementToStackMeasurement,
     continuousRenderScale,
     paintContinuousPages,
     renderContinuousPdf,

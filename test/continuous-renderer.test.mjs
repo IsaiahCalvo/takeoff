@@ -69,6 +69,43 @@ test('panYForPage returns a viewport pan that brings a page into focus', async (
   assert.equal(renderer.panYForPage({ layout, page: 99, zoom: 1, stageHeight: 300 }), null);
 });
 
+test('continuous layout maps stack points to page-local points and back', async () => {
+  const renderer = await loadContinuousRenderer();
+  const layout = renderer.buildContinuousPageLayout([
+    { page: 1, cssWidth: 100, cssHeight: 50 },
+    { page: 2, cssWidth: 80, cssHeight: 60 },
+  ], { pageGap: 10 });
+
+  assert.deepEqual(plain(renderer.stackPointToPagePoint(layout, { x: 20, y: 75 })), {
+    page: 2,
+    point: { x: 10, y: 15 },
+    pageBox: { page: 2, x: 10, y: 60, width: 80, height: 60 },
+  });
+  assert.deepEqual(plain(renderer.pagePointToStackPoint(layout, 2, { x: 10, y: 15 })), { x: 20, y: 75 });
+  assert.equal(renderer.stackPointToPagePoint(layout, { x: 5, y: 55 }), null);
+});
+
+test('measurementToStackMeasurement offsets page-owned line and freehand geometry', async () => {
+  const renderer = await loadContinuousRenderer();
+  const layout = renderer.buildContinuousPageLayout([
+    { page: 1, cssWidth: 100, cssHeight: 50 },
+    { page: 2, cssWidth: 80, cssHeight: 60 },
+  ], { pageGap: 10 });
+  const source = {
+    id: 7,
+    page: 2,
+    points: [{ x: 1, y: 2 }, { x: 3, y: 4 }],
+    segments: [{ from: { x: 1, y: 2 }, c1: { x: 2, y: 2 }, c2: { x: 3, y: 3 }, to: { x: 4, y: 4 } }],
+    rotationFrame: { x: 0, y: 1, cx: 2, cy: 3, width: 4, height: 5 },
+  };
+
+  const stacked = renderer.measurementToStackMeasurement(source, layout);
+  assert.deepEqual(plain(stacked.points), [{ x: 11, y: 62 }, { x: 13, y: 64 }]);
+  assert.deepEqual(plain(stacked.segments[0].to), { x: 14, y: 64 });
+  assert.deepEqual(plain(stacked.rotationFrame), { x: 10, y: 61, cx: 12, cy: 63, width: 4, height: 5 });
+  assert.deepEqual(plain(source.points[0]), { x: 1, y: 2 });
+});
+
 test('renderContinuousPdf reuses cache entries and paints one composite canvas', async () => {
   const renderer = await loadContinuousRenderer();
   const calls = [];
