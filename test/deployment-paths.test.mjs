@@ -178,6 +178,22 @@ test('all-pages page group keeps page controls left and scale/info/go right', as
   assert.doesNotMatch(pageInfoRule, /grid-area:\s*info/);
 });
 
+test('measurement list uses a slim themed vertical scrollbar only', async () => {
+  const { styles } = await readIndexAndSidebarView();
+  const measListRule = styles.match(/\.meas-list\s*\{[^}]+\}/)?.[0] || '';
+  const webkitTrackRule = styles.match(/\.meas-list::-webkit-scrollbar-track\s*\{[^}]+\}/)?.[0] || '';
+  const webkitThumbRule = styles.match(/\.meas-list::-webkit-scrollbar-thumb\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(measListRule, /overflow-y:\s*auto/);
+  assert.match(measListRule, /overflow-x:\s*hidden/);
+  assert.match(measListRule, /scrollbar-width:\s*thin/);
+  assert.match(measListRule, /scrollbar-color:\s*rgba\(125,\s*138,\s*145,\s*0\.34\)\s*transparent/);
+  assert.match(styles, /\.meas-list::-webkit-scrollbar\s*\{\s*width:\s*6px;/);
+  assert.match(webkitTrackRule, /background:\s*transparent/);
+  assert.match(webkitThumbRule, /background:\s*rgba\(125,\s*138,\s*145,\s*0\.34\)/);
+  assert.match(webkitThumbRule, /border-radius:\s*999px/);
+});
+
 test('all-pages page group nests full-width child runs under each page', async () => {
   const { styles, source } = await readIndexAndSidebarView();
   const childrenRule = styles.match(/\.page-group \.page-children\s*\{[^}]+\}/)?.[0] || '';
