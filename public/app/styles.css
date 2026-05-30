@@ -381,6 +381,20 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   pointer-events: none;
   opacity: 0.35;
 }
+.continuous-scroll-toggle {
+  flex: 0 0 28px;
+  width: 28px;
+}
+.continuous-scroll-toggle svg {
+  width: 15px;
+  height: 15px;
+}
+.continuous-scroll-toggle.active,
+.continuous-scroll-toggle[aria-pressed="true"] {
+  background: rgba(182,255,60,0.14);
+  border-color: rgba(182,255,60,0.34);
+  color: var(--accent);
+}
 .control-value {
   min-height: 18px;
   padding: 0 4px;

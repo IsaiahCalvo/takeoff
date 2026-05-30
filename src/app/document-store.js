@@ -28,6 +28,7 @@
       pdf: state.pdf,
       pdfPage: state.pdfPage,
       pdfPages: state.pdfPages,
+      continuousScrollMode: !!state.continuousScrollMode,
       imageBitmap: state.imageBitmap,
       baseW: state.baseW,
       baseH: state.baseH,

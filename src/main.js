@@ -9,6 +9,7 @@ import './app/measurements.js';
 import './app/measurement-commands.js';
 import './app/measurement-workflows.js';
 import './app/page-state.js';
+import './app/continuous-scroll.js';
 import './app/hit-testing.js';
 import './app/viewer.js';
 import './app/pdf-page-cache.js';
@@ -46,6 +47,7 @@ const calibrationController = window.TakeoffCalibrationController;
 const calibrationWorkflow = window.TakeoffCalibrationWorkflow;
 const measurementWorkflows = window.TakeoffMeasurementWorkflows;
 const pageState = window.TakeoffPageState;
+const continuousScroll = window.TakeoffContinuousScroll;
 const unitModel = window.TakeoffUnits;
 const tooltipController = window.TakeoffTooltipController;
 const state = stateStore.createInitialState();
@@ -53,6 +55,7 @@ const state = stateStore.createInitialState();
 const {
   parsePageRange,
   computePxPerInch,
+  sameScalePdfEligibility,
   applyScaleToPages,
   clearPageScale,
   recomputeLengthsForPage: recomputePageLengths,
@@ -88,6 +91,7 @@ function updateScaleLabel() {
     $('resetScale').disabled = true;
   }
   updateCursorHud();
+  updateContinuousScrollControl();
 }
 
 function updatePageLabel() {
@@ -96,6 +100,22 @@ function updatePageLabel() {
   $('pageLabel').innerHTML = `<span class="page-current">${current}</span><span class="page-sep">·</span><span>${total}</span>`;
   $('pageLabel').setAttribute('aria-label', state.baseW ? `Page ${current} of ${total}` : 'No page loaded');
   $('pageLabel').title = state.baseW ? `Page ${current} of ${total}` : 'No page loaded';
+}
+
+function updateContinuousScrollControl(eligibility = sameScalePdfEligibility(state)) {
+  if (!eligibility.eligible) state.continuousScrollMode = false;
+  const model = continuousScroll.controlModel({ state, eligibility });
+  const button = $('continuousScrollToggle');
+  const divider = document.querySelector('.continuous-scroll-divider');
+  button.hidden = !model.visible;
+  if (divider) divider.hidden = !model.visible;
+  button.disabled = !model.enabled;
+  button.classList.toggle('active', model.active);
+  button.setAttribute('aria-pressed', model.ariaPressed);
+  button.setAttribute('aria-label', model.ariaLabel);
+  button.title = model.title;
+  button.dataset.tooltip = model.title;
+  return model;
 }
 
 function recomputeLengthsForPage(p) {
@@ -716,6 +736,18 @@ async function goToPage(n) {
 
 $('prevPage').addEventListener('click', () => goToPage(state.pdfPage - 1));
 $('nextPage').addEventListener('click', () => goToPage(state.pdfPage + 1));
+$('continuousScrollToggle').addEventListener('click', () => {
+  const eligibility = sameScalePdfEligibility(state);
+  if (!eligibility.eligible) {
+    const model = updateContinuousScrollControl(eligibility);
+    showStatus(model.title, 2200, { force: true });
+    return;
+  }
+  state.continuousScrollMode = !state.continuousScrollMode;
+  const model = updateContinuousScrollControl(eligibility);
+  saveActiveDocument();
+  showStatus(model.active ? 'Continuous scroll ready.' : 'Single-page view.', 1400, { force: true });
+});
 
 // ------- Tool buttons -------
 $('btn-selection').addEventListener('click', () => setMode('selection'));
@@ -1837,8 +1869,8 @@ $('resetScale').addEventListener('click', () => {
   const historyBefore = createHistorySnapshot();
   clearPageScale({ measurements: state.measurements, pageScales: state.pageScales, page: p });
   stateStore.syncCurrentPageScale(state, p);
-  recordHistory(historyBefore, 'scale reset');
   updateScaleLabel();
+  recordHistory(historyBefore, 'scale reset');
   updatePageLabel();
   renderList();
   redraw();
