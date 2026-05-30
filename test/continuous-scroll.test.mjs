@@ -84,3 +84,42 @@ test('controlModel enables and reflects requested continuous scroll mode', async
     ariaPressed: 'true',
   });
 });
+
+test('exitReason explains why active continuous scroll was turned off', async () => {
+  const continuous = await loadContinuousScroll();
+
+  assert.equal(
+    continuous.exitReason({ reason: 'missing_page_calibration', missingPages: [3] }),
+    'Continuous scroll turned off because page 3 has no scale.',
+  );
+  assert.equal(
+    continuous.exitReason({ reason: 'mismatched_page_scale', mismatchedPages: [2] }),
+    'Continuous scroll turned off because page scales no longer match.',
+  );
+});
+
+test('applyEligibilityExit clears continuous state and keeps the nearest PDF page', async () => {
+  const continuous = await loadContinuousScroll();
+  const state = {
+    pdf: {},
+    pdfPages: 4,
+    pdfPage: 1,
+    continuousScrollMode: true,
+    continuousPageLayout: { pages: [{ page: 1 }] },
+  };
+
+  const result = continuous.applyEligibilityExit({
+    state,
+    eligibility: { eligible: false, reason: 'missing_page_calibration', missingPages: [3] },
+    page: 3,
+  });
+
+  assert.deepEqual(plain(result), {
+    exited: true,
+    page: 3,
+    reason: 'Continuous scroll turned off because page 3 has no scale.',
+  });
+  assert.equal(state.continuousScrollMode, false);
+  assert.equal(state.continuousPageLayout, null);
+  assert.equal(state.pdfPage, 3);
+});

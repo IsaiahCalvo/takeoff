@@ -124,7 +124,20 @@ function syncContinuousPageFromView() {
   state.pdfPage = page; stateStore.syncCurrentPageScale(state, page);
   updatePageLabel(); updateScaleLabel(); renderList();
 }
-
+function continuousExitPage() { return continuousRenderer.nearestPageForViewport({ layout: state.continuousPageLayout, panY: state.panY, zoom: state.zoom, stageHeight: stage.clientHeight }) || state.pdfPage; }
+function applyContinuousEligibilityExit(eligibility = sameScalePdfEligibility(state)) {
+  const result = continuousScroll.applyEligibilityExit({ state, eligibility, page: continuousExitPage() });
+  if (result.exited) stateStore.syncCurrentPageScale(state, state.pdfPage); updateContinuousScrollControl(eligibility); return result;
+}
+async function exitContinuousScrollIfNeeded({ eligibility = sameScalePdfEligibility(state), status = false, render = false, fit = false } = {}) {
+  const result = applyContinuousEligibilityExit(eligibility);
+  if (!result.exited) return false;
+  if (render && state.pdf) await renderPdfPage({ fit, resetInteraction: false });
+  else { updatePageLabel(); updateScaleLabel(); renderList(); redrawActivePreview(); }
+  if (status) showStatus(result.reason, 2800, { force: true });
+  saveActiveDocument(); return true;
+}
+function scheduleContinuousEligibilityCheck(options) { Promise.resolve().then(() => exitContinuousScrollIfNeeded(options)); }
 function recomputeLengthsForPage(p) { recomputePageLengths(state.measurements, state.pageScales, p, measurementLengthPx); }
 
 // distinct, dark-bg-friendly palette (red reserved for erase hover)
@@ -186,6 +199,7 @@ function applyHistorySnapshot(snapshot) {
   renderList();
   redraw();
   saveActiveDocument();
+  scheduleContinuousEligibilityCheck({ status: true, render: true, fit: false });
 }
 
 function undoHistory() {
@@ -674,9 +688,13 @@ async function renderContinuousPdfPage({ fit = true, resetInteraction = true, mi
 }
 
 async function renderPdfPage({ fit = true, resetInteraction = true, minRenderScale = desiredPdfRenderScale() } = {}) {
-  if (state.continuousScrollMode && sameScalePdfEligibility(state).eligible) {
+  const eligibility = sameScalePdfEligibility(state);
+  if (state.continuousScrollMode && eligibility.eligible) {
     await renderContinuousPdfPage({ fit, resetInteraction, minRenderScale });
     return;
+  }
+  if (state.continuousScrollMode || state.continuousPageLayout) {
+    const result = applyContinuousEligibilityExit(eligibility); if (result.exited) showStatus(result.reason, 2800, { force: true });
   }
   state.continuousPageLayout = null;
   state.navToken++;
@@ -1386,9 +1404,7 @@ window.addEventListener('keydown', (e) => {
   if (inputAction.action === 'fit-view') fitToView();
 });
 
-function isTextEntryTarget(target) {
-  return inputController.isTextEntryTarget(target);
-}
+function isTextEntryTarget(target) { return inputController.isTextEntryTarget(target); }
 
 contextMenu.addEventListener('click', (e) => {
   const action = e.target.closest('button')?.dataset.action;
@@ -1886,7 +1902,7 @@ const calibrationModal = calibrationController.createCalibrationModal({
   measureLengthPx: measurementLengthPx,
   createHistorySnapshot,
   recordHistory,
-  updateScaleLabel,
+  updateScaleLabel: () => { updateScaleLabel(); scheduleContinuousEligibilityCheck({ status: true, render: true, fit: false }); },
   updatePageLabel,
   setMode,
   renderList,
@@ -1895,12 +1911,9 @@ const calibrationModal = calibrationController.createCalibrationModal({
   alertUser: alert,
   focusLater: input => setTimeout(() => input.focus(), 30),
 });
-function openCalibModal() {
-  calibrationModal.open(state.inProgress);
-}
+function openCalibModal() { calibrationModal.open(state.inProgress); }
 
-// Reset calibration on current page only
-$('resetScale').addEventListener('click', () => {
+$('resetScale').addEventListener('click', async () => {
   const p = currentPage();
   if (!stateStore.hasPageScale(state, p)) return;
   const affectedCount = calibrationController.countPageMeasurements(state.measurements, p);
@@ -1910,9 +1923,9 @@ $('resetScale').addEventListener('click', () => {
   stateStore.syncCurrentPageScale(state, p);
   updateScaleLabel();
   recordHistory(historyBefore, 'scale reset');
-  updatePageLabel();
-  renderList();
-  redraw();
+  const exited = await exitContinuousScrollIfNeeded({ status: true, render: true, fit: false });
+  if (exited) return;
+  updatePageLabel(); renderList(); redraw();
   showStatus(`Page ${p} calibration cleared. Undo is available.`, 2200);
 });
 
