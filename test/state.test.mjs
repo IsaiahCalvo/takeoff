@@ -35,6 +35,7 @@ test('createInitialState returns fresh mutable collections and current defaults'
   assert.equal(b.drawMode, 'line');
   assert.equal(b.unit, 'ft');
   assert.equal(b.continuousScrollMode, false);
+  assert.equal(b.continuousPageLayout, null);
   assert.equal(b.historyLimit, 100);
   assert.equal(b.MAX_CACHE, 20);
 });
@@ -49,6 +50,7 @@ test('resetDocumentState clears active document data while preserving app-level 
   state.pdfPages = 12;
   state.pdfPage = 4;
   state.continuousScrollMode = true;
+  state.continuousPageLayout = { pages: [{ page: 4 }] };
   state.imageBitmap = { id: 'image' };
   state.baseW = 100;
   state.baseH = 200;
@@ -79,6 +81,7 @@ test('resetDocumentState clears active document data while preserving app-level 
   assert.equal(state.pdfPages, 0);
   assert.equal(state.pdfPage, 1);
   assert.equal(state.continuousScrollMode, false);
+  assert.equal(state.continuousPageLayout, null);
   assert.equal(state.imageBitmap, null);
   assert.equal(state.baseW, 0);
   assert.equal(state.baseH, 0);
@@ -105,6 +108,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   const store = await loadStateStore();
   const state = store.createInitialState();
   state.navToken = 7;
+  state.continuousPageLayout = { pages: [{ page: 2 }] };
   state.inProgress = { points: [] };
   state.freehandDraft = { rawPoints: [] };
   state.selectedId = 3;
@@ -145,6 +149,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.pdfPage, 3);
   assert.equal(state.pdfPages, 9);
   assert.equal(state.continuousScrollMode, true);
+  assert.equal(state.continuousPageLayout, null);
   assert.equal(state.imageBitmap, doc.imageBitmap);
   assert.equal(state.baseW, 100);
   assert.equal(state.baseH, 200);
