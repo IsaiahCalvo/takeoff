@@ -84,3 +84,36 @@ test('resolves target pages for this page, all pages, and custom ranges', async 
     parsePageRange,
   })), { pages: [], error: 'empty-custom-range' });
 });
+
+test('builds copied calibration source options from other calibrated pages', async () => {
+  const workflow = await loadCalibrationWorkflow();
+
+  assert.deepEqual(plain(workflow.calibrationSourceOptions({
+    pageScales: { 1: 2, 2: 4, 4: 0, 5: Infinity, 3: 3 },
+    currentPage: 2,
+    unit: 'ft',
+    unitToInch: unit => unit === 'ft' ? 12 : 1,
+  })), [
+    {
+      value: 'new',
+      page: null,
+      pxPerInch: null,
+      label: 'New calibration',
+      helper: '',
+    },
+    {
+      value: 'page:1',
+      page: 1,
+      pxPerInch: 2,
+      label: 'Page 1 (1 ft = 24.00 px)',
+      helper: "Uses Page 1's scale: 1 ft = 24.00 px.",
+    },
+    {
+      value: 'page:3',
+      page: 3,
+      pxPerInch: 3,
+      label: 'Page 3 (1 ft = 36.00 px)',
+      helper: "Uses Page 3's scale: 1 ft = 36.00 px.",
+    },
+  ]);
+});

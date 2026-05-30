@@ -50,6 +50,42 @@
     return { pages: [currentPage], error: null };
   }
 
+  function scaleSummary(pxPerInch, unit, unitToInch) {
+    const unitLabel = unit || 'ft';
+    const inchFactor = typeof unitToInch === 'function' ? unitToInch(unitLabel) : 1;
+    return `1 ${unitLabel} = ${(pxPerInch * inchFactor).toFixed(2)} px`;
+  }
+
+  function calibrationSourceOptions({ pageScales, currentPage, unit, unitToInch } = {}) {
+    const options = [{
+      value: 'new',
+      page: null,
+      pxPerInch: null,
+      label: 'New calibration',
+      helper: '',
+    }];
+
+    const pages = Object.keys(pageScales || {})
+      .map(page => Number(page))
+      .filter(page => Number.isInteger(page) && page !== currentPage)
+      .sort((a, b) => a - b);
+
+    for (const page of pages) {
+      const pxPerInch = pageScales[page];
+      if (!Number.isFinite(pxPerInch) || pxPerInch <= 0) continue;
+      const summary = scaleSummary(pxPerInch, unit, unitToInch);
+      options.push({
+        value: `page:${page}`,
+        page,
+        pxPerInch,
+        label: `Page ${page} (${summary})`,
+        helper: `Uses Page ${page}'s scale: ${summary}.`,
+      });
+    }
+
+    return options;
+  }
+
   window.TakeoffCalibrationWorkflow = {
     initialModalState,
     scopeLabel,
@@ -58,5 +94,6 @@
     calibrationValueNumber,
     isPositiveCalibrationValue,
     resolveTargetPages,
+    calibrationSourceOptions,
   };
 })();

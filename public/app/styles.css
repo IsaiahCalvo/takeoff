@@ -1413,6 +1413,21 @@ aside {
   outline: none;
   cursor: pointer;
 }
+.modal input:disabled,
+.modal select:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+.calibration-source-field { margin-top: 14px; align-items: flex-start; }
+.modal .calibration-source-field > label { flex-basis: 96px; line-height: 1.25; padding-top: 6px; }
+.calib-source-control { flex: 1; min-width: 0; }
+.calib-source-control select { width: 100%; min-width: 0; }
+.calib-source-helper {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  margin-top: 6px;
+}
 .calibration-apply-field { margin-top: 14px; }
 .calib-scope-combo {
   position: relative;
