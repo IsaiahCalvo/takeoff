@@ -1157,6 +1157,21 @@ aside {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 10px 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 138, 145, 0.34) transparent;
+}
+.meas-list::-webkit-scrollbar {
+  width: 6px;
+}
+.meas-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.meas-list::-webkit-scrollbar-thumb {
+  background: rgba(125, 138, 145, 0.34);
+  border-radius: 999px;
+}
+.meas-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(182, 255, 60, 0.38);
 }
 .meas-list:empty::before {
   content: 'Nothing measured yet.';
