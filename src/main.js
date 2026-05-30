@@ -1002,7 +1002,6 @@ stage.addEventListener('mousedown', (e) => {
         shiftKey: e.shiftKey,
         snapPoint: snapAngle,
       });
-      pendingCalibration = state.inProgress;
       openCalibModal();
     }
     redraw();
@@ -1801,109 +1800,32 @@ function commitRotationInput() {
 }
 
 // ------- Calibration modal -------
-let pendingCalibration = null;
-function openCalibModal() {
-  const modalState = calibrationWorkflow.initialModalState(state.unit);
-  calibrationController.applyModalState({
-    modal: $('calibModal'),
-    valueInput: $('calibValue'),
-    okButton: $('calibOk'),
-    unitSelect: $('calibUnit'),
-    scopeInput: $('calibScope'),
-    scopeCombo: $('calibScopeCombo'),
-    scopeDisplay: $('calibScopeDisplay'),
-    scopeOptions: $('calibScopeOptions'),
-    menuButton: $('calibScopeMenu'),
-    rangeInput: $('calibRange'),
-    modalState,
-    isPositiveCalibrationValue: calibrationWorkflow.isPositiveCalibrationValue,
-    labelForScope: calibrationWorkflow.scopeLabel,
-  });
-  setTimeout(() => $('calibValue').focus(), 50);
-}
-function closeCalibModal() {
-  calibrationController.setModalOpen($('calibModal'), false);
-  state.inProgress = null;
-  pendingCalibration = null;
-  redraw();
-}
-calibrationController.bindScopeCombo({
+const calibrationModal = calibrationController.createCalibrationModal({
   root: document,
-  scopeInput: $('calibScope'),
-  scopeCombo: $('calibScopeCombo'),
-  scopeDisplay: $('calibScopeDisplay'),
-  scopeOptions: $('calibScopeOptions'),
-  menuButton: $('calibScopeMenu'),
-  rangeInput: $('calibRange'),
-  labelForScope: calibrationWorkflow.scopeLabel,
+  getElement: $,
+  state,
+  workflow: calibrationWorkflow,
+  unitToInch: unitModel.unitToInch,
+  currentPage,
+  totalPages,
+  parsePageRange,
+  computePxPerInch,
+  distancePx,
+  applyScaleToPages,
+  measureLengthPx: measurementLengthPx,
+  createHistorySnapshot,
+  recordHistory,
+  updateScaleLabel,
+  updatePageLabel,
+  setMode,
+  renderList,
+  redraw,
+  showStatus,
+  alertUser: alert,
   focusLater: input => setTimeout(() => input.focus(), 30),
 });
-$('calibCancel').addEventListener('click', closeCalibModal);
-$('calibOk').addEventListener('click', () => {
-  const v = calibrationWorkflow.calibrationValueNumber($('calibValue').value);
-  if (!calibrationWorkflow.isPositiveCalibrationValue($('calibValue').value)) {
-    updateCalibValueValidity();
-    $('calibValue').focus();
-    return;
-  }
-  const unit = $('calibUnit').value;
-  const newPxPerInch = computePxPerInch(pendingCalibration.points, v, unit, distancePx);
-
-  // Determine which pages get this scale
-  const scope = $('calibScope').value;
-  const targetPageResult = calibrationWorkflow.resolveTargetPages({
-    scope,
-    currentPage: currentPage(),
-    totalPages: totalPages(),
-    rangeText: $('calibRange').value,
-    parsePageRange,
-  });
-  if (targetPageResult.error === 'empty-custom-range') {
-    alert('Enter at least one valid page number (e.g. "1, 3, 5-7").');
-    $('calibRange').focus();
-    return;
-  }
-  const targetPages = targetPageResult.pages;
-
-  applyScaleToPages({
-    measurements: state.measurements,
-    pageScales: state.pageScales,
-    pages: targetPages,
-    pxPerInch: newPxPerInch,
-    measureLengthPx: measurementLengthPx,
-  });
-  // Update current page's mirror
-  if (targetPages.includes(currentPage())) {
-    state.pxPerInch = newPxPerInch;
-  }
-  updateScaleLabel();
-
-  state.inProgress = null;
-  pendingCalibration = null;
-  calibrationController.setModalOpen($('calibModal'), false);
-  setMode('measure');
-  renderList();
-  updatePageLabel();
-  redraw();
-  showStatus(`Scale set on ${targetPages.length} page${targetPages.length > 1 ? 's' : ''}: ${v} ${unit} reference`, 2400);
-});
-$('calibValue').addEventListener('beforeinput', (e) => {
-  if (e.inputType && !e.inputType.startsWith('insert')) return;
-  if (e.data && !/^[0-9.]+$/.test(e.data)) e.preventDefault();
-});
-$('calibValue').addEventListener('input', () => {
-  const input = $('calibValue');
-  const value = calibrationWorkflow.sanitizeCalibrationValueInput(input.value);
-  if (input.value !== value) input.value = value;
-  updateCalibValueValidity();
-});
-$('calibValue').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !$('calibOk').disabled) $('calibOk').click();
-});
-calibrationController.bindPageRangeInput({ rangeInput: $('calibRange'), okButton: $('calibOk'), sanitizePageRangeInput: calibrationWorkflow.sanitizePageRangeInput });
-
-function updateCalibValueValidity() {
-  $('calibOk').disabled = !calibrationWorkflow.isPositiveCalibrationValue($('calibValue').value);
+function openCalibModal() {
+  calibrationModal.open(state.inProgress);
 }
 
 // Reset calibration on current page only
