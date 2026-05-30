@@ -1449,6 +1449,7 @@ aside {
   background: transparent;
   color: var(--muted);
   padding: 0;
+  justify-content: center;
 }
 .calib-scope-menu::before {
   content: "";

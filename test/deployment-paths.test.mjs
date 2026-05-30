@@ -78,6 +78,7 @@ test('run summary text is owned by the dynamic counter', async () => {
 test('calibration apply scope uses one compact combo row', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const menuRule = styles.match(/\.calib-scope-menu\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(html, /id="calibScopeCombo"/);
   assert.match(html, /id="calibScopeMenu"[^>]+aria-expanded="false"/);
@@ -87,6 +88,7 @@ test('calibration apply scope uses one compact combo row', async () => {
   assert.doesNotMatch(html, /id="calibRangeField"/);
   assert.match(styles, /\.calib-scope-combo\.custom input\[type=text\]\.calib-scope-range\s*\{\s*display:\s*block;/);
   assert.match(styles, /\.calib-scope-menu::before/);
+  assert.match(menuRule, /justify-content:\s*center/);
 });
 
 test('measure mode menu uses Line and Freehand product wording', async () => {
