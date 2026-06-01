@@ -34,6 +34,7 @@ test('createInitialState returns fresh mutable collections and current defaults'
   assert.equal(b.mode, 'pan');
   assert.equal(b.drawMode, 'line');
   assert.equal(b.unit, 'ft');
+  assert.equal(b.pdfEngineChoice, 'pdfjs-current');
   assert.equal(b.continuousScrollMode, false);
   assert.equal(b.continuousPageLayout, null);
   assert.equal(b.historyLimit, 100);

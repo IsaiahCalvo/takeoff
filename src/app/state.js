@@ -11,7 +11,7 @@
       prevMode: 'pan',
       spaceHeld: false,
       pdf: null,
-      pdfEngineChoice: 'embedpdf',
+      pdfEngineChoice: 'pdfjs-current',
       pdfSourceData: null,
       pdfFileName: null,
       pdfPage: 1,
@@ -107,7 +107,7 @@
   function restoreDocumentState(state, doc) {
     state.activeDocId = doc.id;
     state.pdf = doc.pdf;
-    state.pdfEngineChoice = doc.pdfEngineChoice || state.pdfEngineChoice || 'embedpdf';
+    state.pdfEngineChoice = doc.pdfEngineChoice || state.pdfEngineChoice || 'pdfjs-current';
     state.pdfSourceData = doc.pdfSourceData || null;
     state.pdfFileName = doc.pdfFileName || doc.name || null;
     state.pdfPage = doc.pdfPage || 1;

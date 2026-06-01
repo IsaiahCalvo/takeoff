@@ -11,8 +11,5 @@
   },
   "devDependencies": {
     "vite": "^6.3.5"
-  },
-  "dependencies": {
-    "@embedpdf/pdfium": "^2.14.3"
   }
 }

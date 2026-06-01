@@ -10,6 +10,7 @@
     cacheHasUsable,
     renderPdfPage,
     renderPdfDetailTile = null,
+    usesPdfDetailTile = () => false,
     showStatus,
   }) {
     let zoomRenderSeq = 0;
@@ -121,7 +122,7 @@
         return;
       }
       const targetScale = desiredPdfRenderScale();
-      if (state.continuousScrollMode) {
+      if (state.continuousScrollMode && usesPdfDetailTile()) {
         const detailTargetScale = desiredPdfDetailTileScale();
         logger.recordRender({ phase: 'skip', reason: 'zoom-sharpen', page: state.pdfPage, scale: targetScale, cause: 'continuous-detail-tile' });
         if (renderPdfDetailTile) {

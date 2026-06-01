@@ -1,10 +1,14 @@
 (function () {
   function normalizeChoice(value) {
-    return value === 'pdfjs' ? 'pdfjs' : 'embedpdf';
+    return value === 'pdfjs-sharp' ? 'pdfjs-sharp' : 'pdfjs-current';
   }
 
   function label(value) {
-    return normalizeChoice(value) === 'pdfjs' ? 'PDF.js' : 'EmbedPDF';
+    return normalizeChoice(value) === 'pdfjs-sharp' ? 'PDF.js Sharp' : 'PDF.js Current';
+  }
+
+  function isSharpMode(value) {
+    return normalizeChoice(value) === 'pdfjs-sharp';
   }
 
   function createPdfEngineController({
@@ -111,5 +115,6 @@
     createPdfEngineController,
     normalizeChoice,
     label,
+    isSharpMode,
   };
 })();

@@ -37,7 +37,7 @@ test('PDF.js detail tiling caps PDF.js base renders in single page and continuou
     baseMaxScale: 2.5,
   }), 2.5);
   assert.equal(detailTile.baseRenderScale({
-    engine: 'pdfium-worker',
+    engine: 'image',
     continuousScrollMode: false,
     requestedScale: 6,
     baseMaxScale: 2.5,
