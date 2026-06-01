@@ -254,6 +254,15 @@ test('continuous page layer is retained for fast toggle re-entry', async () => {
   assert.match(blitToBase, /layer\.hidden = true/);
 });
 
+test('continuous page layer is prewarmed before the first toggle', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(main, /function scheduleContinuousLayerPrewarm/);
+  assert.match(main, /activatePageLayer:\s*false/);
+  assert.match(main, /state\.cachedContinuousPageLayout\s*=\s*result\.layout/);
+  assert.match(main, /scheduleContinuousLayerPrewarm\(eligibility\)/);
+});
+
 test('viewport transforms are constrained to keep the page in view', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const applyTransform = main.match(/function applyTransform\(\) \{[\s\S]*?\n\}/)?.[0] || '';

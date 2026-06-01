@@ -105,10 +105,10 @@
     context.restore();
   }
 
-  function paintContinuousPageLayer({ layer, canvas, context, entries, layout }) {
+  function paintContinuousPageLayer({ layer, canvas, context, entries, layout, activate = true }) {
     if (!layer) return false;
     layer.replaceChildren();
-    layer.hidden = false;
+    layer.hidden = !activate;
     layer.style.width = `${layout.width}px`;
     layer.style.height = `${layout.height}px`;
     for (const page of layout.pages) {
@@ -119,6 +119,7 @@
       entry.canvas.style.height = `${page.height}px`;
       layer.appendChild(entry.canvas);
     }
+    if (!activate) return true;
     canvas.width = 1;
     canvas.height = 1;
     canvas.style.display = 'none';
@@ -144,6 +145,7 @@
     canvas,
     context,
     pageLayer = null,
+    activatePageLayer = true,
     configureCanvasCssSize,
   }) {
     const entries = [];
@@ -155,8 +157,8 @@
     }
     if (!isCurrent()) return null;
     const layout = buildContinuousPageLayout(entries);
-    if (paintContinuousPageLayer({ layer: pageLayer, canvas, context, entries, layout })) {
-      configureCanvasCssSize(canvas, layout.width, layout.height);
+    if (paintContinuousPageLayer({ layer: pageLayer, canvas, context, entries, layout, activate: activatePageLayer })) {
+      if (activatePageLayer) configureCanvasCssSize(canvas, layout.width, layout.height);
       return { layout, renderScale: requestedScale };
     }
     const renderScale = continuousRenderScale({ requestedScale, layout, maxBitmapEdge });
