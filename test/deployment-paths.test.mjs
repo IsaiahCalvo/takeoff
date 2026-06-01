@@ -264,7 +264,7 @@ test('PDF render engine toggle is present and wired into PDF loading', async () 
 
   assert.match(html, /id="pdfEngineToggle"/);
   assert.match(html, /data-pdf-engine="pdfjs-current"/);
-  assert.match(html, /data-pdf-engine="pdfjs-sharp"/);
+  assert.match(html, /data-pdf-engine="pdfjs-sharp" aria-pressed="true"/);
   assert.doesNotMatch(html, /EmbedPDF/);
   assert.match(styles, /\.pdf-engine-toggle/);
   assert.match(main, /state\.pdfEngineChoice/);
