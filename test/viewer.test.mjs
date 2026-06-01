@@ -129,3 +129,85 @@ test('zoomAtPoint clamps zoom and cursor image point', async () => {
   assert.equal(next.zoom, 20);
   assert.deepEqual(plain(next.cursorImg), { x: 10.526315789473685, y: 0 });
 });
+
+test('constrainPanToBounds centers content when the whole page fits in the viewport', async () => {
+  const viewer = await loadViewer();
+
+  assert.deepEqual(plain(viewer.constrainPanToBounds({
+    panX: -500,
+    panY: 900,
+    zoom: 0.5,
+    stageWidth: 1000,
+    stageHeight: 800,
+    baseWidth: 1000,
+    baseHeight: 1200,
+  })), {
+    panX: 250,
+    panY: 100,
+  });
+});
+
+test('constrainPanToBounds keeps at least a slim page edge in view while panning', async () => {
+  const viewer = await loadViewer();
+
+  assert.deepEqual(plain(viewer.constrainPanToBounds({
+    panX: -5000,
+    panY: 5000,
+    zoom: 1,
+    stageWidth: 1000,
+    stageHeight: 800,
+    baseWidth: 1400,
+    baseHeight: 1800,
+    margin: 96,
+  })), {
+    panX: -496,
+    panY: 96,
+  });
+});
+
+test('constrainPanToBounds allows a focused page to stay centered inside a taller stack', async () => {
+  const viewer = await loadViewer();
+
+  assert.deepEqual(plain(viewer.constrainPanToBounds({
+    panX: 250,
+    panY: 200,
+    zoom: 0.5,
+    stageWidth: 1000,
+    stageHeight: 800,
+    baseWidth: 1000,
+    baseHeight: 3000,
+    focusWidth: 1000,
+    focusHeight: 800,
+    margin: 96,
+  })), {
+    panX: 250,
+    panY: 200,
+  });
+});
+
+test('page anchor maps the same page point into a stacked continuous layout without changing zoom', async () => {
+  const viewer = await loadViewer();
+  const anchor = viewer.pageAnchorAtScreenPoint({
+    screenX: 500,
+    screenY: 350,
+    panX: -100,
+    panY: -250,
+    zoom: 2,
+    pageBox: { x: 0, y: 0, width: 1000, height: 800 },
+  });
+
+  assert.deepEqual(plain(anchor), {
+    screenX: 500,
+    screenY: 350,
+    point: { x: 300, y: 300 },
+  });
+
+  assert.deepEqual(plain(viewer.panForPageAnchor({
+    anchor,
+    zoom: 2,
+    pageBox: { x: 0, y: 824, width: 1000, height: 800 },
+  })), {
+    panX: -100,
+    panY: -1898,
+  });
+});

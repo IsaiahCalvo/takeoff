@@ -147,6 +147,10 @@ async function exitContinuousScrollIfNeeded({ eligibility = sameScalePdfEligibil
 }
 function scheduleContinuousEligibilityCheck(options) { Promise.resolve().then(() => exitContinuousScrollIfNeeded(options)); }
 function recomputeLengthsForPage(p) { recomputePageLengths(state.measurements, state.pageScales, p, measurementLengthPx); }
+function pageBoxForViewportAnchor(page = state.pdfPage) { return state.continuousScrollMode && state.continuousPageLayout ? continuousRenderer.pageBoxForPage(state.continuousPageLayout, page) : { x: 0, y: 0, width: state.baseW, height: state.baseH }; }
+function constrainViewportPan() { const rect = stage.getBoundingClientRect(), box = pageBoxForViewportAnchor(state.pdfPage); const pan = viewerModel.constrainPanToBounds({ panX: state.panX, panY: state.panY, zoom: state.zoom, stageWidth: rect.width, stageHeight: rect.height, baseWidth: state.baseW, baseHeight: state.baseH, focusWidth: box?.width, focusHeight: box?.height, margin: VIEWPORT_BOUND_MARGIN }); state.panX = pan.panX; state.panY = pan.panY; }
+function captureViewportAnchor(page = state.pdfPage) { const rect = stage.getBoundingClientRect(); const anchor = viewerModel.pageAnchorAtScreenPoint({ screenX: rect.width / 2, screenY: rect.height / 2, panX: state.panX, panY: state.panY, zoom: state.zoom, pageBox: pageBoxForViewportAnchor(page), baseWidth: state.baseW, baseHeight: state.baseH }); return anchor ? { ...anchor, page } : null; }
+function restoreViewportAnchor(anchor) { const pan = viewerModel.panForPageAnchor({ anchor, zoom: state.zoom, pageBox: pageBoxForViewportAnchor(anchor?.page), baseWidth: state.baseW, baseHeight: state.baseH }); if (pan) { state.panX = pan.panX; state.panY = pan.panY; } }
 
 // distinct, dark-bg-friendly palette (red reserved for erase hover)
 const PALETTE = [
@@ -178,6 +182,7 @@ const exportWrap = $('exportWrap');
 const exportButton = $('exportButton');
 const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
+const VIEWPORT_BOUND_MARGIN = 96;
 const copySummaryButton = $('copySummary');
 
 const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
@@ -383,6 +388,7 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
 }
 
 function applyTransform() {
+  constrainViewportPan();
   viewport.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
   $('zoomLabel').innerHTML = `<strong>${Math.round(state.zoom * 100)}%</strong>`;
   updateRotationPill();
@@ -685,8 +691,10 @@ async function renderPageToCanvas(pageNum, requestedScale = state.minPdfRenderSc
   return performanceController.renderPageToCanvas(pageNum, requestedScale, options);
 }
 
-function blitToBase(entry) {
-  continuousRenderer.clearContinuousPageLayer($('continuousBasePages'), baseCanvas);
+function blitToBase(entry, { preserveContinuousLayer = false } = {}) {
+  const layer = $('continuousBasePages');
+  if (preserveContinuousLayer && layer) { layer.hidden = true; baseCanvas.style.display = 'block'; }
+  else { continuousRenderer.clearContinuousPageLayer(layer, baseCanvas); state.cachedContinuousPageLayout = null; }
   pdfDetailTile.clear();
   if (baseCanvas.dataset) baseCanvas.dataset.pdfEngine = entry.engine || '';
   baseCanvas.width = entry.canvas.width;
@@ -702,6 +710,15 @@ function blitToBase(entry) {
 
 async function renderContinuousPdfPage({ fit = true, resetInteraction = true, minRenderScale = desiredPdfRenderScale(), shouldApply = () => true, reason = 'continuous-render' } = {}) {
   pdfDetailTile.clear();
+  const cachedLayer = $('continuousBasePages');
+  if (state.cachedContinuousPageLayout && cachedLayer?.children?.length === state.pdfPages) {
+    cachedLayer.hidden = false; baseCanvas.width = 1; baseCanvas.height = 1; baseCanvas.style.display = 'none';
+    configureCanvasCssSize(baseCanvas, state.cachedContinuousPageLayout.width, state.cachedContinuousPageLayout.height);
+    state.baseW = state.cachedContinuousPageLayout.width; state.baseH = state.cachedContinuousPageLayout.height; state.continuousPageLayout = state.cachedContinuousPageLayout;
+    configureDrawCanvas(); onPageReady({ fit, resetInteraction });
+    if (usesPdfDetailTile()) await pdfDetailTile.renderNow({ reason: `${reason}-detail` });
+    return true;
+  }
   state.navToken++;
   const token = state.navToken;
   const baseScale = usesPdfDetailTile() ? pdfDetailTile.baseRenderScale(minRenderScale) : minRenderScale;
@@ -713,13 +730,14 @@ async function renderContinuousPdfPage({ fit = true, resetInteraction = true, mi
   });
   if (!result || !shouldApply()) return false;
   state.baseW = result.layout.width; state.baseH = result.layout.height; state.continuousPageLayout = result.layout;
+  state.cachedContinuousPageLayout = result.layout;
   configureDrawCanvas();
   onPageReady({ fit, resetInteraction });
   if (usesPdfDetailTile()) await pdfDetailTile.renderNow({ reason: `${reason}-detail` });
   return true;
 }
 
-async function renderPdfPage({ fit = true, resetInteraction = true, minRenderScale = desiredPdfRenderScale(), shouldApply = () => true, preRender = true, reason = 'page-render' } = {}) {
+async function renderPdfPage({ fit = true, resetInteraction = true, minRenderScale = desiredPdfRenderScale(), shouldApply = () => true, preRender = true, reason = 'page-render', preserveContinuousLayer = false } = {}) {
   const eligibility = sameScalePdfEligibility(state);
   if (state.continuousScrollMode && eligibility.eligible) {
     return renderContinuousPdfPage({ fit, resetInteraction, minRenderScale, shouldApply, reason });
@@ -736,7 +754,7 @@ async function renderPdfPage({ fit = true, resetInteraction = true, minRenderSca
   let cached = cacheGet(p, baseScale);
   if (cached) {
     if (!shouldApply()) return false;
-    blitToBase(cached);
+    blitToBase(cached, { preserveContinuousLayer });
     onPageReady({ fit, resetInteraction });
     if (usesPdfDetailTile()) await pdfDetailTile.renderNow({ reason: `${reason}-detail` });
     if (preRender) schedulePreRender();
@@ -760,7 +778,7 @@ async function renderPdfPage({ fit = true, resetInteraction = true, minRenderSca
     });
     return false;
   }
-  blitToBase(cached);
+  blitToBase(cached, { preserveContinuousLayer });
   onPageReady({ fit, resetInteraction });
   if (usesPdfDetailTile()) await pdfDetailTile.renderNow({ reason: `${reason}-detail` });
   if (preRender) schedulePreRender();
@@ -837,11 +855,16 @@ $('continuousScrollToggle').addEventListener('click', async () => {
     showStatus(model.title, 2200, { force: true });
     return;
   }
-  if (state.continuousScrollMode) syncContinuousPageFromView();
+  const wasContinuous = state.continuousScrollMode;
+  if (wasContinuous) syncContinuousPageFromView();
+  const anchor = captureViewportAnchor(state.pdfPage);
   state.continuousScrollMode = !state.continuousScrollMode;
   const model = updateContinuousScrollControl(eligibility);
   updatePerformanceLogContext();
-  await renderPdfPage({ fit: true, resetInteraction: false });
+  await renderPdfPage({ fit: false, resetInteraction: false, preserveContinuousLayer: wasContinuous });
+  restoreViewportAnchor(anchor);
+  applyTransform();
+  redrawActivePreview();
   saveActiveDocument();
   showStatus(model.active ? 'Continuous scroll ready.' : 'Single-page view.', 1400, { force: true });
 });

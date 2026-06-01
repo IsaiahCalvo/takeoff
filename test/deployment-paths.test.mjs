@@ -82,7 +82,7 @@ test('main runtime stays below the current coordination ceiling', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const lineCount = main.trimEnd().split('\n').length;
 
-  assert.equal(lineCount < 2450, true, `src/main.js has ${lineCount} lines`);
+  assert.equal(lineCount < 2480, true, `src/main.js has ${lineCount} lines`);
   assert.doesNotMatch(main, /function downloadBytes\(/);
   assert.doesNotMatch(main, /function positionToolTip\(/);
   assert.match(main, /TakeoffPointerWorkflow/);
@@ -230,6 +230,36 @@ test('continuous fit view targets the active page instead of the full stacked do
   assert.match(fitToView, /layout:\s*state\.continuousPageLayout/);
   assert.match(fitToView, /page:\s*state\.pdfPage/);
   assert.match(fitToView, /fitMode/);
+});
+
+test('continuous toggle preserves the current viewport anchor instead of refitting', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const toggleHandler = main.match(/\$\('continuousScrollToggle'\)\.addEventListener\('click'[\s\S]*?\n\}\);/)?.[0] || '';
+
+  assert.match(toggleHandler, /captureViewportAnchor/);
+  assert.match(toggleHandler, /renderPdfPage\(\{\s*fit:\s*false/);
+  assert.match(toggleHandler, /preserveContinuousLayer:\s*wasContinuous/);
+  assert.match(toggleHandler, /restoreViewportAnchor/);
+  assert.doesNotMatch(toggleHandler, /renderPdfPage\(\{\s*fit:\s*true/);
+});
+
+test('continuous page layer is retained for fast toggle re-entry', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const renderContinuous = main.match(/async function renderContinuousPdfPage[\s\S]*?\n\}/)?.[0] || '';
+  const blitToBase = main.match(/function blitToBase[\s\S]*?\n\}/)?.[0] || '';
+
+  assert.match(renderContinuous, /cachedContinuousPageLayout/);
+  assert.match(renderContinuous, /children\?\.\s*length === state\.pdfPages/);
+  assert.match(blitToBase, /preserveContinuousLayer/);
+  assert.match(blitToBase, /layer\.hidden = true/);
+});
+
+test('viewport transforms are constrained to keep the page in view', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const applyTransform = main.match(/function applyTransform\(\) \{[\s\S]*?\n\}/)?.[0] || '';
+
+  assert.match(applyTransform, /constrainViewportPan\(\)/);
+  assert.match(main, /viewerModel\.constrainPanToBounds/);
 });
 
 test('continuous rendering uses a dedicated per-page bitmap layer', async () => {

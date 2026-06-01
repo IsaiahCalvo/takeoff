@@ -43,6 +43,77 @@
     };
   }
 
+  function constrainPanToBounds({
+    panX = 0,
+    panY = 0,
+    zoom = 1,
+    stageWidth,
+    stageHeight,
+    baseWidth,
+    baseHeight,
+    focusWidth = baseWidth,
+    focusHeight = baseHeight,
+    margin = 96,
+  }) {
+    if (!hasPageSize(stageWidth, stageHeight) || !hasPageSize(baseWidth, baseHeight) || !isPositiveFinite(zoom)) {
+      return { panX, panY };
+    }
+    const contentWidth = baseWidth * zoom;
+    const contentHeight = baseHeight * zoom;
+    const clampAxis = (pan, stageSize, contentSize, focusSize) => {
+      if (contentSize <= stageSize) return (stageSize - contentSize) / 2;
+      const edgeMargin = Math.max(margin, isPositiveFinite(focusSize) ? (stageSize - focusSize * zoom) / 2 : margin);
+      return clamp(pan, stageSize - contentSize - edgeMargin, edgeMargin);
+    };
+    return {
+      panX: clampAxis(panX, stageWidth, contentWidth, focusWidth),
+      panY: clampAxis(panY, stageHeight, contentHeight, focusHeight),
+    };
+  }
+
+  function normalizedPageBox(pageBox, baseWidth = 0, baseHeight = 0) {
+    if (pageBox && hasPageSize(pageBox.width, pageBox.height)) {
+      return {
+        x: Number.isFinite(pageBox.x) ? pageBox.x : 0,
+        y: Number.isFinite(pageBox.y) ? pageBox.y : 0,
+        width: pageBox.width,
+        height: pageBox.height,
+      };
+    }
+    return { x: 0, y: 0, width: baseWidth, height: baseHeight };
+  }
+
+  function pageAnchorAtScreenPoint({
+    screenX,
+    screenY,
+    panX = 0,
+    panY = 0,
+    zoom = 1,
+    pageBox = null,
+    baseWidth = 0,
+    baseHeight = 0,
+  }) {
+    const box = normalizedPageBox(pageBox, baseWidth, baseHeight);
+    if (!hasPageSize(box.width, box.height) || !isPositiveFinite(zoom)) return null;
+    return {
+      screenX,
+      screenY,
+      point: {
+        x: clamp((screenX - panX) / zoom - box.x, 0, box.width),
+        y: clamp((screenY - panY) / zoom - box.y, 0, box.height),
+      },
+    };
+  }
+
+  function panForPageAnchor({ anchor, zoom = 1, pageBox = null, baseWidth = 0, baseHeight = 0 }) {
+    const box = normalizedPageBox(pageBox, baseWidth, baseHeight);
+    if (!anchor?.point || !hasPageSize(box.width, box.height) || !isPositiveFinite(zoom)) return null;
+    return {
+      panX: anchor.screenX - (box.x + anchor.point.x) * zoom,
+      panY: anchor.screenY - (box.y + anchor.point.y) * zoom,
+    };
+  }
+
   function screenToImagePoint({ clientX, clientY, stageRect, viewportRect, zoom, panX, panY, baseWidth, baseHeight }) {
     if (isUsableRect(viewportRect) && hasPageSize(baseWidth, baseHeight)) {
       return clampPoint({
@@ -116,6 +187,9 @@
 
   window.TakeoffViewer = {
     computeFitViewTransform,
+    constrainPanToBounds,
+    pageAnchorAtScreenPoint,
+    panForPageAnchor,
     screenToImagePoint,
     imageToScreenPoint,
     zoomAtPoint,
