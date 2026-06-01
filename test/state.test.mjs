@@ -25,12 +25,14 @@ test('createInitialState returns fresh mutable collections and current defaults'
   a.measurements.push({ id: 1 });
   a.undoStack.push({ label: 'edit' });
   a.collapsedPageGroups[1] = true;
+  a.continuousScrollPreferences['1,2,3'] = true;
 
   assert.equal(b.documents.length, 0);
   assert.equal(b.pageCache.size, 0);
   assert.equal(b.measurements.length, 0);
   assert.equal(b.undoStack.length, 0);
   assert.deepEqual(plain(b.collapsedPageGroups), {});
+  assert.deepEqual(plain(b.continuousScrollPreferences), {});
   assert.equal(b.mode, 'pan');
   assert.equal(b.drawMode, 'line');
   assert.equal(b.unit, 'ft');
@@ -72,6 +74,7 @@ test('resetDocumentState clears active document data while preserving app-level 
   state.preRenderRunning = true;
   state.sidebarTab = 'all';
   state.collapsedPageGroups = { 1: true };
+  state.continuousScrollPreferences = { '1,2,3': true };
 
   store.resetDocumentState(state);
 
@@ -103,6 +106,7 @@ test('resetDocumentState clears active document data while preserving app-level 
   assert.equal(state.preRenderRunning, false);
   assert.equal(state.sidebarTab, 'page');
   assert.deepEqual(plain(state.collapsedPageGroups), {});
+  assert.deepEqual(plain(state.continuousScrollPreferences), {});
 });
 
 test('restoreDocumentState applies saved document fields and clears transient editing state', async () => {
@@ -139,6 +143,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
     }],
     sidebarTab: 'all',
     collapsedPageGroups: { 1: true },
+    continuousScrollPreferences: { '1,2,3': true },
     pageCache: [[3, { page: 3 }]],
   };
 
@@ -170,6 +175,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   }]);
   assert.equal(state.sidebarTab, 'all');
   assert.deepEqual(plain(state.collapsedPageGroups), { 1: true });
+  assert.deepEqual(plain(state.continuousScrollPreferences), { '1,2,3': true });
   assert.equal(state.pageCache.get(3).page, 3);
   assert.deepEqual(plain(state.undoStack), []);
   assert.deepEqual(plain(state.redoStack), []);

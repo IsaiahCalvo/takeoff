@@ -839,19 +839,18 @@ function onPageReady({ fit = true, resetInteraction = true } = {}) {
   updatePerformanceLogContext();
   updateStatus();
 }
-
 async function goToPage(n) {
   if (!state.pdf || n < 1 || n > state.pdfPages || n === state.pdfPage) return;
   const wasContinuous = state.continuousScrollMode;
   state.pdfPage = n;
   if (state.continuousScrollMode && state.continuousPageLayout) {
-    if (continuousRenderer.pageBoxForPage(state.continuousPageLayout, n)) {
-      syncPageScaleAndMode(n); focusContinuousPage(n); applyTransform();
-      updatePageLabel(); updateScaleLabel(); renderList(); saveActiveDocument();
+    if (continuousRenderer.pageBoxForPage(state.continuousPageLayout, n)) { syncPageScaleAndMode(n); focusContinuousPage(n); applyTransform(); updatePageLabel(); updateScaleLabel(); renderList(); saveActiveDocument();
       return;
     }
   }
-  if (wasContinuous) { syncPageScaleAndMode(n); const eligibility = continuousEligibility(n); state.continuousScrollMode = eligibility.eligible; if (!eligibility.eligible) state.continuousPageLayout = null; }
+  syncPageScaleAndMode(n); const eligibility = continuousEligibility(n), preferred = continuousScroll.preferredGroupMode(state.continuousScrollPreferences, eligibility);
+  state.continuousScrollMode = eligibility.eligible && (preferred === null ? wasContinuous : preferred);
+  if (!eligibility.eligible) state.continuousPageLayout = null;
   await renderPdfPage();
 }
 
@@ -868,6 +867,7 @@ $('continuousScrollToggle').addEventListener('click', async () => {
   if (wasContinuous) syncContinuousPageFromView();
   const anchor = captureViewportAnchor(state.pdfPage);
   state.continuousScrollMode = !state.continuousScrollMode;
+  continuousScroll.recordGroupPreference(state.continuousScrollPreferences, eligibility, state.continuousScrollMode);
   const model = updateContinuousScrollControl(eligibility);
   updatePerformanceLogContext();
   await renderPdfPage({ fit: false, resetInteraction: false, preserveContinuousLayer: wasContinuous });

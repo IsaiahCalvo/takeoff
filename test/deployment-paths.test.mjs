@@ -262,6 +262,16 @@ test('continuous navigation clears stale layouts when the destination group is n
   assert.match(goToPage, /if \(!eligibility\.eligible\) state\.continuousPageLayout = null/);
 });
 
+test('continuous navigation restores the saved preference for a returning page group', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const goToPage = main.match(/async function goToPage[\s\S]*?\n\}/)?.[0] || '';
+  const toggleHandler = main.match(/\$\('continuousScrollToggle'\)\.addEventListener\('click'[\s\S]*?\n\}\);/)?.[0] || '';
+
+  assert.match(goToPage, /continuousScroll\.preferredGroupMode/);
+  assert.match(goToPage, /state\.continuousScrollMode = eligibility\.eligible && \(preferred === null \? wasContinuous : preferred\)/);
+  assert.match(toggleHandler, /continuousScroll\.recordGroupPreference/);
+});
+
 test('continuous page layer is prewarmed before the first toggle', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 

@@ -22,6 +22,24 @@
     return ranges.join(',');
   }
 
+  function groupPreferenceKey(eligibility) {
+    const pages = (eligibility?.pages || []).filter(page => Number.isInteger(page));
+    return eligibility?.eligible && pages.length > 0 ? pages.join(',') : '';
+  }
+
+  function preferredGroupMode(preferences, eligibility) {
+    const key = groupPreferenceKey(eligibility);
+    if (!key || !preferences || !Object.prototype.hasOwnProperty.call(preferences, key)) return null;
+    return !!preferences[key];
+  }
+
+  function recordGroupPreference(preferences, eligibility, enabled) {
+    const key = groupPreferenceKey(eligibility);
+    if (!key || !preferences) return '';
+    preferences[key] = !!enabled;
+    return key;
+  }
+
   function unavailableReason(eligibility) {
     const reason = eligibility?.reason || '';
     if (reason === 'missing_page_calibration') {
@@ -88,6 +106,9 @@
 
   window.TakeoffContinuousScroll = {
     compactPageRanges,
+    groupPreferenceKey,
+    preferredGroupMode,
+    recordGroupPreference,
     controlModel,
     unavailableReason,
     exitReason,

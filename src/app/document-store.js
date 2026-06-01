@@ -31,6 +31,7 @@
       pdfPage: state.pdfPage,
       pdfPages: state.pdfPages,
       continuousScrollMode: !!state.continuousScrollMode,
+      continuousScrollPreferences: { ...(state.continuousScrollPreferences || {}) },
       imageBitmap: state.imageBitmap,
       baseW: state.baseW,
       baseH: state.baseH,
