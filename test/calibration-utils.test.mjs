@@ -278,6 +278,33 @@ test('sameScalePageGroupEligibility rejects one-page and missing-scale groups', 
   });
 });
 
+test('pdfContinuousScrollEligibility accepts every multi-page PDF regardless of page scales', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(plain(utils.pdfContinuousScrollEligibility({
+    pdf: {},
+    pdfPages: 5,
+    pageScales: { 1: 10, 2: 20 },
+  })), {
+    eligible: true,
+    reason: 'eligible',
+    pages: [1, 2, 3, 4, 5],
+    startPage: 1,
+    endPage: 5,
+    groupPageCount: 5,
+    wholeDocument: true,
+  });
+
+  assert.equal(utils.pdfContinuousScrollEligibility({
+    pdf: null,
+    pdfPages: 5,
+  }).reason, 'not_pdf');
+  assert.equal(utils.pdfContinuousScrollEligibility({
+    pdf: {},
+    pdfPages: 1,
+  }).reason, 'single_page_pdf');
+});
+
 test('applyScaleToPages updates page scales and recomputes page measurements', async () => {
   const utils = await loadUtils();
   const measurements = [

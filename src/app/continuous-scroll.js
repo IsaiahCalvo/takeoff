@@ -42,19 +42,6 @@
 
   function unavailableReason(eligibility) {
     const reason = eligibility?.reason || '';
-    if (reason === 'missing_page_calibration') {
-      const pages = pagesList(eligibility.missingPages);
-      return pages
-        ? `Calibrate ${pages} to use continuous scroll.`
-        : 'Calibrate every PDF page to use continuous scroll.';
-    }
-    if (reason === 'mismatched_page_scale') {
-      const pages = pagesList(eligibility.mismatchedPages);
-      return pages
-        ? `Match calibration on ${pages} to use continuous scroll.`
-        : 'Page scales must match to use continuous scroll.';
-    }
-    if (reason === 'single_page_scale_group') return 'Continuous scroll needs adjacent pages with the same scale.';
     return 'Continuous scroll needs a multi-page PDF.';
   }
 
@@ -86,10 +73,7 @@
     const visible = Boolean(state?.pdf && pageCount > 1);
     const enabled = visible && Boolean(eligibility?.eligible);
     const active = enabled && Boolean(state?.continuousScrollMode);
-    const groupPages = compactPageRanges(eligibility?.pages);
-    const enabledTitle = !active && groupPages && !eligibility?.wholeDocument
-      ? `Use continuous scroll for pages ${groupPages}`
-      : (active ? 'Return to single-page view' : 'Use continuous scroll');
+    const enabledTitle = active ? 'Turn continuous scroll off' : 'Turn continuous scroll on';
     const title = enabled
       ? enabledTitle
       : unavailableReason(eligibility);

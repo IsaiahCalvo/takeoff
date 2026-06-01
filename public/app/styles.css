@@ -389,11 +389,18 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   width: 15px;
   height: 15px;
 }
-.continuous-scroll-toggle.active,
-.continuous-scroll-toggle[aria-pressed="true"] {
-  background: rgba(182,255,60,0.14);
-  border-color: rgba(182,255,60,0.34);
+.left-rail .continuous-scroll-toggle.active,
+.left-rail .continuous-scroll-toggle[aria-pressed="true"] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
   color: var(--accent);
+}
+.left-rail .continuous-scroll-toggle[aria-pressed="true"] svg {
+  filter: drop-shadow(0 0 5px rgba(182,255,60,0.72));
+}
+.left-rail .tool-btn.active svg {
+  filter: drop-shadow(0 0 5px rgba(182,255,60,0.72));
 }
 .control-value {
   min-height: 18px;

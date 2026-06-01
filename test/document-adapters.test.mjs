@@ -23,6 +23,7 @@ test('createPdfDocumentState describes the PDF fields written into app state', a
   assert.equal(state.pdf, pdf);
   assert.equal(state.pdfPages, 7);
   assert.equal(state.pdfPage, 1);
+  assert.equal(state.continuousScrollMode, true);
   assert.equal(state.imageBitmap, null);
 });
 

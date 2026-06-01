@@ -4,6 +4,7 @@
       pdf,
       pdfPages: pdf.numPages,
       pdfPage: 1,
+      continuousScrollMode: pdf.numPages > 1,
       imageBitmap: null,
     };
   }

@@ -65,7 +65,7 @@ performanceLogger.startFrameSampling(); window.TakeoffPerformanceLog = performan
 const {
   parsePageRange,
   computePxPerInch,
-  sameScalePageGroupEligibility,
+  pdfContinuousScrollEligibility,
   applyScaleToPages,
   clearPageScale,
   recomputeLengthsForPage: recomputePageLengths,
@@ -108,7 +108,7 @@ function updatePageLabel() {
   updatePerformanceLogContext();
 }
 
-function continuousEligibility(page = state.pdfPage) { return sameScalePageGroupEligibility(state, page); }
+function continuousEligibility(page = state.pdfPage) { return pdfContinuousScrollEligibility(state, page); }
 function continuousGroupPages(eligibility = continuousEligibility()) { return Array.isArray(eligibility?.pages) ? eligibility.pages : []; }
 function cachedContinuousLayerMatches(pages, layer = $('continuousBasePages')) { return Boolean(state.cachedContinuousPageLayout && layer?.children?.length === pages.length && continuousRenderer.samePageNumbers(continuousRenderer.layoutPageNumbers(state.cachedContinuousPageLayout), pages)); }
 function updateContinuousScrollControl(eligibility = continuousEligibility()) {
@@ -848,8 +848,8 @@ async function goToPage(n) {
       return;
     }
   }
-  syncPageScaleAndMode(n); const eligibility = continuousEligibility(n), preferred = continuousScroll.preferredGroupMode(state.continuousScrollPreferences, eligibility);
-  state.continuousScrollMode = eligibility.eligible && (preferred === null ? wasContinuous : preferred);
+  syncPageScaleAndMode(n); const eligibility = continuousEligibility(n);
+  state.continuousScrollMode = eligibility.eligible && wasContinuous;
   if (!eligibility.eligible) state.continuousPageLayout = null;
   await renderPdfPage();
 }
@@ -867,7 +867,6 @@ $('continuousScrollToggle').addEventListener('click', async () => {
   if (wasContinuous) syncContinuousPageFromView();
   const anchor = captureViewportAnchor(state.pdfPage);
   state.continuousScrollMode = !state.continuousScrollMode;
-  continuousScroll.recordGroupPreference(state.continuousScrollPreferences, eligibility, state.continuousScrollMode);
   const model = updateContinuousScrollControl(eligibility);
   updatePerformanceLogContext();
   await renderPdfPage({ fit: false, resetInteraction: false, preserveContinuousLayer: wasContinuous });
@@ -875,7 +874,7 @@ $('continuousScrollToggle').addEventListener('click', async () => {
   applyTransform();
   redrawActivePreview();
   saveActiveDocument();
-  showStatus(model.active ? 'Continuous scroll ready.' : 'Single-page view.', 1400, { force: true });
+  showStatus(model.active ? 'Continuous scroll on.' : 'Continuous scroll off.', 1400, { force: true });
 });
 
 // ------- Tool buttons -------
