@@ -21,6 +21,7 @@
       imageBitmap: null,
       minPdfRenderScale: 2,
       maxPdfRenderScale: 12,
+      maxPdfDetailTileScale: 40,
       maxPdfBitmapEdge: 15000,
       baseW: 0,
       baseH: 0,

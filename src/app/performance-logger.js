@@ -134,6 +134,7 @@
       anchorBefore,
       anchorAfter,
       targetRenderScale,
+      targetDetailRenderScale,
     }) {
       const currentAt = now();
       const rate = rateFromPrevious(lastZoomAt, currentAt);
@@ -150,6 +151,7 @@
         after: clone(after),
         cursor: clone(cursor),
         targetRenderScale: round(targetRenderScale),
+        targetDetailRenderScale: round(targetDetailRenderScale),
         zoomDelta: round(zoomDelta),
         zoomDeltaPerSecond: seconds ? round(zoomDelta / seconds) : null,
         ...rate,

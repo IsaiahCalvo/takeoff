@@ -5,9 +5,11 @@
     stage,
     viewerModel,
     desiredPdfRenderScale,
+    desiredPdfDetailTileScale = desiredPdfRenderScale,
     cacheSet,
     cacheHasUsable,
     renderPdfPage,
+    renderPdfDetailTile = null,
     showStatus,
   }) {
     let zoomRenderSeq = 0;
@@ -51,6 +53,7 @@
         anchorBefore: trace.anchorBefore,
         anchorAfter: anchorAt(point, after),
         targetRenderScale: desiredPdfRenderScale(),
+        targetDetailRenderScale: desiredPdfDetailTileScale(),
       });
     }
 
@@ -118,6 +121,16 @@
         return;
       }
       const targetScale = desiredPdfRenderScale();
+      if (state.continuousScrollMode) {
+        const detailTargetScale = desiredPdfDetailTileScale();
+        logger.recordRender({ phase: 'skip', reason: 'zoom-sharpen', page: state.pdfPage, scale: targetScale, cause: 'continuous-detail-tile' });
+        if (renderPdfDetailTile) {
+          showStatus(`Sharpening PDF detail at ${detailTargetScale.toFixed(1)}x...`, 0);
+          const applied = await renderPdfDetailTile({ reason: 'zoom-sharpen-detail' });
+          if (applied) showStatus(`PDF detail sharpened at ${detailTargetScale.toFixed(1)}x`);
+        }
+        return;
+      }
       if (!state.continuousScrollMode && cacheHasUsable(state.pdfPage, targetScale)) {
         logger.recordRender({ phase: 'skip', reason: 'zoom-sharpen', page: state.pdfPage, scale: targetScale, cause: 'cache-usable' });
         return;

@@ -186,7 +186,7 @@ const pdfEngineController = window.TakeoffPdfEngineController.createPdfEngineCon
   currentPage, totalPages, renderPdfPage, saveActiveDocument, showStatus,
 });
 const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
-  state, stage, viewport, detailCanvas: pdfDetailCanvas, logger: performanceLogger, desiredPdfRenderScale,
+  state, stage, viewport, detailCanvas: pdfDetailCanvas, logger: performanceLogger, desiredPdfRenderScale, desiredPdfDetailTileScale,
 });
 function updatePerformanceLogContext(patch = {}) { pdfEngineController.updateLogContext(patch); }
 function updatePdfEngineToggle() { pdfEngineController.updateToggle(); }
@@ -397,6 +397,10 @@ function desiredPdfRenderScale() {
   });
 }
 
+function desiredPdfDetailTileScale() {
+  return state.pdf ? Math.min(state.maxPdfDetailTileScale || 40, Math.max(state.minPdfRenderScale, state.zoom * Math.min(window.devicePixelRatio || 1, 2))) : 1;
+}
+
 function configureCanvasCssSize(canvas, cssW, cssH) {
   canvas.style.width = `${cssW}px`;
   canvas.style.height = `${cssH}px`;
@@ -485,7 +489,7 @@ const viewerModel = window.TakeoffViewer;
 const pdfPageCache = window.TakeoffPdfPageCache;
 const inputController = window.TakeoffInputController;
 const sidebarModel = window.TakeoffSidebar;
-const performanceController = window.TakeoffPerformanceController.createPerformanceController({ logger: performanceLogger, state, stage, viewerModel, desiredPdfRenderScale, cacheSet, cacheHasUsable, renderPdfPage, showStatus });
+const performanceController = window.TakeoffPerformanceController.createPerformanceController({ logger: performanceLogger, state, stage, viewerModel, desiredPdfRenderScale, desiredPdfDetailTileScale, cacheSet, cacheHasUsable, renderPdfPage, renderPdfDetailTile: options => pdfDetailTile.renderNow(options), showStatus });
 
 function scaleForPage(page) { return state.pageScales[page] || (page === currentPage() ? state.pxPerInch : null); }
 function pxToInches(px, page = currentPage()) { return unitModel.pxToInches(px, scaleForPage(page)); }

@@ -55,6 +55,7 @@ test('performance logger records zoom direction, rate, and cursor anchor error',
     anchorBefore: { x: 50, y: 75 },
     anchorAfter: { x: 50.2, y: 74.9 },
     targetRenderScale: 2.24,
+    targetDetailRenderScale: 6.72,
   });
   perf.recordZoom({
     source: 'button',
@@ -75,6 +76,7 @@ test('performance logger records zoom direction, rate, and cursor anchor error',
   assert.equal(payload.summary.zoom.outCount, 1);
   assert.equal(payload.events[0].kind, 'zoom');
   assert.equal(payload.events[0].direction, 'in');
+  assert.equal(payload.events[0].targetDetailRenderScale, 6.72);
   assert.equal(payload.events[1].eventsPerSecond, 4);
   assert.deepEqual(plain(payload.events[0].cursorCentric), {
     anchorBefore: { x: 50, y: 75 },

@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 
 async function loadPdfDetailTile() {
   const source = await readFile(new URL('../src/app/pdf-detail-tile.js', import.meta.url), 'utf8');
-  const sandbox = { window: {} };
+  const sandbox = { window: {}, performance: { now: () => 1000 }, clearTimeout() {}, setTimeout() {} };
   vm.createContext(sandbox);
   vm.runInContext(source, sandbox, { filename: 'pdf-detail-tile.js' });
   return sandbox.window.TakeoffPdfDetailTile;
@@ -88,4 +88,50 @@ test('visiblePageTileRect maps a continuous page viewport into page and stack co
     stackX: 100,
     stackY: 300,
   });
+});
+
+test('detail tile renderer uses screen-DPR scale instead of capped base scale', async () => {
+  const detailTile = await loadPdfDetailTile();
+  const calls = [];
+  const detailCanvas = {
+    width: 0,
+    height: 0,
+    style: {},
+    dataset: {},
+    getContext: () => ({ clearRect() {}, drawImage() {} }),
+  };
+  const state = {
+    pdfPage: 1,
+    baseW: 100,
+    baseH: 100,
+    continuousScrollMode: false,
+    pdf: {
+      engine: 'pdfjs',
+      async renderPageTile(page, options) {
+        calls.push({ page, options });
+        return {
+          canvas: { width: options.width * options.scale, height: options.height * options.scale },
+          cssX: options.sourceX,
+          cssY: options.sourceY,
+          cssWidth: options.width,
+          cssHeight: options.height,
+          renderScale: options.scale,
+          engine: 'pdfjs-detail-tile',
+        };
+      },
+    },
+  };
+  const controller = detailTile.createPdfDetailTileController({
+    state,
+    stage: { getBoundingClientRect: () => ({ left: 0, top: 0, right: 100, bottom: 100 }) },
+    viewport: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }) },
+    detailCanvas,
+    logger: { recordRender() {} },
+    desiredPdfRenderScale: () => 12,
+    desiredPdfDetailTileScale: () => 40,
+  });
+
+  assert.equal(await controller.renderNow({ reason: 'test-detail' }), true);
+  assert.equal(calls[0].options.scale, 40);
+  assert.equal(detailCanvas.dataset.renderScale, '40');
 });

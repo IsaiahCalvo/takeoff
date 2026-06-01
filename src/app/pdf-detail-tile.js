@@ -111,6 +111,7 @@
     detailCanvas,
     logger,
     desiredPdfRenderScale,
+    desiredPdfDetailTileScale = desiredPdfRenderScale,
     baseMaxScale = DEFAULT_BASE_MAX_SCALE,
     debounceMs = DEFAULT_DEBOUNCE_MS,
     overscanPx = DEFAULT_OVERSCAN_PX,
@@ -132,6 +133,10 @@
 
     function cappedBaseRenderScale(requestedScale = desiredPdfRenderScale?.()) {
       return canTile(requestedScale) ? baseMaxScale : requestedScale;
+    }
+
+    function canRenderDetailTile() {
+      return canTile(desiredPdfDetailTileScale?.());
     }
 
     function clear() {
@@ -170,11 +175,11 @@
     async function renderNow({ reason = 'pdf-detail-tile' } = {}) {
       if (timer) clearTimeout(timer);
       timer = null;
-      if (!detailCanvas || !stage || !viewport || !state?.pdf || !canTile()) {
+      if (!detailCanvas || !stage || !viewport || !state?.pdf || !canRenderDetailTile()) {
         clear();
         return false;
       }
-      const requestedScale = desiredPdfRenderScale();
+      const requestedScale = desiredPdfDetailTileScale();
       const stageRect = stage.getBoundingClientRect();
       const viewportRect = viewport.getBoundingClientRect();
       const pageBox = state.continuousScrollMode && state.continuousPageLayout
@@ -242,7 +247,7 @@
     }
 
     function schedule({ reason = 'pdf-detail-tile', delay = debounceMs } = {}) {
-      if (!canTile()) {
+      if (!canRenderDetailTile()) {
         clear();
         return;
       }
