@@ -250,6 +250,15 @@ test('continuous zoom sharpening caps render scale by page bounds', async () => 
   assert.match(desiredScale, /baseHeight:\s*renderBounds\.height/);
 });
 
+test('main renders PDFs through the Takeoff PDF engine adapter', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(main, /import '\.\/app\/pdf-engine\.js';/);
+  assert.match(main, /const pdfEngine = window\.TakeoffPdfEngine;/);
+  assert.match(main, /pdfEngine\.createPdfEngineDocument/);
+  assert.doesNotMatch(main, /state\.pdf\.getPage\(/);
+});
+
 test('single-page documents remove scope chrome entirely', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';
