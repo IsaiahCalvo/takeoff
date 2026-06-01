@@ -15,6 +15,7 @@ import './app/continuous-measurements.js';
 import './app/hit-testing.js';
 import './app/viewer.js';
 import './app/pdf-page-cache.js';
+import './app/pdf-engine.js';
 import './app/input-controller.js';
 import './app/pointer-controller.js';
 import './app/pointer-workflow.js';
@@ -54,6 +55,7 @@ const continuousRenderer = window.TakeoffContinuousRenderer;
 const continuousMeasurements = window.TakeoffContinuousMeasurements;
 const unitModel = window.TakeoffUnits;
 const tooltipController = window.TakeoffTooltipController;
+const pdfEngine = window.TakeoffPdfEngine;
 const state = stateStore.createInitialState();
 
 const {
@@ -581,8 +583,9 @@ async function loadFile(file) {
     resetDocState();
     if (fileInfo.kind === 'pdf') {
       const buf = await file.arrayBuffer();
+      const pdfDoc = await pdfEngine.createPdfEngineDocument({ data: buf, pdfjsLib });
       Object.assign(state, documentAdapters.createPdfDocumentState(
-        await pdfjsLib.getDocument({ data: buf }).promise
+        pdfDoc
       ));
       await renderPdfPage();
       showStatus(`Loaded ${fileInfo.displayName}`);
@@ -638,33 +641,23 @@ function cacheSet(p, entry) {
 }
 
 async function renderPageToCanvas(pageNum, requestedScale = state.minPdfRenderScale) {
-  const page = await state.pdf.getPage(pageNum);
-  const baseViewport = page.getViewport({ scale: 1 });
+  const pageInfo = await state.pdf.getPageInfo(pageNum);
   const maxScaleForPage = Math.min(
     state.maxPdfRenderScale,
-    state.maxPdfBitmapEdge / Math.max(baseViewport.width, baseViewport.height)
+    state.maxPdfBitmapEdge / Math.max(pageInfo.cssWidth, pageInfo.cssHeight)
   );
   const renderScale = Math.max(
     state.minPdfRenderScale,
     Math.min(requestedScale, maxScaleForPage)
   );
-  const viewport_ = page.getViewport({ scale: renderScale });
-  const c = document.createElement('canvas');
-  c.width = Math.max(1, Math.ceil(viewport_.width));
-  c.height = Math.max(1, Math.ceil(viewport_.height));
-  await page.render({ canvasContext: c.getContext('2d'), viewport: viewport_ }).promise;
-  const entry = {
-    canvas: c,
-    cssWidth: baseViewport.width,
-    cssHeight: baseViewport.height,
-    renderScale,
-  };
+  const entry = await state.pdf.renderPage(pageNum, { scale: renderScale, withAnnotations: true });
   cacheSet(pageNum, entry);
   return entry;
 }
 
 function blitToBase(entry) {
   continuousRenderer.clearContinuousPageLayer($('continuousBasePages'), baseCanvas);
+  if (baseCanvas.dataset) baseCanvas.dataset.pdfEngine = entry.engine || '';
   baseCanvas.width = entry.canvas.width;
   baseCanvas.height = entry.canvas.height;
   configureCanvasCssSize(baseCanvas, entry.cssWidth, entry.cssHeight);
