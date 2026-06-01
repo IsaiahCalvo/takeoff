@@ -6,6 +6,12 @@
     return inches / (UNIT_TO_INCH[unit] || UNIT_TO_INCH.ft);
   }
 
+  function measurementPage(measurement) {
+    if (window.TakeoffCalibrationUtils?.measurementPage) return window.TakeoffCalibrationUtils.measurementPage(measurement);
+    const page = Number(measurement?.page);
+    return Number.isInteger(page) && page > 0 ? page : 1;
+  }
+
   function summarizeList(measurements) {
     let totalInches = 0;
     let scaledCount = 0;
@@ -33,7 +39,7 @@
     }
     const all = measurements || [];
     return {
-      page: summarizeList(all.filter(measurement => measurement.page === currentPage)),
+      page: summarizeList(all.filter(measurement => measurementPage(measurement) === currentPage)),
       all: summarizeList(all),
     };
   }
@@ -51,14 +57,14 @@
   function resolvePageCount(measurements, pageCount) {
     const numericPageCount = Number(pageCount);
     if (Number.isFinite(numericPageCount) && numericPageCount > 0) return Math.floor(numericPageCount);
-    const pages = (measurements || []).map(measurement => measurement.page || 1);
+    const pages = (measurements || []).map(measurementPage);
     return Math.max(1, ...pages);
   }
 
   function pageGroups(measurements, pageScales, unit, collapsedPageGroups = {}) {
     const byPage = new Map();
     for (const measurement of measurements || []) {
-      const page = measurement.page || 1;
+      const page = measurementPage(measurement);
       if (!byPage.has(page)) byPage.set(page, []);
       byPage.get(page).push(measurement);
     }
@@ -84,7 +90,7 @@
     const resolvedPageCount = resolvePageCount(all, pageCount);
     const isSinglePage = resolvedPageCount <= 1;
     const effectiveSidebarTab = isSinglePage ? 'page' : (sidebarTab === 'all' ? 'all' : 'page');
-    const measurementsForTab = all.filter(measurement => measurement.page === currentPage);
+    const measurementsForTab = all.filter(measurement => measurementPage(measurement) === currentPage);
     const summary = summarizeMeasurements(all, currentPage);
     const activeSummary = effectiveSidebarTab === 'page' ? summary.page : summary.all;
     return {

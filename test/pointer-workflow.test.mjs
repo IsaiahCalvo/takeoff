@@ -5,10 +5,12 @@ import { readFile } from 'node:fs/promises';
 
 async function loadPointerWorkflow() {
   const geometrySource = await readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8');
+  const measurementsSource = await readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8');
   const source = await readFile(new URL('../src/app/pointer-workflow.js', import.meta.url), 'utf8');
   const sandbox = { window: {} };
   vm.createContext(sandbox);
   vm.runInContext(geometrySource, sandbox, { filename: 'geometry.js' });
+  vm.runInContext(measurementsSource, sandbox, { filename: 'measurements.js' });
   vm.runInContext(source, sandbox, { filename: 'pointer-workflow.js' });
   return sandbox.window.TakeoffPointerWorkflow;
 }
@@ -100,6 +102,12 @@ test('createMeasurementDrag and applyMeasurementDrag translate points, segments,
       c2: { x: 7, y: 0 },
       to: { x: 10, y: 0 },
     }],
+    shape: {
+      active: 'freehand',
+      previousLine: {
+        points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      },
+    },
     rotationFrame: { x: -1, y: -1, width: 12, height: 2, cx: 5, cy: 0 },
   };
   const drag = workflow.createMeasurementDrag({
@@ -122,6 +130,7 @@ test('createMeasurementDrag and applyMeasurementDrag translate points, segments,
   assert.deepEqual(plain(measurement.points), [{ x: 4, y: 2 }, { x: 14, y: 2 }]);
   assert.equal(measurement.segments[0].from.x, 4);
   assert.equal(measurement.segments[0].to.y, 2);
+  assert.deepEqual(plain(measurement.shape.previousLine.points), [{ x: 4, y: 2 }, { x: 14, y: 2 }]);
   assert.deepEqual(plain(measurement.rotationFrame), { x: 3, y: 1, width: 12, height: 2, cx: 9, cy: 2 });
 });
 
@@ -131,6 +140,12 @@ test('applyRotationDrag rotates geometry, snaps when shifted, and rebuilds the f
     id: 11,
     rotationAngle: 0,
     points: [{ x: 2, y: 0 }, { x: 0, y: 2 }],
+    shape: {
+      active: 'line',
+      previousFreehand: {
+        points: [{ x: 2, y: 0 }, { x: 0, y: 2 }],
+      },
+    },
   };
   const frame = { x: -2, y: -2, width: 4, height: 4, cx: 0, cy: 0, angle: 0 };
   const drag = workflow.createRotationDrag({
@@ -156,6 +171,8 @@ test('applyRotationDrag rotates geometry, snaps when shifted, and rebuilds the f
   assert.ok(Math.abs(measurement.points[0].y - 0.5176) < 0.0001);
   assert.ok(Math.abs(measurement.points[1].x - -0.5176) < 0.0001);
   assert.ok(Math.abs(measurement.points[1].y - 1.9319) < 0.0001);
+  assert.ok(Math.abs(measurement.shape.previousFreehand.points[0].x - 1.9319) < 0.0001);
+  assert.ok(Math.abs(measurement.shape.previousFreehand.points[1].y - 1.9319) < 0.0001);
 });
 
 test('applyMeasurementRotation rotates from current angle to a requested angle', async () => {

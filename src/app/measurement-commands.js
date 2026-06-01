@@ -31,6 +31,17 @@
     );
   }
 
+  function translateShapeGeometry(shape, dx, dy) {
+    return measurementModel.transformShapeGeometry(shape, point => ({ x: point.x + dx, y: point.y + dy }));
+  }
+
+  function scaleShapeGeometryAround(shape, center, scale) {
+    return measurementModel.transformShapeGeometry(shape, point => ({
+      x: center.x + (point.x - center.x) * scale,
+      y: center.y + (point.y - center.y) * scale,
+    }));
+  }
+
   function nextMeasurementColor(existingMeasurements, palette) {
     const colors = palette || [];
     const usedColors = new Set((existingMeasurements || []).map(measurement => measurement.color));
@@ -261,12 +272,13 @@
     constrainGeometry,
   }) {
     if (!source || !pasteAt) return null;
-    const bounds = geometry.pointsBounds(source.points || []);
+    const bounds = measurementModel.measurementBounds(source);
     if (!bounds) return null;
     const dx = pasteAt.x - bounds.cx;
     const dy = pasteAt.y - bounds.cy;
     let points = (source.points || []).map(point => ({ x: point.x + dx, y: point.y + dy }));
     let segments = measurementModel.isCurveMeasurement(source) ? geometry.translateSegments(source.segments, dx, dy) : null;
+    let shape = translateShapeGeometry(cloneMeasurementShape(source), dx, dy);
 
     if (mode === 'real-length' && source.sourceLengthInches != null && pxPerInch) {
       const visualLength = segments ? measurementModel.measurementLengthPx({ segments }) : geometry.polylineLengthPx(points);
@@ -275,13 +287,18 @@
         const scale = targetLengthPx / visualLength;
         points = geometry.scalePointsAround(points, pasteAt, scale);
         if (segments) segments = geometry.scaleSegmentsAround(segments, pasteAt, scale);
+        shape = scaleShapeGeometryAround(shape, pasteAt, scale);
       }
     }
 
     if (constrainGeometry) {
+      const beforeConstrain = points;
       const constrained = constrainGeometry(points, segments);
       points = constrained.points;
       segments = constrained.segments;
+      if (beforeConstrain?.length && points?.length) {
+        shape = translateShapeGeometry(shape, points[0].x - beforeConstrain[0].x, points[0].y - beforeConstrain[0].y);
+      }
     }
 
     const pasted = {
@@ -292,7 +309,7 @@
       page: currentPage,
       points,
       segments,
-      shape: cloneMeasurementShape(source),
+      shape,
       labelT: Number.isFinite(source.labelT)
         ? source.labelT
         : defaultLabelT(segments ? geometry.flattenSegments(segments, 18) : points),

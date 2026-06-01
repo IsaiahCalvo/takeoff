@@ -8,7 +8,7 @@
     return JSON.parse(JSON.stringify(value));
   }
 
-  function isCurveMeasurement(measurement) {
+  function hasCurveGeometry(measurement) {
     return !!(measurement && Array.isArray(measurement.segments) && measurement.segments.length);
   }
 
@@ -24,7 +24,11 @@
       : null;
     return explicitShape
       || normalizeShapeKind(measurement.drawType)
-      || (isCurveMeasurement(measurement) ? FREEHAND_SHAPE : LINE_SHAPE);
+      || (hasCurveGeometry(measurement) ? FREEHAND_SHAPE : LINE_SHAPE);
+  }
+
+  function isCurveMeasurement(measurement) {
+    return measurementShapeKind(measurement) === FREEHAND_SHAPE && hasCurveGeometry(measurement);
   }
 
   function isLineMeasurement(measurement) {
@@ -55,6 +59,31 @@
       ...cloned,
       active,
     };
+  }
+
+  function transformGeometryMetadata(metadata, mapPoint) {
+    if (!metadata || typeof mapPoint !== 'function') return metadata;
+    const transformed = cloneValue(metadata) || {};
+    if (Array.isArray(transformed.points)) transformed.points = transformed.points.map(mapPoint);
+    if (Array.isArray(transformed.segments)) {
+      transformed.segments = transformed.segments.map(segment => ({
+        ...segment,
+        from: mapPoint(segment.from),
+        c1: mapPoint(segment.c1),
+        c2: mapPoint(segment.c2),
+        to: mapPoint(segment.to),
+      }));
+    }
+    if (transformed.labelPoint) transformed.labelPoint = mapPoint(transformed.labelPoint);
+    return transformed;
+  }
+
+  function transformShapeGeometry(metadata, mapPoint, fallbackActive = LINE_SHAPE) {
+    const transformed = cloneShapeMetadata(metadata, fallbackActive);
+    for (const key of ['previousLine', 'previousFreehand']) {
+      if (transformed[key]) transformed[key] = transformGeometryMetadata(transformed[key], mapPoint);
+    }
+    return transformed;
   }
 
   function measurementLengthPx(measurement) {
@@ -146,12 +175,15 @@
   window.TakeoffMeasurements = {
     LINE_SHAPE,
     FREEHAND_SHAPE,
+    hasCurveGeometry,
     isCurveMeasurement,
     measurementShapeKind,
     isLineMeasurement,
     isFreehandMeasurement,
     createShapeMetadata,
     cloneShapeMetadata,
+    transformGeometryMetadata,
+    transformShapeGeometry,
     measurementLengthPx,
     measurementDisplayPoints,
     buildFreehandSegments,

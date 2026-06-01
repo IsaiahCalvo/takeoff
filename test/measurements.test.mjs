@@ -68,6 +68,43 @@ test('measurement shape helpers prefer explicit metadata and infer legacy shape'
   assert.equal(measurements.isLineMeasurement({ points: [] }), true);
 });
 
+test('active line metadata ignores stale freehand segments for geometry', async () => {
+  const measurements = await loadMeasurements();
+  const measurement = {
+    shape: { active: 'line' },
+    points: [{ x: 0, y: 0 }, { x: 3, y: 4 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 100, y: 0 },
+      c2: { x: 100, y: 100 },
+      to: { x: 200, y: 100 },
+    }],
+  };
+
+  assert.equal(measurements.isCurveMeasurement(measurement), false);
+  assert.equal(measurements.measurementLengthPx(measurement), 5);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurements.measurementDisplayPoints(measurement))), measurement.points);
+});
+
+test('active freehand metadata uses curve geometry when segments exist', async () => {
+  const measurements = await loadMeasurements();
+  const measurement = {
+    shape: { active: 'freehand' },
+    points: [{ x: 0, y: 0 }, { x: 20, y: 10 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 10, y: 0 },
+      c2: { x: 10, y: 10 },
+      to: { x: 20, y: 10 },
+    }],
+  };
+
+  assert.equal(measurements.isCurveMeasurement(measurement), true);
+  assert.equal(measurements.measurementDisplayPoints(measurement).length, 19);
+});
+
 test('cloneShapeMetadata deep-copies reversible geometry metadata', async () => {
   const measurements = await loadMeasurements();
   const shape = {

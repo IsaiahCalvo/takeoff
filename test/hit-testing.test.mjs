@@ -59,6 +59,26 @@ test('findNearestPathPoint returns the nearest measurement path hit', async () =
   assert.equal(Math.round(hit.point.x), 50);
 });
 
+test('active line metadata makes stale curve data non-interactive', async () => {
+  const hitTesting = await loadHitTesting();
+  const measurement = {
+    id: 10,
+    shape: { active: 'line' },
+    points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 0, y: 100 },
+      c2: { x: 100, y: 100 },
+      to: { x: 100, y: 0 },
+    }],
+  };
+
+  assert.equal(hitTesting.findNearestVertex([measurement], { x: 0, y: 100 }, 5, { includeCurveControls: true }), null);
+  assert.equal(hitTesting.findNearestPathPoint([measurement], { x: 50, y: 75 }, 10), null);
+  assert.equal(hitTesting.findNearestPathPoint([measurement], { x: 50, y: 3 }, 5).type, 'line');
+});
+
 test('findLabelHit checks latest hitbox first', async () => {
   const hitTesting = await loadHitTesting();
   const hit = hitTesting.findLabelHit([

@@ -2,6 +2,34 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readdir, readFile } from 'node:fs/promises';
 
+async function listFilesRecursively(root, prefix = '') {
+  const entries = await readdir(root, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const relativePath = `${prefix}${entry.name}`;
+    if (entry.isDirectory()) {
+      files.push(...await listFilesRecursively(new URL(`${entry.name}/`, root), `${relativePath}/`));
+    } else {
+      files.push(relativePath);
+    }
+  }
+  return files;
+}
+
+function unsafeLocalAssetRefs(source) {
+  const refs = [];
+  const attrPattern = /\b(?:src|href)=["']([^"']+)["']/g;
+  const cssUrlPattern = /url\(["']?([^"')]+)["']?\)/g;
+  for (const [, value] of source.matchAll(attrPattern)) refs.push(value);
+  for (const [, value] of source.matchAll(cssUrlPattern)) refs.push(value);
+  return refs.filter(value => {
+    const ref = value.trim();
+    if (!ref || ref.startsWith('#') || ref.startsWith('data:')) return false;
+    if (/^(?:https?:)?\/\//.test(ref)) return false;
+    return ref.startsWith('/');
+  });
+}
+
 async function readIndexAndSidebarView() {
   const [html, main, sidebarView, sidebarController, styles] = await Promise.all([
     readFile(new URL('../index.html', import.meta.url), 'utf8'),
@@ -86,16 +114,25 @@ test('pan toolbar icon is inline so it cannot lose its mask asset path', async (
 test('toolbar icons use one inline svg contract instead of external mask assets', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
-  const publicFiles = await readdir(new URL('../public', import.meta.url));
+  const publicFiles = await listFilesRecursively(new URL('../public/', import.meta.url));
   const toolbarButtons = [...html.matchAll(/<button id="(btn-[^"]+)" class="tool-btn"[\s\S]*?<\/button>/g)];
 
   assert.ok(toolbarButtons.length >= 4, 'expected primary toolbar buttons to be covered');
   for (const [markup, id] of toolbarButtons) {
     assert.match(markup, /<svg\b/, `${id} must render an inline SVG icon`);
     assert.doesNotMatch(markup, /mask-icon|toolbar-[a-z-]+\.svg|--icon:url/, `${id} must not use external icon masks`);
+    assert.doesNotMatch(markup, /<defs\b|filter=["']url\(/, `${id} must not depend on per-icon svg filter URLs`);
   }
   assert.doesNotMatch(styles, /\.mask-icon|\bmask:\s*var\(--icon\)|-webkit-mask:\s*var\(--icon\)/);
   assert.deepEqual(publicFiles.filter(file => /^toolbar-.*\.svg$/.test(file)), []);
+  assert.deepEqual(publicFiles.filter(file => /(?:^|\/)toolbar-.*\.svg$/.test(file)), []);
+});
+
+test('local asset references stay subpath safe in html and css', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+
+  assert.deepEqual(unsafeLocalAssetRefs(`${html}\n${styles}`), []);
 });
 
 test('calibration apply scope uses one compact combo row', async () => {
@@ -109,6 +146,7 @@ test('calibration apply scope uses one compact combo row', async () => {
   const sourceMenuRule = styles.match(/\.calib-source-options\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(html, /id="calibScopeCombo"/);
+  assert.match(html, /id="calibScopeDisplay"[^>]+aria-haspopup="menu"[^>]+aria-expanded="false"[^>]+aria-controls="calibScopeOptions"/);
   assert.match(html, /id="calibScopeMenu"[^>]+aria-expanded="false"/);
   assert.match(html, /id="calibSourceDisplay"[^>]+aria-label="Match calibration from"/);
   assert.match(html, /id="calibSourceOptions"[^>]+role="menu"/);
@@ -133,6 +171,16 @@ test('calibration apply scope uses one compact combo row', async () => {
   assert.match(sourceMenuRule, /scrollbar-width:\s*thin/);
 });
 
+test('select-like controls keep visible focus and left-aligned trigger text', async () => {
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const modalSelectFocusRule = styles.match(/\.modal select:focus(?:-visible)?\s*\{[^}]+\}/)?.[0] || '';
+  const footerUnitRule = styles.match(/\.footer \.unit-select-button\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(modalSelectFocusRule, /border-color:\s*var\(--accent\)/);
+  assert.match(modalSelectFocusRule, /box-shadow:\s*0 0 0 2px var\(--accent-soft\)/);
+  assert.match(footerUnitRule, /justify-content:\s*flex-start/);
+});
+
 test('measure mode menu uses Line and Freehand product wording', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
@@ -147,6 +195,19 @@ test('freehand completion keeps the app in measure mode', async () => {
 
   assert.match(finishFreehand, /function finishFreehandMeasurement/);
   assert.doesNotMatch(finishFreehand, /setMode\('selection'\)/);
+});
+
+test('calibration drafts are page-owned in continuous mode', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const calibrationBranch = main.match(/\} else if \(state\.mode === 'calibrate'\) \{[\s\S]*?\n  \} else if \(state\.mode === 'measure'\) \{/)?.[0] || '';
+  const previewBlock = main.match(/\/\/ in-progress[\s\S]*?if \(state\.freehandDraft\)/)?.[0] || '';
+
+  assert.match(calibrationBranch, /continuousMeasurements\.pagePointInfo\(state,\s*p\)/);
+  assert.match(calibrationBranch, /drawInfo\.page !== state\.inProgress\.page/);
+  assert.match(calibrationBranch, /page:\s*drawInfo\.page/);
+  assert.match(calibrationBranch, /points:\s*\[drawInfo\.point\]/);
+  assert.match(calibrationBranch, /point:\s*drawInfo\.point/);
+  assert.match(previewBlock, /const drawPts = continuousMeasurements\.stackPointsForPage\(state,\s*page,\s*pts\);/);
 });
 
 test('single-page documents remove scope chrome entirely', async () => {

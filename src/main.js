@@ -1072,15 +1072,14 @@ stage.addEventListener('mousedown', (e) => {
       redraw(getEffectiveCursor());
       return;
     }
+    const drawInfo = continuousMeasurements.pagePointInfo(state, p);
+    if (!drawInfo) return;
+    if (state.inProgress && drawInfo.page !== state.inProgress.page) { showStatus('Finish calibration on the same page.', 2200); redraw(); return; }
+    setContinuousCurrentPage(drawInfo.page);
     if (!state.inProgress) {
-      state.inProgress = { type: 'calib', points: [p] };
+      state.inProgress = { type: 'calib', page: drawInfo.page, points: [drawInfo.point] };
     } else {
-      state.inProgress = pointerWorkflow.appendPointToDraft({
-        inProgress: state.inProgress,
-        point: p,
-        shiftKey: e.shiftKey,
-        snapPoint: snapAngle,
-      });
+      state.inProgress = pointerWorkflow.appendPointToDraft({ inProgress: state.inProgress, point: drawInfo.point, shiftKey: e.shiftKey, snapPoint: (from, to) => snapAngle(from, to, state.inProgress.page) });
       openCalibModal();
     }
     redraw();
@@ -1548,8 +1547,10 @@ function snapAngle(from, to, page = currentPage()) {
 function getEffectiveCursor() {
   if (!state.inProgress || !state.cursorImg) return state.cursorImg;
   if (state.inProgress.type !== 'measure') {
-    if (!state.shiftHeld || state.inProgress.points.length < 1) return state.cursorImg;
-    return snapAngle(state.inProgress.points[state.inProgress.points.length - 1], state.cursorImg);
+    const page = state.inProgress.page || currentPage();
+    const cursor = continuousMeasurements.localPointForPage(state, page, state.cursorImg);
+    if (!state.shiftHeld || state.inProgress.points.length < 1) return cursor;
+    return snapAngle(state.inProgress.points[state.inProgress.points.length - 1], cursor, page);
   }
   const cursor = continuousMeasurements.localPointForPage(state, state.inProgress.page, state.cursorImg);
   if (!state.shiftHeld || state.inProgress.points.length < 1) return cursor;
@@ -2078,12 +2079,10 @@ document.addEventListener('click', (e) => {
   closeUnitMenu();
   if (!exportWrap.contains(e.target)) closeExportMenu();
 });
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    closeUnitMenu();
-    closeExportMenu();
-  }
-});
+document.addEventListener('keydown', e => exportController.closeDisclosuresOnEscape({ event: e, disclosures: [
+  { wrap: document.querySelector('.select-wrap'), button: $('unitSelectButton') },
+  { wrap: exportWrap, button: exportButton },
+] }));
 
 $('unitSelect').addEventListener('change', (e) => {
   setUnit(e.target.value);
@@ -2146,7 +2145,7 @@ function redraw(previewTo) {
     if (previewTo) pts.push(previewTo);
     const isCalib = state.inProgress.type === 'calib';
     const page = state.inProgress.page || currentPage();
-    const drawPts = isCalib ? pts : continuousMeasurements.stackPointsForPage(state, page, pts);
+    const drawPts = continuousMeasurements.stackPointsForPage(state, page, pts);
     drawPolyline(drawPts, {
       color: isCalib ? '#ffb13c' : '#b6ff3c',
       width: 2,

@@ -1,8 +1,11 @@
 (function () {
   const geometry = window.TakeoffGeometry;
+  const measurementModel = window.TakeoffMeasurements;
 
   function isCurveMeasurement(measurement) {
-    return !!(measurement && Array.isArray(measurement.segments) && measurement.segments.length);
+    return measurementModel?.isCurveMeasurement
+      ? measurementModel.isCurveMeasurement(measurement)
+      : !!(measurement && Array.isArray(measurement.segments) && measurement.segments.length);
   }
 
   function clonePoint(point) {
@@ -25,6 +28,28 @@
 
   function cloneSegments(segments) {
     return segments ? segments.map(cloneSegment) : null;
+  }
+
+  function cloneShape(shape) {
+    return measurementModel?.cloneShapeMetadata ? measurementModel.cloneShapeMetadata(shape) : null;
+  }
+
+  function transformShape(shape, mapPoint) {
+    return shape && measurementModel?.transformShapeGeometry ? measurementModel.transformShapeGeometry(shape, mapPoint) : shape;
+  }
+
+  function translateShape(shape, dx, dy) {
+    return transformShape(shape, point => ({ x: point.x + dx, y: point.y + dy }));
+  }
+
+  function rotateShape(shape, center, degrees) {
+    return transformShape(shape, point => geometry.rotatePoint(point, center, degrees));
+  }
+
+  function firstPointDelta(before, after) {
+    return before?.length && after?.length
+      ? { dx: after[0].x - before[0].x, dy: after[0].y - before[0].y }
+      : { dx: 0, dy: 0 };
   }
 
   function buildContextMenuHit({ labelHit = null, anchorHit = null, pathHit = null } = {}) {
@@ -54,6 +79,7 @@
       startPointerAngle: geometry.angleDegFromCenter(center, pointer),
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalShape: cloneShape(measurement.shape),
       originalAngle: geometry.normalizeDegrees(measurement.rotationAngle || 0),
       originalFrame: { ...frame },
     };
@@ -66,6 +92,7 @@
       start: clonePoint(pointer),
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalShape: cloneShape(measurement.shape),
       originalFrame: measurement.rotationFrame ? { ...measurement.rotationFrame } : null,
       originalBounds: bounds,
     };
@@ -79,6 +106,7 @@
     if (isCurveMeasurement(measurement) && drag.originalSegments) {
       measurement.segments = geometry.translateSegments(drag.originalSegments, dx, dy);
     }
+    if (drag.originalShape) measurement.shape = translateShape(drag.originalShape, dx, dy);
     if (drag.originalFrame) {
       measurement.rotationFrame = {
         ...drag.originalFrame,
@@ -97,6 +125,7 @@
     originalAngle,
     originalPoints,
     originalSegments = null,
+    originalShape = null,
     nextAngle,
     constrainGeometry = (points, segments) => ({ points, segments }),
     createRotationFrame = () => null,
@@ -110,11 +139,14 @@
       ? geometry.rotateSegmentsAround(originalSegments, center, rotateDelta)
       : null;
     const constrainedGeometry = constrainGeometry(rotatedPoints, isCurve ? rotatedSegments : null);
+    const constrainedDelta = firstPointDelta(rotatedPoints, constrainedGeometry.points);
+    const rotatedShape = originalShape ? translateShape(rotateShape(originalShape, center, rotateDelta), constrainedDelta.dx, constrainedDelta.dy) : null;
 
     measurement.points = constrainedGeometry.points;
     if (isCurve && constrainedGeometry.segments) {
       measurement.segments = constrainedGeometry.segments;
     }
+    if (rotatedShape) measurement.shape = rotatedShape;
     measurement.rotationAngle = normalizedAngle;
     measurement.rotationFrame = createRotationFrame(measurement);
     if (measurement.rotationFrame) measurement.rotationFrame.angle = normalizedAngle;
@@ -140,6 +172,7 @@
       originalAngle: drag.originalAngle,
       originalPoints: drag.originalPoints,
       originalSegments: drag.originalSegments,
+      originalShape: drag.originalShape,
       nextAngle,
       constrainGeometry,
       createRotationFrame,
@@ -159,6 +192,7 @@
       originalAngle: measurement.rotationAngle || 0,
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalShape: cloneShape(measurement.shape),
       nextAngle,
       constrainGeometry,
       createRotationFrame,

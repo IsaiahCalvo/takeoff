@@ -26,10 +26,14 @@ test('reports current and total pages for PDFs and single-page images', async ()
 
 test('filters measurements to the active page', async () => {
   const pages = await loadPageState();
-  const measurements = [{ id: 1, page: 1 }, { id: 2, page: 2 }];
+  const measurements = [{ id: 1, page: 1 }, { id: 2, page: 2 }, { id: 3 }];
 
   assert.deepEqual(
     JSON.parse(JSON.stringify(pages.measurementsForCurrentPage({ pdf: {}, pdfPage: 2 }, measurements))),
     [{ id: 2, page: 2 }]
+  );
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(pages.measurementsForCurrentPage({ pdf: {}, pdfPage: 1 }, measurements))),
+    [{ id: 1, page: 1 }, { id: 3 }]
   );
 });

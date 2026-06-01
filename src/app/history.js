@@ -31,7 +31,7 @@
   function applyHistorySnapshot(state, snapshot, currentPage) {
     state.measurements = cloneValue(snapshot.measurements) || [];
     state.pageScales = cloneValue(snapshot.pageScales) || {};
-    state.pxPerInch = snapshot.pxPerInch ?? (state.pageScales[currentPage] || null);
+    state.pxPerInch = state.pageScales[currentPage] || null;
     state.selectedId = snapshot.selectedId ?? null;
     state.copiedMeasurement = cloneValue(snapshot.copiedMeasurement);
     state.rotateModeId = snapshot.rotateModeId ?? null;

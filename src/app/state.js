@@ -132,6 +132,10 @@
   }
 
   function clearMeasurements(state) {
+    state.rotateModeId = null;
+    state.rotationHandleHitbox = null;
+    state.rotationInputVisible = false;
+    state.rotationDrag = null;
     return setMeasurements(state, [], { selectedId: null });
   }
 

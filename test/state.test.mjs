@@ -184,6 +184,10 @@ test('measurement state helpers replace and clear measurements with selection ow
   const state = store.createInitialState();
   state.measurements = [{ id: 1 }];
   state.selectedId = 1;
+  state.rotateModeId = 1;
+  state.rotationHandleHitbox = { x: 0, y: 0, width: 1, height: 1 };
+  state.rotationInputVisible = true;
+  state.rotationDrag = { measurementId: 1 };
 
   store.setMeasurements(state, [{ id: 2 }], { selectedId: 2 });
   assert.deepEqual(plain(state.measurements), [{ id: 2 }]);
@@ -192,6 +196,10 @@ test('measurement state helpers replace and clear measurements with selection ow
   store.clearMeasurements(state);
   assert.deepEqual(plain(state.measurements), []);
   assert.equal(state.selectedId, null);
+  assert.equal(state.rotateModeId, null);
+  assert.equal(state.rotationHandleHitbox, null);
+  assert.equal(state.rotationInputVisible, false);
+  assert.equal(state.rotationDrag, null);
 });
 
 test('page scale helpers own current-page scale mirroring', async () => {
