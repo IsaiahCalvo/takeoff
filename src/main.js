@@ -18,7 +18,7 @@ import './app/pdf-page-cache.js';
 import './app/pdf-engine.js';
 import './app/pdf-detail-tile.js';
 import './app/performance-logger.js'; import './app/performance-controller.js';
-import './app/input-controller.js';
+import './app/input-controller.js'; import './app/context-menu-controller.js';
 import './app/pointer-controller.js';
 import './app/pointer-workflow.js';
 import './app/document-loader.js';
@@ -50,7 +50,7 @@ const documentStore = window.TakeoffDocumentStore;
 const exportController = window.TakeoffExportController;
 const calibrationController = window.TakeoffCalibrationController;
 const calibrationWorkflow = window.TakeoffCalibrationWorkflow;
-const measurementWorkflows = window.TakeoffMeasurementWorkflows;
+const contextMenuController = window.TakeoffContextMenuController; const measurementWorkflows = window.TakeoffMeasurementWorkflows;
 const pageState = window.TakeoffPageState;
 const continuousScroll = window.TakeoffContinuousScroll;
 const continuousRenderer = window.TakeoffContinuousRenderer;
@@ -380,17 +380,16 @@ function closeContextMenu() { contextMenu.classList.remove('show'); state.contex
 function openContextMenu(clientX, clientY, measurementId = null, target = null) {
   if (measurementId != null) state.selectedId = measurementId;
   state.contextTarget = target;
-  const canActOnRun = state.selectedId != null;
-  const addButton = contextMenu.querySelector('[data-action="add-anchor"]');
-  const removeButton = contextMenu.querySelector('[data-action="remove-anchor"]');
-  const canAddAnchor = !!(target && target.kind === 'path-hit');
-  const canRemoveAnchor = !!(target && target.kind === 'anchor-hit' && canRemoveAnchorFromTarget(target));
+  const canActOnRun = state.selectedId != null, targetedMeasurement = measurementId != null ? state.measurements.find(x => x.id === measurementId) : null;
+  const addButton = contextMenu.querySelector('[data-action="add-anchor"]'), removeButton = contextMenu.querySelector('[data-action="remove-anchor"]');
+  const canAddAnchor = !!(target && target.kind === 'path-hit'), canRemoveAnchor = !!(target && target.kind === 'anchor-hit' && canRemoveAnchorFromTarget(target));
   addButton.disabled = !canAddAnchor;
   removeButton.disabled = !canRemoveAnchor;
   contextMenu.querySelector('[data-action="cut"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="copy"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="rotate"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
+  contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements });
   contextMenu.style.left = `${Math.min(clientX, window.innerWidth - 170)}px`;
   contextMenu.style.top = `${Math.min(clientY, window.innerHeight - 220)}px`;
   contextMenu.classList.add('show');
@@ -1497,6 +1496,7 @@ contextMenu.addEventListener('click', (e) => {
   if (action === 'copy') copySelectedMeasurement();
   if (action === 'paste') pasteCopiedMeasurement();
   if (action === 'rotate') beginRotateMode(state.selectedId);
+  if (action === 'convert-to-line' || action === 'convert-to-freehand') contextMenuController.convertSelectedMeasurement({ nextShape: action === 'convert-to-line' ? 'line' : 'freehand', state, measurementCommands, scaleForPage, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
 });
 
 document.addEventListener('click', (e) => {

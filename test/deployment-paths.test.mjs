@@ -189,6 +189,17 @@ test('measure mode menu uses Line and Freehand product wording', async () => {
   assert.doesNotMatch(html, /Free hand|Bezier|Bézier|spline|polyline/);
 });
 
+test('context menu exposes only Line and Freehand conversion wording', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const contextMenu = html.match(/<div id="contextMenu"[\s\S]*?<\/div>/)?.[0] || '';
+
+  assert.match(contextMenu, /data-action="convert-to-line"[^>]*>Convert to Line<\/button>/);
+  assert.match(contextMenu, /data-action="convert-to-freehand"[^>]*>Convert to Freehand<\/button>/);
+  assert.doesNotMatch(contextMenu, /Bezier|Bézier|spline|polyline|curve/i);
+  assert.match(styles, /\.context-menu button\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
+});
+
 test('freehand completion keeps the app in measure mode', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const finishFreehand = main.match(/function finishFreehandMeasurement\(\) \{[\s\S]*?\n\}/)?.[0] || '';
