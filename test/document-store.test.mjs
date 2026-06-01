@@ -44,6 +44,7 @@ test('createDocumentSnapshot captures persisted document state only when a docum
     }],
     sidebarTab: 'all',
     collapsedPageGroups: { 2: true },
+    continuousScrollPreferences: { '1,2,3': true },
     pageCache: new Map([[2, { page: 2 }]]),
   };
 
@@ -53,6 +54,7 @@ test('createDocumentSnapshot captures persisted document state only when a docum
   assert.equal(snapshot.id, 'doc-1');
   assert.equal(snapshot.name, 'Drawing.pdf');
   assert.equal(snapshot.continuousScrollMode, true);
+  assert.deepEqual(plain(snapshot.continuousScrollPreferences), { '1,2,3': true });
   assert.deepEqual(plain(snapshot.pageScales), { 2: 4 });
   assert.equal(snapshot.measurements[0].shape.previousFreehand.points[0].x, 0);
   assert.equal(snapshot.pageCache.get(2).page, 2);
@@ -71,6 +73,7 @@ test('saveDocumentSnapshot upserts the active document without duplicating tabs'
     pageScales: {},
     measurements: [],
     collapsedPageGroups: {},
+    continuousScrollPreferences: {},
     pageCache: new Map(),
   };
 

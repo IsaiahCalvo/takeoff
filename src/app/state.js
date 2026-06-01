@@ -16,6 +16,7 @@
       pdfPage: 1,
       pdfPages: 0,
       continuousScrollMode: false,
+      continuousScrollPreferences: {},
       continuousPageLayout: null,
       cachedContinuousPageLayout: null,
       imageBitmap: null,
@@ -82,6 +83,7 @@
     state.pdfPages = 0;
     state.pdfPage = 1;
     state.continuousScrollMode = false;
+    state.continuousScrollPreferences = {};
     state.continuousPageLayout = null;
     state.cachedContinuousPageLayout = null;
     state.imageBitmap = null;
@@ -113,6 +115,7 @@
     state.pdfPage = doc.pdfPage || 1;
     state.pdfPages = doc.pdfPages || (doc.pdf ? doc.pdf.numPages : 1);
     state.continuousScrollMode = !!doc.continuousScrollMode;
+    state.continuousScrollPreferences = { ...(doc.continuousScrollPreferences || {}) };
     state.continuousPageLayout = null;
     state.cachedContinuousPageLayout = null;
     state.imageBitmap = doc.imageBitmap || null;

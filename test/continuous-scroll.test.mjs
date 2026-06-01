@@ -106,6 +106,25 @@ test('controlModel labels grouped continuous availability from the current page 
   }).title, 'Continuous scroll needs adjacent pages with the same scale.');
 });
 
+test('group preferences remember the user-selected scroll mode for each eligible page group', async () => {
+  const continuous = await loadContinuousScroll();
+  const preferences = {};
+  const firstGroup = { eligible: true, pages: [1, 2, 3] };
+  const secondGroup = { eligible: true, pages: [5, 6, 7, 8] };
+
+  assert.equal(continuous.preferredGroupMode(preferences, firstGroup), null);
+
+  continuous.recordGroupPreference(preferences, firstGroup, true);
+  continuous.recordGroupPreference(preferences, secondGroup, false);
+
+  assert.equal(continuous.preferredGroupMode(preferences, firstGroup), true);
+  assert.equal(continuous.preferredGroupMode(preferences, secondGroup), false);
+  assert.deepEqual(plain(preferences), {
+    '1,2,3': true,
+    '5,6,7,8': false,
+  });
+});
+
 test('exitReason explains why active continuous scroll was turned off', async () => {
   const continuous = await loadContinuousScroll();
 
