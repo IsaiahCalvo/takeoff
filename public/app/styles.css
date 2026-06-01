@@ -804,6 +804,7 @@ main {
 }
 .context-menu button:hover { background: var(--panel-2); }
 .context-menu button:disabled { color: var(--muted); opacity: 0.45; }
+.context-menu button[hidden] { display: none; }
 
 .rotation-pill {
   position: fixed;
