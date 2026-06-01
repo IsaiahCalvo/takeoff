@@ -389,7 +389,7 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
   contextMenu.querySelector('[data-action="copy"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="rotate"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
-  contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements });
+  contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target });
   contextMenu.style.left = `${Math.min(clientX, window.innerWidth - 170)}px`;
   contextMenu.style.top = `${Math.min(clientY, window.innerHeight - 220)}px`;
   contextMenu.classList.add('show');
@@ -1490,6 +1490,7 @@ contextMenu.addEventListener('click', (e) => {
   let handledAnchorAction = false;
   if (action === 'add-anchor') handledAnchorAction = addAnchorFromContext();
   if (action === 'remove-anchor') handledAnchorAction = removeAnchorFromContext();
+  if (action === 'continue-path') handledAnchorAction = contextMenuController.beginContinuePath({ state, target: state.contextTarget, measurementCommands, isCurveMeasurement, currentPage, setMode, clearActiveFitMode, renderList, redraw, showStatus });
   closeContextMenu();
   if (handledAnchorAction) return;
   if (action === 'cut') cutSelectedMeasurement();
@@ -1539,6 +1540,7 @@ function finishMeasurement() {
   const historyBefore = createHistorySnapshot();
   const pts = state.inProgress.points;
   const page = state.inProgress.page || currentPage();
+  if (contextMenuController.finishLineContinuation({ state, points: pts, page, historyBefore, measurementCommands, scaleForPage, recordHistory, renderList, redraw, showStatus })) return;
   const id = Date.now();
   const measurement = measurementCommands.createLineMeasurement({
     id,
@@ -1589,10 +1591,8 @@ function finishFreehandMeasurement() {
     pxPerInch: scaleForPage(page),
     constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, page),
   });
-  if (!measurement) {
-    redraw();
-    return;
-  }
+  if (contextMenuController.finishFreehandContinuation({ state, draft, measurement, page, historyBefore, measurementCommands, scaleForPage, recordHistory, renderList, redraw, showStatus })) return;
+  if (!measurement) { redraw(); return; }
   const result = measurementWorkflows.appendMeasurementResult({
     measurements: state.measurements,
     measurement,

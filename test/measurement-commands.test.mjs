@@ -453,6 +453,144 @@ test('removeAnchorFromMeasurement removes extra line anchors', async () => {
   assert.deepEqual(measurement.points, [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
 });
 
+test('continuation endpoint role is available only for terminal anchors', async () => {
+  const commands = await loadCommands();
+  const line = { points: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 10, y: 0 }] };
+  const curve = {
+    shape: { active: 'freehand' },
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 3, y: 0 },
+      c2: { x: 7, y: 0 },
+      to: { x: 10, y: 0 },
+    }, {
+      type: 'cubic',
+      from: { x: 10, y: 0 },
+      c1: { x: 13, y: 0 },
+      c2: { x: 17, y: 0 },
+      to: { x: 20, y: 0 },
+    }],
+  };
+
+  assert.equal(commands.continuationEndpointRole(line, { kind: 'anchor-hit', vertexIndex: 0 }), 'start');
+  assert.equal(commands.continuationEndpointRole(line, { kind: 'anchor-hit', vertexIndex: 2 }), 'end');
+  assert.equal(commands.continuationEndpointRole(line, { kind: 'anchor-hit', vertexIndex: 1 }), null);
+  assert.equal(commands.continuationEndpointRole(curve, { kind: 'anchor-hit', segmentIndex: 0, anchor: 'from' }), 'start');
+  assert.equal(commands.continuationEndpointRole(curve, { kind: 'anchor-hit', segmentIndex: 1, anchor: 'to' }), 'end');
+  assert.equal(commands.continuationEndpointRole(curve, { kind: 'anchor-hit', segmentIndex: 0, anchor: 'to' }), null);
+});
+
+test('continueLineMeasurement appends or prepends draft points without changing the run id', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 91,
+    page: 1,
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+    shape: { active: 'line' },
+  };
+
+  assert.equal(commands.continueLineMeasurement(measurement, {
+    endpoint: 'end',
+    points: [{ x: 10, y: 0 }, { x: 15, y: 0 }, { x: 15, y: 5 }],
+    pxPerInch: 5,
+  }), true);
+  assert.equal(measurement.id, 91);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 15, y: 0 },
+    { x: 15, y: 5 },
+  ]);
+  assert.equal(measurement.lengthPx, 20);
+  assert.equal(measurement.lengthInches, 4);
+
+  assert.equal(commands.continueLineMeasurement(measurement, {
+    endpoint: 'start',
+    points: [{ x: 0, y: 0 }, { x: -5, y: 0 }, { x: -5, y: -5 }],
+    pxPerInch: 5,
+  }), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: -5, y: -5 },
+    { x: -5, y: 0 },
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 15, y: 0 },
+    { x: 15, y: 5 },
+  ]);
+  assert.equal(measurement.lengthPx, 30);
+  assert.equal(measurement.lengthInches, 6);
+});
+
+test('continueLineMeasurement refuses drafts with no new geometry', async () => {
+  const commands = await loadCommands();
+  const measurement = { points: [{ x: 0, y: 0 }, { x: 10, y: 0 }], shape: { active: 'line' } };
+
+  assert.equal(commands.continueLineMeasurement(measurement, {
+    endpoint: 'end',
+    points: [{ x: 10, y: 0 }],
+  }), false);
+  assert.deepEqual(measurement.points, [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
+});
+
+test('continueFreehandMeasurement appends and prepends curve segments', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 92,
+    page: 1,
+    shape: { active: 'freehand' },
+    drawType: 'freehand',
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 3, y: 0 },
+      c2: { x: 7, y: 0 },
+      to: { x: 10, y: 0 },
+    }],
+  };
+  const endSegments = [{
+    type: 'cubic',
+    from: { x: 10, y: 0 },
+    c1: { x: 13, y: 0 },
+    c2: { x: 17, y: 0 },
+    to: { x: 20, y: 0 },
+  }];
+  const startSegments = [{
+    type: 'cubic',
+    from: { x: 0, y: 0 },
+    c1: { x: -3, y: 0 },
+    c2: { x: -7, y: 0 },
+    to: { x: -10, y: 0 },
+  }];
+
+  assert.equal(commands.continueFreehandMeasurement(measurement, {
+    endpoint: 'end',
+    segments: endSegments,
+    pxPerInch: 10,
+  }), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 20, y: 0 },
+  ]);
+
+  assert.equal(commands.continueFreehandMeasurement(measurement, {
+    endpoint: 'start',
+    segments: startSegments,
+    pxPerInch: 10,
+  }), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: -10, y: 0 },
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 20, y: 0 },
+  ]);
+  assert.ok(Math.abs(measurement.lengthPx - 30) < 0.0001);
+  assert.ok(Math.abs(measurement.lengthInches - 3) < 0.0001);
+});
+
 test('finalizeMeasurementGeometry recomputes length and scale', async () => {
   const commands = await loadCommands();
   const measurement = { points: [{ x: 0, y: 0 }, { x: 6, y: 8 }] };

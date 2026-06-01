@@ -20,7 +20,7 @@ async function loadController() {
 
 function createContextMenu() {
   const buttons = new Map();
-  for (const action of ['convert-to-line', 'convert-to-freehand']) {
+  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path']) {
     buttons.set(action, { hidden: false, disabled: false });
   }
   return {
@@ -45,6 +45,7 @@ test('conversionMenuState exposes only Convert to Line for Freehand measurements
   })), {
     canConvertToLine: true,
     canConvertToFreehand: false,
+    canContinuePath: false,
   });
 });
 
@@ -57,6 +58,7 @@ test('conversionMenuState exposes only Convert to Freehand for active Line measu
   })), {
     canConvertToLine: false,
     canConvertToFreehand: true,
+    canContinuePath: false,
   });
 });
 
@@ -70,6 +72,38 @@ test('applyConversionMenuState hides conversion actions when no measurement is t
   assert.equal(menu.buttons.get('convert-to-line').disabled, true);
   assert.equal(menu.buttons.get('convert-to-freehand').hidden, true);
   assert.equal(menu.buttons.get('convert-to-freehand').disabled, true);
+  assert.equal(menu.buttons.get('continue-path').hidden, true);
+  assert.equal(menu.buttons.get('continue-path').disabled, true);
+});
+
+test('conversionMenuState exposes Continue Path only for terminal anchors', async () => {
+  const { controller, measurements } = await loadController();
+  const measurement = {
+    shape: { active: 'line' },
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }],
+  };
+
+  assert.deepEqual(plain(controller.conversionMenuState({
+    measurement,
+    measurementModel: measurements,
+    measurementCommands: {
+      continuationEndpointRole(targetMeasurement, target) {
+        return targetMeasurement === measurement && target.vertexIndex === 2 ? 'end' : null;
+      },
+    },
+    target: { kind: 'anchor-hit', vertexIndex: 2 },
+  })), {
+    canConvertToLine: false,
+    canConvertToFreehand: true,
+    canContinuePath: true,
+  });
+
+  assert.equal(controller.conversionMenuState({
+    measurement,
+    measurementModel: measurements,
+    measurementCommands: { continuationEndpointRole: () => null },
+    target: { kind: 'anchor-hit', vertexIndex: 1 },
+  }).canContinuePath, false);
 });
 
 test('convertSelectedMeasurement records history, keeps selection, and refreshes UI hooks', async () => {
