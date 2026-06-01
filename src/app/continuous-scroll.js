@@ -7,6 +7,21 @@
     return `pages ${list.slice(0, -1).join(', ')}, and ${list[list.length - 1]}`;
   }
 
+  function compactPageRanges(pages) {
+    const list = [...new Set((pages || []).filter(page => Number.isInteger(page)))].sort((a, b) => a - b);
+    const ranges = [];
+    for (let index = 0; index < list.length; index += 1) {
+      const start = list[index];
+      let end = start;
+      while (list[index + 1] === end + 1) {
+        index += 1;
+        end = list[index];
+      }
+      ranges.push(start === end ? `${start}` : `${start}-${end}`);
+    }
+    return ranges.join(',');
+  }
+
   function unavailableReason(eligibility) {
     const reason = eligibility?.reason || '';
     if (reason === 'missing_page_calibration') {
@@ -21,6 +36,7 @@
         ? `Match calibration on ${pages} to use continuous scroll.`
         : 'Page scales must match to use continuous scroll.';
     }
+    if (reason === 'single_page_scale_group') return 'Continuous scroll needs adjacent pages with the same scale.';
     return 'Continuous scroll needs a multi-page PDF.';
   }
 
@@ -52,8 +68,12 @@
     const visible = Boolean(state?.pdf && pageCount > 1);
     const enabled = visible && Boolean(eligibility?.eligible);
     const active = enabled && Boolean(state?.continuousScrollMode);
+    const groupPages = compactPageRanges(eligibility?.pages);
+    const enabledTitle = !active && groupPages && !eligibility?.wholeDocument
+      ? `Use continuous scroll for pages ${groupPages}`
+      : (active ? 'Return to single-page view' : 'Use continuous scroll');
     const title = enabled
-      ? (active ? 'Return to single-page view' : 'Use continuous scroll')
+      ? enabledTitle
       : unavailableReason(eligibility);
 
     return {
@@ -61,12 +81,13 @@
       enabled,
       active,
       title,
-      ariaLabel: enabled ? (active ? 'Return to single-page view' : 'Use continuous scroll') : title,
+      ariaLabel: enabled ? enabledTitle : title,
       ariaPressed: active ? 'true' : 'false',
     };
   }
 
   window.TakeoffContinuousScroll = {
+    compactPageRanges,
     controlModel,
     unavailableReason,
     exitReason,

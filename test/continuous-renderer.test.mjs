@@ -191,6 +191,48 @@ test('renderContinuousPdf reuses cache entries and paints one composite canvas',
   assert.deepEqual(calls.filter(call => call[0] === 'strokeRect'), []);
 });
 
+test('renderContinuousPdf can stack only the requested actual PDF pages', async () => {
+  const renderer = await loadContinuousRenderer();
+  const calls = [];
+  const canvas = { width: 0, height: 0, style: {} };
+  const context = {
+    clearRect: (...args) => calls.push(['clearRect', ...args]),
+    save: () => calls.push(['save']),
+    scale: (...args) => calls.push(['scale', ...args]),
+    drawImage: (...args) => calls.push(['drawImage', args[0].id, ...args.slice(1)]),
+    restore: () => calls.push(['restore']),
+  };
+
+  const result = await renderer.renderContinuousPdf({
+    pageCount: 8,
+    pages: [5, 6],
+    requestedScale: 2,
+    maxBitmapEdge: 1000,
+    cacheGet: () => null,
+    renderPage: async (page, scale) => {
+      calls.push(['renderPage', page, scale]);
+      return { canvas: { id: `rendered-${page}` }, cssWidth: 100, cssHeight: 50 + page };
+    },
+    isCurrent: () => true,
+    canvas,
+    context,
+    configureCanvasCssSize: (target, width, height) => {
+      target.style.width = `${width}px`;
+      target.style.height = `${height}px`;
+    },
+  });
+
+  assert.deepEqual(plain(result.layout.pages.map(page => page.page)), [5, 6]);
+  assert.deepEqual(calls.filter(call => call[0] === 'renderPage'), [
+    ['renderPage', 5, 2],
+    ['renderPage', 6, 2],
+  ]);
+  assert.deepEqual(calls.filter(call => call[0] === 'drawImage'), [
+    ['drawImage', 'rendered-5', 0, 0, 100, 55],
+    ['drawImage', 'rendered-6', 0, 79, 100, 56],
+  ]);
+});
+
 test('renderContinuousPdf paints individual page canvases when a page layer is supplied', async () => {
   const renderer = await loadContinuousRenderer();
   const calls = [];

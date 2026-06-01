@@ -249,9 +249,17 @@ test('continuous page layer is retained for fast toggle re-entry', async () => {
   const blitToBase = main.match(/function blitToBase[\s\S]*?\n\}/)?.[0] || '';
 
   assert.match(renderContinuous, /cachedContinuousPageLayout/);
-  assert.match(renderContinuous, /children\?\.\s*length === state\.pdfPages/);
+  assert.match(renderContinuous, /cachedContinuousLayerMatches\(pages,\s*cachedLayer\)/);
   assert.match(blitToBase, /preserveContinuousLayer/);
   assert.match(blitToBase, /layer\.hidden = true/);
+});
+
+test('continuous navigation clears stale layouts when the destination group is not eligible', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const goToPage = main.match(/async function goToPage[\s\S]*?\n\}/)?.[0] || '';
+
+  assert.match(goToPage, /const eligibility = continuousEligibility\(n\)/);
+  assert.match(goToPage, /if \(!eligibility\.eligible\) state\.continuousPageLayout = null/);
 });
 
 test('continuous page layer is prewarmed before the first toggle', async () => {
