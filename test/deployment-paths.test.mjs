@@ -241,6 +241,15 @@ test('continuous rendering uses a dedicated per-page bitmap layer', async () => 
   assert.match(main, /pageLayer:\s*\$\('continuousBasePages'\)/);
 });
 
+test('continuous zoom sharpening caps render scale by page bounds', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const desiredScale = main.match(/function desiredPdfRenderScale[\s\S]*?\n\}/)?.[0] || '';
+
+  assert.match(desiredScale, /continuousRenderer\.pageRenderBounds\(state\.continuousPageLayout\)/);
+  assert.match(desiredScale, /baseWidth:\s*renderBounds\.width/);
+  assert.match(desiredScale, /baseHeight:\s*renderBounds\.height/);
+});
+
 test('single-page documents remove scope chrome entirely', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';

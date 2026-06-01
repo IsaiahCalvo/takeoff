@@ -90,6 +90,21 @@ test('fitTransformForPage fits the active continuous page instead of the full st
   });
 });
 
+test('pageRenderBounds uses page dimensions instead of stacked document height', async () => {
+  const renderer = await loadContinuousRenderer();
+  const layout = renderer.buildContinuousPageLayout(Array.from({ length: 50 }, (_, index) => ({
+    page: index + 1,
+    cssWidth: 600,
+    cssHeight: 800,
+  })));
+
+  assert.deepEqual(plain(renderer.pageRenderBounds(layout)), {
+    width: 600,
+    height: 800,
+  });
+  assert.equal(layout.height > 40000, true);
+});
+
 test('continuous layout maps stack points to page-local points and back', async () => {
   const renderer = await loadContinuousRenderer();
   const layout = renderer.buildContinuousPageLayout([
