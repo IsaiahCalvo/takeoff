@@ -61,6 +61,111 @@ test('createFreehandMeasurement builds explicit freehand shape metadata', async 
   assert.ok(measurement.segments.length > 0);
 });
 
+test('convertFreehandMeasurementToLine preserves ordered freehand anchors and source metadata', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 30,
+    drawType: 'freehand',
+    points: [{ x: 0, y: 0 }, { x: 10, y: 5 }, { x: 20, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 4, y: 14 },
+      c2: { x: 12, y: 14 },
+      to: { x: 20, y: 0 },
+    }],
+    shape: { active: 'freehand' },
+    lengthPx: 30,
+    lengthInches: 15,
+    labelT: 0.25,
+  };
+
+  assert.equal(commands.convertFreehandMeasurementToLine(measurement, { pxPerInch: 2 }), true);
+
+  assert.equal(measurement.drawType, 'line');
+  assert.equal(measurement.shape.active, 'line');
+  assert.equal(measurement.segments, null);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 10, y: 5 },
+    { x: 20, y: 0 },
+  ]);
+  assert.equal(measurement.lengthPx, Math.hypot(10, 5) + Math.hypot(10, -5));
+  assert.equal(measurement.lengthInches, measurement.lengthPx / 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.shape.previousFreehand.points)), [
+    { x: 0, y: 0 },
+    { x: 10, y: 5 },
+    { x: 20, y: 0 },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.shape.previousFreehand.segments[0].c1)), { x: 4, y: 14 });
+});
+
+test('convertFreehandMeasurementToLine derives ordered anchors for legacy freehand geometry', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 31,
+    drawType: 'freehand',
+    segments: [{
+      type: 'cubic',
+      from: { x: 2, y: 1 },
+      c1: { x: 5, y: 8 },
+      c2: { x: 8, y: 8 },
+      to: { x: 12, y: 1 },
+    }, {
+      type: 'cubic',
+      from: { x: 12, y: 1 },
+      c1: { x: 16, y: -6 },
+      c2: { x: 20, y: -6 },
+      to: { x: 24, y: 1 },
+    }],
+  };
+
+  assert.equal(commands.convertFreehandMeasurementToLine(measurement, { pxPerInch: 4 }), true);
+
+  assert.equal(measurement.drawType, 'line');
+  assert.equal(measurement.shape.active, 'line');
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 2, y: 1 },
+    { x: 12, y: 1 },
+    { x: 24, y: 1 },
+  ]);
+  assert.equal(measurement.lengthPx, 22);
+  assert.equal(measurement.lengthInches, 5.5);
+  assert.equal(measurement.shape.previousFreehand.segments.length, 2);
+});
+
+test('convertFreehandMeasurementToLine avoids dense legacy freehand point clouds when curve anchors exist', async () => {
+  const commands = await loadCommands();
+  const densePoints = Array.from({ length: 30 }, (_, index) => ({ x: index, y: index % 2 }));
+  const measurement = {
+    id: 32,
+    drawType: 'freehand',
+    points: densePoints,
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 5, y: 8 },
+      c2: { x: 10, y: 8 },
+      to: { x: 15, y: 0 },
+    }, {
+      type: 'cubic',
+      from: { x: 15, y: 0 },
+      c1: { x: 20, y: -8 },
+      c2: { x: 25, y: -8 },
+      to: { x: 29, y: 0 },
+    }],
+  };
+
+  assert.equal(commands.convertFreehandMeasurementToLine(measurement, { pxPerInch: 1 }), true);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 15, y: 0 },
+    { x: 29, y: 0 },
+  ]);
+  assert.equal(measurement.shape.previousFreehand.points.length, 30);
+});
+
 test('cloneMeasurementForClipboard deep-copies geometry and stores source scale metadata', async () => {
   const commands = await loadCommands();
   const selected = {

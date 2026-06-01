@@ -239,6 +239,39 @@
     return position ? position.point : null;
   }
 
+  function linePointsFromFreehand(measurement) {
+    const points = clonePoints(measurement?.points);
+    const anchors = clonePoints(measurementModel.anchorsFromSegments(measurement?.segments || []));
+    const editablePointLimit = Math.max(12, anchors.length * 4);
+    if (anchors.length >= 2 && (!points.length || points.length > editablePointLimit)) return anchors;
+    return points.length >= 2 ? points : anchors;
+  }
+
+  function freehandGeometrySnapshot(measurement, fallbackPoints) {
+    return {
+      points: clonePoints(measurement?.points?.length ? measurement.points : fallbackPoints),
+      segments: cloneSegments(measurement?.segments),
+      labelT: measurement?.labelT,
+      lengthPx: measurement?.lengthPx || measurementModel.measurementLengthPx(measurement),
+      lengthInches: measurement?.lengthInches ?? null,
+    };
+  }
+
+  function convertFreehandMeasurementToLine(measurement, { pxPerInch } = {}) {
+    if (!measurement || !measurementModel.isFreehandMeasurement(measurement)) return false;
+    const linePoints = linePointsFromFreehand(measurement);
+    if (linePoints.length < 2) return false;
+    const preservedLabelPoint = measurementLabelPoint(measurement);
+    const shape = cloneMeasurementShape(measurement);
+    shape.active = 'line';
+    shape.previousFreehand = freehandGeometrySnapshot(measurement, linePoints);
+    measurement.drawType = 'line';
+    measurement.shape = shape;
+    measurement.points = linePoints;
+    measurement.segments = null;
+    return finalizeMeasurementGeometry(measurement, { pxPerInch, preservedLabelPoint });
+  }
+
   function finalizeMeasurementGeometry(measurement, { pxPerInch, preservedLabelPoint } = {}) {
     if (!measurement) return false;
     if (measurementModel.isCurveMeasurement(measurement)) measurementModel.updateCurveAnchors(measurement);
@@ -334,6 +367,7 @@
     addAnchorToMeasurement,
     removeAnchorFromMeasurement,
     measurementLabelPoint,
+    convertFreehandMeasurementToLine,
     finalizeMeasurementGeometry,
     shouldAskPasteMode,
     createPastedMeasurement,
