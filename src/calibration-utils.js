@@ -7,6 +7,11 @@
     return measurement && measurement.lengthInches != null && Number.isFinite(measurement.lengthInches);
   }
 
+  function measurementPage(measurement) {
+    const page = Number(measurement?.page);
+    return Number.isInteger(page) && page > 0 ? page : 1;
+  }
+
   function summarizeList(measurements) {
     let totalInches = 0;
     let scaledCount = 0;
@@ -32,7 +37,7 @@
 
   function summarizeMeasurements(measurements, currentPage) {
     const all = measurements || [];
-    const page = all.filter(measurement => (measurement.page || 1) === currentPage);
+    const page = all.filter(measurement => measurementPage(measurement) === currentPage);
     return {
       page: summarizeList(page),
       all: summarizeList(all),
@@ -62,14 +67,18 @@
       const s = part.trim();
       if (!s) continue;
       if (s.includes('-')) {
-        const [a, b] = s.split('-').map(n => parseInt(n.trim(), 10));
+        const range = s.match(/^(\d+)\s*-\s*(\d+)$/);
+        if (!range) continue;
+        const a = Number(range[1]);
+        const b = Number(range[2]);
         if (Number.isFinite(a) && Number.isFinite(b)) {
           for (let i = Math.min(a, b); i <= Math.max(a, b); i++) {
             if (i >= 1 && i <= max) set.add(i);
           }
         }
       } else {
-        const n = parseInt(s, 10);
+        if (!/^\d+$/.test(s)) continue;
+        const n = Number(s);
         if (Number.isFinite(n) && n >= 1 && n <= max) set.add(n);
       }
     }
@@ -83,6 +92,7 @@
       return null;
     }
     const px = distancePx(points[0], points[1]);
+    if (!Number.isFinite(px) || px <= 0) return null;
     const inches = value * unitFactor;
     return px / inches;
   }
@@ -115,7 +125,7 @@
 
     for (let page = 1; page <= pageCount; page += 1) {
       const scale = pageScales[page];
-      if (!Number.isFinite(scale)) {
+      if (!Number.isFinite(scale) || scale <= 0) {
         result.missingPages.push(page);
       }
     }
@@ -153,14 +163,14 @@
   function clearPageScale({ measurements, pageScales, page }) {
     delete pageScales[page];
     for (const measurement of measurements || []) {
-      if (measurement.page === page) measurement.lengthInches = null;
+      if (measurementPage(measurement) === page) measurement.lengthInches = null;
     }
   }
 
   function recomputeLengthsForPage(measurements, pageScales, page, measureLengthPx) {
     const scale = pageScales[page] || null;
     for (const measurement of measurements || []) {
-      if (measurement.page !== page) continue;
+      if (measurementPage(measurement) !== page) continue;
       measurement.lengthPx = measureLengthPx(measurement);
       measurement.lengthInches = scale ? (measurement.lengthPx / scale) : null;
     }
@@ -169,6 +179,7 @@
   window.TakeoffCalibrationUtils = {
     summarizeMeasurements,
     formatScaleStatus,
+    measurementPage,
     parsePageRange,
     computePxPerInch,
     sameScalePdfEligibility,

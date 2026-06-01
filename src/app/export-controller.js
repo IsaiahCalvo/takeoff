@@ -35,6 +35,21 @@
     button.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
+  function closeDisclosuresOnEscape({ event, disclosures = [] }) {
+    if (!event || event.key !== 'Escape') return false;
+    let closed = false;
+    for (const { wrap, button } of disclosures) {
+      if (!wrap || !button || !wrap.classList.contains('open')) continue;
+      setDisclosureOpen({ wrap, button, open: false });
+      closed = true;
+    }
+    if (closed) {
+      if (event.preventDefault) event.preventDefault();
+      if (event.stopPropagation) event.stopPropagation();
+    }
+    return closed;
+  }
+
   function applyExportAvailability({ exportButton, actionButtons = [], disabled, isOpen }) {
     exportButton.disabled = disabled;
     exportButton.setAttribute('aria-expanded', !disabled && isOpen ? 'true' : 'false');
@@ -48,6 +63,7 @@
     excelStatusMessage,
     createDownloadHelpers,
     setDisclosureOpen,
+    closeDisclosuresOnEscape,
     applyExportAvailability,
   };
 })();

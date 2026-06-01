@@ -1,6 +1,9 @@
 (function () {
   function countPageMeasurements(measurements, page) {
-    return (measurements || []).filter(measurement => measurement.page === page).length;
+    return (measurements || []).filter(measurement => {
+      const measurementPage = Number(measurement?.page);
+      return (Number.isInteger(measurementPage) && measurementPage > 0 ? measurementPage : 1) === page;
+    }).length;
   }
 
   function resetScaleConfirmMessage({ page, affectedCount }) {
@@ -16,9 +19,10 @@
     return Array.from(scopeOptions.querySelectorAll('[data-scope]'));
   }
 
-  function setScopeMenuOpen({ scopeCombo, menuButton, isOpen }) {
+  function setScopeMenuOpen({ scopeCombo, menuButton, scopeDisplay, isOpen }) {
     scopeCombo.classList.toggle('open', isOpen);
     menuButton.setAttribute('aria-expanded', String(isOpen));
+    if (scopeDisplay && typeof scopeDisplay.setAttribute === 'function') scopeDisplay.setAttribute('aria-expanded', String(isOpen));
   }
 
   function applyScopeComboState({
@@ -47,7 +51,7 @@
       option.classList.toggle('active', isActive);
       option.setAttribute('aria-checked', String(isActive));
     }
-    setScopeMenuOpen({ scopeCombo, menuButton, isOpen: false });
+    setScopeMenuOpen({ scopeCombo, menuButton, scopeDisplay, isOpen: false });
     if (isCustom && focusLater) focusLater(rangeInput);
   }
 
@@ -65,6 +69,7 @@
     const toggleMenu = () => setScopeMenuOpen({
       scopeCombo,
       menuButton,
+      scopeDisplay,
       isOpen: !scopeCombo.classList.contains('open'),
     });
     const applyScope = (scope, shouldFocusRange = false) => applyScopeComboState({
@@ -88,7 +93,7 @@
     });
     root.addEventListener('click', (event) => {
       if (scopeCombo.contains(event.target)) return;
-      setScopeMenuOpen({ scopeCombo, menuButton, isOpen: false });
+      setScopeMenuOpen({ scopeCombo, menuButton, scopeDisplay, isOpen: false });
     });
   }
 

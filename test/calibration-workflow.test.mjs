@@ -171,3 +171,18 @@ test('groups copied calibration source options by unique calibration scale', asy
     },
   ]);
 });
+
+test('groups copied calibration sources with the same tolerance used for continuous scroll', async () => {
+  const workflow = await loadCalibrationWorkflow();
+  const options = workflow.calibrationSourceOptions({
+    pageScales: { 1: 1000, 2: 1000.5, 3: 999.2 },
+    currentPage: 4,
+    unit: 'ft',
+    unitToInch: unit => unit === 'ft' ? 12 : 1,
+  });
+
+  assert.equal(options.length, 2);
+  assert.deepEqual(plain(options[1].pages), [1, 2, 3]);
+  assert.equal(options[1].pageLabel, 'Pages 1-3');
+  assert.equal(options[1].pageCountLabel, '3 pages');
+});

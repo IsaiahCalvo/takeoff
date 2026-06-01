@@ -70,6 +70,7 @@ test('parsePageRange rejects empty and invalid selected groups', async () => {
 
   assert.deepEqual(plain(utils.parsePageRange('', 8)), []);
   assert.deepEqual(plain(utils.parsePageRange('page two, 0, 12', 8)), []);
+  assert.deepEqual(plain(utils.parsePageRange('1-2-3, 2foo, 6-7z', 8)), []);
 });
 
 test('computePxPerInch converts a calibration line into pixels per inch', async () => {
@@ -80,6 +81,16 @@ test('computePxPerInch converts a calibration line into pixels per inch', async 
   ], 10, 'ft', (a, b) => Math.hypot(a.x - b.x, a.y - b.y));
 
   assert.equal(pxPerInch, 1);
+});
+
+test('computePxPerInch rejects coincident calibration points', async () => {
+  const utils = await loadUtils();
+  const pxPerInch = utils.computePxPerInch([
+    { x: 4, y: 4 },
+    { x: 4, y: 4 },
+  ], 10, 'ft', (a, b) => Math.hypot(a.x - b.x, a.y - b.y));
+
+  assert.equal(pxPerInch, null);
 });
 
 test('sameScalePdfEligibility rejects image uploads', async () => {
@@ -128,6 +139,19 @@ test('sameScalePdfEligibility reports missing page calibrations', async () => {
     mismatchedPages: [],
     canonicalScale: null,
   });
+});
+
+test('sameScalePdfEligibility treats zero page scales as missing calibration', async () => {
+  const utils = await loadUtils();
+  const result = utils.sameScalePdfEligibility({
+    pdf: {},
+    pdfPages: 2,
+    pageScales: { 1: 0, 2: 0 },
+  });
+
+  assert.equal(result.eligible, false);
+  assert.equal(result.reason, 'missing_page_calibration');
+  assert.deepEqual(plain(result.missingPages), [1, 2]);
 });
 
 test('sameScalePdfEligibility accepts multi-page PDFs with matching scales', async () => {
@@ -244,7 +268,7 @@ test('applyScaleToPages keeps copied calibration values independent from later s
 test('clearPageScale removes scale and marks page measurements unscaled', async () => {
   const utils = await loadUtils();
   const measurements = [
-    { page: 1, lengthInches: 12 },
+    { lengthInches: 12 },
     { page: 2, lengthInches: 24 },
   ];
   const pageScales = { 1: 2, 2: 4 };
@@ -254,4 +278,17 @@ test('clearPageScale removes scale and marks page measurements unscaled', async 
   assert.deepEqual(pageScales, { 2: 4 });
   assert.equal(measurements[0].lengthInches, null);
   assert.equal(measurements[1].lengthInches, 24);
+});
+
+test('recomputeLengthsForPage treats legacy page-less measurements as page 1', async () => {
+  const utils = await loadUtils();
+  const measurements = [
+    { lengthPx: 24, lengthInches: null },
+    { page: 2, lengthPx: 40, lengthInches: null },
+  ];
+
+  utils.recomputeLengthsForPage(measurements, { 1: 2 }, 1, measurement => measurement.lengthPx);
+
+  assert.equal(measurements[0].lengthInches, 12);
+  assert.equal(measurements[1].lengthInches, null);
 });

@@ -72,3 +72,42 @@ test('applyExportAvailability disables every export action and closes aria when 
   assert.equal(attrs['aria-expanded'], 'false');
   assert.deepEqual(actionButtons.map(button => button.disabled), [true, true, true]);
 });
+
+test('closeDisclosuresOnEscape closes open menus and consumes escape', async () => {
+  const exports = await loadExportController();
+  const calls = [];
+  const unitClasses = new Set(['open']);
+  const exportClasses = new Set();
+  const makeWrap = classes => ({
+    classList: {
+      contains(name) {
+        return classes.has(name);
+      },
+      toggle(name, value) {
+        if (value) classes.add(name);
+        else classes.delete(name);
+      },
+    },
+  });
+  const unitButtonAttrs = {};
+  const exportButtonAttrs = {};
+  const event = {
+    key: 'Escape',
+    preventDefault: () => calls.push('preventDefault'),
+    stopPropagation: () => calls.push('stopPropagation'),
+  };
+
+  const closed = exports.closeDisclosuresOnEscape({
+    event,
+    disclosures: [
+      { wrap: makeWrap(unitClasses), button: { setAttribute: (name, value) => { unitButtonAttrs[name] = value; } } },
+      { wrap: makeWrap(exportClasses), button: { setAttribute: (name, value) => { exportButtonAttrs[name] = value; } } },
+    ],
+  });
+
+  assert.equal(closed, true);
+  assert.equal(unitClasses.has('open'), false);
+  assert.equal(unitButtonAttrs['aria-expanded'], 'false');
+  assert.deepEqual(calls, ['preventDefault', 'stopPropagation']);
+  assert.deepEqual(exportButtonAttrs, {});
+});

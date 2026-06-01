@@ -117,6 +117,13 @@ test('createPastedMeasurement can preserve real length across page scales', asyn
       active: 'line',
       previousFreehand: {
         points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+        segments: [{
+          type: 'cubic',
+          from: { x: 0, y: 0 },
+          c1: { x: 3, y: 0 },
+          c2: { x: 7, y: 0 },
+          to: { x: 10, y: 0 },
+        }],
       },
     },
   };
@@ -140,8 +147,45 @@ test('createPastedMeasurement can preserve real length across page scales', asyn
   assert.equal(pasted.lengthInches, 10);
   assert.deepEqual(JSON.parse(JSON.stringify(pasted.points)), [{ x: 90, y: 100 }, { x: 110, y: 100 }]);
   assert.equal(pasted.shape.active, 'line');
-  assert.equal(pasted.shape.previousFreehand.points[0].x, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(pasted.shape.previousFreehand.points)), [{ x: 90, y: 100 }, { x: 110, y: 100 }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(pasted.shape.previousFreehand.segments[0].c1)), { x: 96, y: 100 });
   assert.notEqual(pasted.shape.previousFreehand, source.shape.previousFreehand);
+});
+
+test('createPastedMeasurement centers freehand paste by visual curve bounds', async () => {
+  const commands = await loadCommands();
+  const source = {
+    id: 2,
+    name: 'Curve',
+    page: 1,
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 0, y: 120 },
+      c2: { x: 10, y: 120 },
+      to: { x: 10, y: 0 },
+    }],
+    shape: { active: 'freehand' },
+    sourcePage: 1,
+    sourceScale: 1,
+    sourceLengthInches: 10,
+  };
+
+  const pasted = commands.createPastedMeasurement({
+    source,
+    id: 12,
+    existingMeasurements: [],
+    palette: ['lime'],
+    pasteAt: { x: 100, y: 100 },
+    currentPage: 1,
+    pxPerInch: 1,
+    mode: 'visual-size',
+  });
+
+  assert.notEqual(pasted.points[0].y, 100);
+  assert.ok(pasted.points[0].y < 60);
+  assert.ok(pasted.segments[0].c1.y > 100);
 });
 
 test('shouldAskPasteMode asks only when scale differs across pages', async () => {

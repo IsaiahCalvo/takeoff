@@ -28,16 +28,16 @@ const measurements = [
 test('buildSidebarModel summarizes the current page tab', async () => {
   const sidebar = await loadSidebar();
   const model = sidebar.buildSidebarModel({
-    measurements,
+    measurements: [...measurements, { id: 4, lengthInches: 12 }],
     currentPage: 1,
     sidebarTab: 'page',
     pageScales: { 1: 10 },
     unit: 'ft',
   });
 
-  assert.deepEqual(plain(model.measurementsForTab.map(m => m.id)), [1, 2]);
-  assert.equal(model.totalLenText, '10.00');
-  assert.equal(model.runCountText, '2 runs · 1 unscaled excluded');
+  assert.deepEqual(plain(model.measurementsForTab.map(m => m.id)), [1, 2, 4]);
+  assert.equal(model.totalLenText, '11.00');
+  assert.equal(model.runCountText, '3 runs · 1 unscaled excluded');
   assert.equal(model.totalUnitText, 'ft');
 });
 

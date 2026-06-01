@@ -135,6 +135,24 @@ test('applyHistorySnapshot restores history-owned state and clears transient int
   assert.equal(state.contextTarget, null);
 });
 
+test('applyHistorySnapshot derives the live scale from the current page', async () => {
+  const history = await loadHistory();
+  const state = baseState();
+  const snapshot = {
+    measurements: [],
+    pageScales: { 1: 2 },
+    pxPerInch: 2,
+  };
+
+  history.applyHistorySnapshot(state, snapshot, 2);
+
+  assert.equal(state.pxPerInch, null);
+
+  history.applyHistorySnapshot(state, snapshot, 1);
+
+  assert.equal(state.pxPerInch, 2);
+});
+
 test('clearHistory removes undo and redo entries', async () => {
   const history = await loadHistory();
   const state = baseState();

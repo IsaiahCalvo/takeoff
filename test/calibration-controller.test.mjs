@@ -128,6 +128,13 @@ test('countPageMeasurements counts only measurements on the target page', async 
   const calibration = await loadCalibrationController();
 
   assert.equal(calibration.countPageMeasurements([
+    {},
+    { page: 1 },
+    { page: 2 },
+    { page: 2 },
+  ], 1), 2);
+  assert.equal(calibration.countPageMeasurements([
+    {},
     { page: 1 },
     { page: 2 },
     { page: 2 },
@@ -253,6 +260,36 @@ test('applyScopeComboState turns the same control into a focused custom page ran
   assert.equal(options[2].classes.has('active'), true);
   assert.equal(menuButton.attributes['aria-expanded'], 'false');
   assert.deepEqual(focused, [rangeInput]);
+});
+
+test('setScopeMenuOpen syncs both visible scope trigger aria states', async () => {
+  const calibration = await loadCalibrationController();
+  const comboClass = createClassList();
+  const scopeCombo = { classList: comboClass.classList };
+  const menuButton = createElement();
+  const scopeDisplay = createElement();
+
+  calibration.setScopeMenuOpen({
+    scopeCombo,
+    menuButton,
+    scopeDisplay,
+    isOpen: true,
+  });
+
+  assert.equal(comboClass.classes.has('open'), true);
+  assert.equal(menuButton.attributes['aria-expanded'], 'true');
+  assert.equal(scopeDisplay.attributes['aria-expanded'], 'true');
+
+  calibration.setScopeMenuOpen({
+    scopeCombo,
+    menuButton,
+    scopeDisplay,
+    isOpen: false,
+  });
+
+  assert.equal(comboClass.classes.has('open'), false);
+  assert.equal(menuButton.attributes['aria-expanded'], 'false');
+  assert.equal(scopeDisplay.attributes['aria-expanded'], 'false');
 });
 
 test('applyCalibrationSourceState hides compact mode and configures copied calibration mode', async () => {

@@ -1333,6 +1333,7 @@ aside {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
+.footer .unit-select-button { justify-content: flex-start; }
 .unit-menu {
   position: absolute;
   left: 0;
@@ -1407,7 +1408,11 @@ aside {
   font-size: 15px;
   outline: none;
 }
-.modal input:focus { border-color: var(--accent); }
+.modal input:focus,
+.modal select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
 .modal select {
   appearance: none;
   -webkit-appearance: none;

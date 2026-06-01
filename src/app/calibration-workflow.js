@@ -1,4 +1,6 @@
 (function () {
+  const SAME_SCALE_RELATIVE_TOLERANCE = 0.001;
+
   function initialModalState(unit) {
     return {
       value: '',
@@ -79,6 +81,16 @@
     return `${pages && pages.length === 1 ? 'Page' : 'Pages'} ${range}`;
   }
 
+  function sameScaleTolerance(left, right) {
+    return Math.max(Math.abs(left), Math.abs(right), Number.EPSILON) * SAME_SCALE_RELATIVE_TOLERANCE;
+  }
+
+  function isSameCalibrationScale(left, right) {
+    return Number.isFinite(left)
+      && Number.isFinite(right)
+      && Math.abs(left - right) <= sameScaleTolerance(left, right);
+  }
+
   function calibrationSourceOptions({ pageScales, currentPage, unit, unitToInch } = {}) {
     const options = [{
       value: 'new',
@@ -100,11 +112,10 @@
     for (const page of pages) {
       const pxPerInch = pageScales[page];
       if (!Number.isFinite(pxPerInch) || pxPerInch <= 0) continue;
-      const key = String(pxPerInch);
-      let group = options.find(option => option.value === `scale:${key}`);
+      let group = options.find(option => option.value !== 'new' && isSameCalibrationScale(option.pxPerInch, pxPerInch));
       if (!group) {
         group = {
-          value: `scale:${key}`,
+          value: `scale:${pxPerInch}`,
           page,
           pages: [],
           pxPerInch,
