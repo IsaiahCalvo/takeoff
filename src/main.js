@@ -117,6 +117,7 @@ function updateContinuousScrollControl(eligibility = sameScalePdfEligibility(sta
   button.setAttribute('aria-pressed', model.ariaPressed);
   button.setAttribute('aria-label', model.ariaLabel);
   button.title = button.dataset.tooltip = model.title;
+  if (model.enabled && !model.active) scheduleContinuousLayerPrewarm(eligibility);
   return model;
 }
 
@@ -151,6 +152,11 @@ function pageBoxForViewportAnchor(page = state.pdfPage) { return state.continuou
 function constrainViewportPan() { const rect = stage.getBoundingClientRect(), box = pageBoxForViewportAnchor(state.pdfPage); const pan = viewerModel.constrainPanToBounds({ panX: state.panX, panY: state.panY, zoom: state.zoom, stageWidth: rect.width, stageHeight: rect.height, baseWidth: state.baseW, baseHeight: state.baseH, focusWidth: box?.width, focusHeight: box?.height, margin: VIEWPORT_BOUND_MARGIN }); state.panX = pan.panX; state.panY = pan.panY; }
 function captureViewportAnchor(page = state.pdfPage) { const rect = stage.getBoundingClientRect(); const anchor = viewerModel.pageAnchorAtScreenPoint({ screenX: rect.width / 2, screenY: rect.height / 2, panX: state.panX, panY: state.panY, zoom: state.zoom, pageBox: pageBoxForViewportAnchor(page), baseWidth: state.baseW, baseHeight: state.baseH }); return anchor ? { ...anchor, page } : null; }
 function restoreViewportAnchor(anchor) { const pan = viewerModel.panForPageAnchor({ anchor, zoom: state.zoom, pageBox: pageBoxForViewportAnchor(anchor?.page), baseWidth: state.baseW, baseHeight: state.baseH }); if (pan) { state.panX = pan.panX; state.panY = pan.panY; } }
+let continuousPrewarmPromise = null;
+let continuousPrewarmKey = 0;
+function invalidateContinuousPrewarm() { continuousPrewarmKey += 1; continuousPrewarmPromise = null; state.cachedContinuousPageLayout = null; }
+function scheduleContinuousLayerPrewarm(eligibility = sameScalePdfEligibility(state)) { if (!state.pdf || state.continuousScrollMode || !eligibility.eligible || state.cachedContinuousPageLayout || continuousPrewarmPromise) return; const key = continuousPrewarmKey; continuousPrewarmPromise = Promise.resolve().then(() => prewarmContinuousLayer(key)).finally(() => { if (key === continuousPrewarmKey) continuousPrewarmPromise = null; }); }
+async function prewarmContinuousLayer(key) { const stillCurrent = () => key === continuousPrewarmKey && state.pdf && !state.continuousScrollMode && sameScalePdfEligibility(state).eligible; if (!stillCurrent()) return false; const baseScale = usesPdfDetailTile() ? pdfDetailTile.baseRenderScale(desiredPdfRenderScale()) : desiredPdfRenderScale(); const result = await continuousRenderer.renderContinuousPdf({ pageCount: state.pdfPages, requestedScale: baseScale, maxBitmapEdge: state.maxPdfBitmapEdge, cacheGet, renderPage: (page, requestedScale) => renderPageToCanvas(page, requestedScale, { reason: 'continuous-prewarm' }), isCurrent: stillCurrent, canvas: baseCanvas, context: baseCtx, pageLayer: $('continuousBasePages'), activatePageLayer: false, configureCanvasCssSize }); if (!result || !stillCurrent()) return false; state.cachedContinuousPageLayout = result.layout; return true; }
 
 // distinct, dark-bg-friendly palette (red reserved for erase hover)
 const PALETTE = [
@@ -663,6 +669,7 @@ async function loadFile(file) {
 function resetDocState() {
   setDocumentLoaded(false);
   continuousRenderer.clearContinuousPageLayer($('continuousBasePages'), baseCanvas);
+  invalidateContinuousPrewarm();
   pdfDetailTile.clear();
   empty.style.display = 'flex';
   stateStore.resetDocumentState(state);
@@ -694,7 +701,7 @@ async function renderPageToCanvas(pageNum, requestedScale = state.minPdfRenderSc
 function blitToBase(entry, { preserveContinuousLayer = false } = {}) {
   const layer = $('continuousBasePages');
   if (preserveContinuousLayer && layer) { layer.hidden = true; baseCanvas.style.display = 'block'; }
-  else { continuousRenderer.clearContinuousPageLayer(layer, baseCanvas); state.cachedContinuousPageLayout = null; }
+  else { continuousRenderer.clearContinuousPageLayer(layer, baseCanvas); invalidateContinuousPrewarm(); }
   pdfDetailTile.clear();
   if (baseCanvas.dataset) baseCanvas.dataset.pdfEngine = entry.engine || '';
   baseCanvas.width = entry.canvas.width;

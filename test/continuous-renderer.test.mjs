@@ -243,3 +243,48 @@ test('renderContinuousPdf paints individual page canvases when a page layer is s
   assert.equal(rendered.canvas.style.top, '74px');
   assert.deepEqual(calls.filter(call => call[0] === 'drawImage'), []);
 });
+
+test('renderContinuousPdf can prewarm a hidden page layer without touching the active canvas', async () => {
+  const renderer = await loadContinuousRenderer();
+  const canvas = { width: 640, height: 480, style: { display: 'block', width: '640px', height: '480px' } };
+  const context = {
+    clearRect: () => { throw new Error('prewarm should not clear the active canvas'); },
+    save: () => { throw new Error('prewarm should not paint the active canvas'); },
+    scale: () => {},
+    drawImage: () => {},
+    strokeRect: () => {},
+    restore: () => {},
+  };
+  const pageLayer = {
+    hidden: true,
+    style: {},
+    children: [],
+    replaceChildren() { this.children = []; },
+    appendChild(child) { this.children.push(child); },
+  };
+  const cached = { canvas: { id: 'cached-1', style: {} }, cssWidth: 100, cssHeight: 50 };
+  const rendered = { canvas: { id: 'rendered-2', style: {} }, cssWidth: 100, cssHeight: 60 };
+
+  const result = await renderer.renderContinuousPdf({
+    pageCount: 2,
+    requestedScale: 2,
+    maxBitmapEdge: 1000,
+    cacheGet: page => page === 1 ? cached : null,
+    renderPage: async () => rendered,
+    isCurrent: () => true,
+    canvas,
+    context,
+    pageLayer,
+    activatePageLayer: false,
+    configureCanvasCssSize: () => { throw new Error('prewarm should not resize the active canvas'); },
+  });
+
+  assert.equal(result.renderScale, 2);
+  assert.equal(canvas.width, 640);
+  assert.equal(canvas.height, 480);
+  assert.equal(canvas.style.display, 'block');
+  assert.equal(canvas.style.width, '640px');
+  assert.equal(canvas.style.height, '480px');
+  assert.equal(pageLayer.hidden, true);
+  assert.deepEqual(pageLayer.children.map(child => child.id), ['cached-1', 'rendered-2']);
+});
