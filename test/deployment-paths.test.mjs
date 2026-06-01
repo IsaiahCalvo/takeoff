@@ -259,18 +259,18 @@ test('main renders PDFs through the Takeoff PDF engine adapter', async () => {
   assert.doesNotMatch(main, /state\.pdf\.getPage\(/);
 });
 
-test('PDF render engine toggle is present and wired into PDF loading', async () => {
+test('PDF rendering has no user-facing fallback toggle', async () => {
   const { html, main, styles } = await readIndexAndSidebarView();
 
-  assert.match(html, /id="pdfEngineToggle"/);
-  assert.match(html, /data-pdf-engine="pdfjs-current"/);
-  assert.match(html, /data-pdf-engine="pdfjs-sharp" aria-pressed="true"/);
-  assert.doesNotMatch(html, /EmbedPDF/);
-  assert.match(styles, /\.pdf-engine-toggle/);
-  assert.match(main, /state\.pdfEngineChoice/);
-  assert.match(main, /import '\.\/app\/pdf-engine-controller\.js';/);
-  assert.match(main, /createPdfEngineDocument\(\{ data: buf, pdfjsLib, engine: state\.pdfEngineChoice \}\)/);
-  assert.match(main, /switchPdfEngine/);
+  assert.doesNotMatch(html, /id="pdfEngineToggle"/);
+  assert.doesNotMatch(html, /data-pdf-engine=/);
+  assert.doesNotMatch(html, /PDF\.js Current/);
+  assert.doesNotMatch(html, /PDF\.js Sharp/);
+  assert.doesNotMatch(styles, /pdf-engine/);
+  assert.doesNotMatch(main, /pdfEngineChoice/);
+  assert.doesNotMatch(main, /pdf-engine-controller/);
+  assert.doesNotMatch(main, /switchPdfEngine/);
+  assert.match(main, /createPdfEngineDocument\(\{ data: buf, pdfjsLib \}\)/);
 });
 
 test('PDF.js detail tile is layered above the base bitmap and below measurements', async () => {

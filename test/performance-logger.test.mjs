@@ -138,7 +138,6 @@ test('performance logger attaches current PDF, page, and render engine context t
     page: 2,
     pageCount: 12,
     renderEngine: 'pdfjs',
-    renderEngineChoice: 'pdfjs-current',
   });
   perf.recordZoom({
     source: 'wheel',
@@ -152,7 +151,7 @@ test('performance logger attaches current PDF, page, and render engine context t
     targetRenderScale: 2.24,
   });
 
-  perf.setContext({ page: 3, renderEngine: 'pdfjs', renderEngineChoice: 'pdfjs-sharp' });
+  perf.setContext({ page: 3, renderEngine: 'pdfjs' });
   perf.recordScroll({
     source: 'wheel',
     deltaX: 0,
@@ -169,21 +168,18 @@ test('performance logger attaches current PDF, page, and render engine context t
     page: 3,
     pageCount: 12,
     renderEngine: 'pdfjs',
-    renderEngineChoice: 'pdfjs-sharp',
   });
   assert.deepEqual(plain(payload.events[0].context), {
     fileName: 'SE-011 Security Shop Drawing.pdf',
     page: 2,
     pageCount: 12,
     renderEngine: 'pdfjs',
-    renderEngineChoice: 'pdfjs-current',
   });
   assert.deepEqual(plain(payload.events[1].context), {
     fileName: 'SE-011 Security Shop Drawing.pdf',
     page: 3,
     pageCount: 12,
     renderEngine: 'pdfjs',
-    renderEngineChoice: 'pdfjs-sharp',
   });
 });
 
@@ -194,7 +190,7 @@ test('performance logger records periodic FPS samples with active context', asyn
     dateNow: () => new Date('2026-06-01T12:00:03.000Z'),
   });
 
-  perf.setContext({ fileName: 'sample.pdf', page: 1, renderEngine: 'pdfjs', renderEngineChoice: 'pdfjs-current' });
+  perf.setContext({ fileName: 'sample.pdf', page: 1, renderEngine: 'pdfjs' });
   perf.recordFrameSample(1000);
   perf.recordFrameSample(1016);
   perf.recordFrameSample(1532);
@@ -206,7 +202,7 @@ test('performance logger records periodic FPS samples with active context', asyn
   assert.equal(fpsEvent.fps, 1.938);
   assert.equal(fpsEvent.averageFps, 32.219);
   assert.equal(fpsEvent.context.fileName, 'sample.pdf');
-  assert.equal(fpsEvent.context.renderEngineChoice, 'pdfjs-current');
+  assert.equal(fpsEvent.context.renderEngine, 'pdfjs');
 });
 
 test('performance logger saves chronological timestamped logs to the local dev endpoint', async () => {

@@ -69,15 +69,11 @@ test('createPdfEngineDocument always opens PDFs through PDF.js', async () => {
   const source = new Uint8Array([1, 2, 3]).buffer;
   const doc = await pdfEngine.createPdfEngineDocument({
     data: source,
-    engine: 'pdfjs-current',
     pdfjsLib: {
       getDocument({ data }) {
         calls.push(data.byteLength);
         return { promise: Promise.resolve(fakePdfDocument()) };
       },
-    },
-    preferredFactory: async () => {
-      throw new Error('PDFium should not be probed.');
     },
   });
 
@@ -93,7 +89,6 @@ test('createPdfEngineDocument gives PDF.js a clone so source data remains reusab
 
   await pdfEngine.createPdfEngineDocument({
     data: source,
-    engine: 'pdfjs-current',
     pdfjsLib: {
       getDocument({ data }) {
         receivedData = data;
@@ -105,44 +100,6 @@ test('createPdfEngineDocument gives PDF.js a clone so source data remains reusab
   assert.notEqual(receivedData.buffer || receivedData, source);
   assert.deepEqual(Array.from(new Uint8Array(receivedData.buffer || receivedData)), [10, 20, 30, 40]);
   assert.deepEqual(Array.from(new Uint8Array(source)), [10, 20, 30, 40]);
-});
-
-test('PDF.js sharp mode uses the same PDF.js document contract', async () => {
-  const pdfEngine = await loadPdfEngine();
-  const doc = await pdfEngine.createPdfEngineDocument({
-    data: new Uint8Array([4, 5, 6]).buffer,
-    engine: 'pdfjs-sharp',
-    pdfjsLib: {
-      getDocument() {
-        return { promise: Promise.resolve(fakePdfDocument({ pages: [fakePage()] })) };
-      },
-    },
-  });
-
-  assert.equal(doc.engine, 'pdfjs');
-  assert.equal(doc.getPageCount(), 1);
-});
-
-test('legacy EmbedPDF choices are normalized to PDF.js instead of loading PDFium', async () => {
-  const pdfEngine = await loadPdfEngine();
-  let preferredCalls = 0;
-  const doc = await pdfEngine.createPdfEngineDocument({
-    data: new Uint8Array([7, 8, 9]).buffer,
-    engine: 'embedpdf',
-    pdfjsLib: {
-      getDocument() {
-        return { promise: Promise.resolve(fakePdfDocument({ pages: [fakePage({ width: 400, height: 500 })] })) };
-      },
-    },
-    preferredFactory: async () => {
-      preferredCalls += 1;
-      throw new Error('legacy choice should not load PDFium');
-    },
-  });
-
-  assert.equal(doc.engine, 'pdfjs');
-  assert.equal(doc.getPageCount(), 1);
-  assert.equal(preferredCalls, 0);
 });
 
 test('PDF.js adapter returns page info and render entries through one contract', async () => {

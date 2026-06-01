@@ -153,7 +153,7 @@ test('continuous zoom sharpening uses the detail tile instead of redrawing the f
   assert.equal(detailRenders[0].reason, 'zoom-sharpen-detail');
 });
 
-test('continuous zoom sharpening redraws the PDF stack in current PDF.js mode', async () => {
+test('continuous zoom sharpening redraws the PDF stack when detail tiles are unavailable', async () => {
   const { controller, timers } = await loadPerformanceController();
   const state = {
     pdf: {},

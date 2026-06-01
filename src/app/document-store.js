@@ -26,7 +26,6 @@
       id: state.activeDocId,
       name: nameOverride || activeDocumentName(state) || 'Untitled',
       pdf: state.pdf,
-      pdfEngineChoice: state.pdfEngineChoice,
       pdfSourceData: state.pdfSourceData,
       pdfFileName: state.pdfFileName,
       pdfPage: state.pdfPage,

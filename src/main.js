@@ -16,7 +16,6 @@ import './app/hit-testing.js';
 import './app/viewer.js';
 import './app/pdf-page-cache.js';
 import './app/pdf-engine.js';
-import './app/pdf-engine-controller.js';
 import './app/pdf-detail-tile.js';
 import './app/performance-logger.js'; import './app/performance-controller.js';
 import './app/input-controller.js';
@@ -181,16 +180,24 @@ const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
 const copySummaryButton = $('copySummary');
 
-const pdfEngineController = window.TakeoffPdfEngineController.createPdfEngineController({
-  state, pdfEngine, pdfjsLib, logger: performanceLogger, toggle: $('pdfEngineToggle'), documentStore,
-  currentPage, totalPages, renderPdfPage, saveActiveDocument, showStatus,
-});
 const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
   state, stage, viewport, detailCanvas: pdfDetailCanvas, logger: performanceLogger, desiredPdfRenderScale, desiredPdfDetailTileScale,
 });
-function updatePerformanceLogContext(patch = {}) { pdfEngineController.updateLogContext(patch); }
-function updatePdfEngineToggle() { pdfEngineController.updateToggle(); }
-function switchPdfEngine(choice) { return pdfEngineController.switchEngine(choice); }
+function activeRenderEngine() {
+  if (state.pdf?.engine) return state.pdf.engine;
+  if (state.imageBitmap) return 'image';
+  return 'pdfjs';
+}
+function updatePerformanceLogContext(patch = {}) {
+  performanceLogger.setContext({
+    fileName: state.pdfFileName || documentStore.activeDocumentName(state) || null,
+    page: state.baseW ? currentPage() : null,
+    pageCount: state.pdfPages || (state.baseW ? totalPages() : 0),
+    renderEngine: activeRenderEngine(),
+    continuousScrollMode: !!state.continuousScrollMode,
+    ...patch,
+  });
+}
 updatePerformanceLogContext();
 
 function setDocumentLoaded(loaded) { document.body.classList.toggle('no-document', !loaded); }
@@ -280,7 +287,6 @@ async function restoreDocument(doc) {
   updateHistoryButtons();
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === state.sidebarTab));
   $('totalHeading').textContent = state.sidebarTab === 'page' ? 'This Page Total' : 'Grand Total';
-  updatePdfEngineToggle();
   updatePerformanceLogContext();
   if (state.pdf) {
     await renderPdfPage({ fit: false, resetInteraction: false });
@@ -383,7 +389,7 @@ function applyTransform() {
   if (usesPdfDetailTile()) pdfDetailTile.schedule({ reason: 'viewport-transform' }); else pdfDetailTile.clear();
 }
 
-function usesPdfDetailTile() { return window.TakeoffPdfEngineController.isSharpMode(state.pdfEngineChoice); }
+function usesPdfDetailTile() { return !!state.pdf; }
 
 function desiredPdfRenderScale() {
   const renderBounds = state.continuousScrollMode && state.continuousPageLayout ? continuousRenderer.pageRenderBounds(state.continuousPageLayout) : { width: state.baseW, height: state.baseH };
@@ -585,10 +591,6 @@ $('emptyUploadButton').addEventListener('click', () => {
 });
 undoButton.addEventListener('click', undoHistory);
 redoButton.addEventListener('click', redoHistory);
-document.querySelectorAll('#pdfEngineToggle [data-pdf-engine]').forEach(button => {
-  button.addEventListener('click', () => switchPdfEngine(button.dataset.pdfEngine));
-});
-
 stage.addEventListener('dragover', (e) => {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'copy';
@@ -615,13 +617,12 @@ async function loadFile(file) {
     resetDocState();
     if (fileInfo.kind === 'pdf') {
       const buf = await file.arrayBuffer();
-      const pdfDoc = await pdfEngine.createPdfEngineDocument({ data: buf, pdfjsLib, engine: state.pdfEngineChoice });
+      const pdfDoc = await pdfEngine.createPdfEngineDocument({ data: buf, pdfjsLib });
       Object.assign(state, documentAdapters.createPdfDocumentState(
         pdfDoc
       ));
       state.pdfSourceData = buf.slice(0);
       state.pdfFileName = fileInfo.displayName || file.name || 'Untitled';
-      updatePdfEngineToggle();
       updatePerformanceLogContext({ renderEngine: pdfDoc.engine || 'unknown' });
       await renderPdfPage();
       showStatus(`Loaded ${fileInfo.displayName}`);
@@ -635,7 +636,6 @@ async function loadFile(file) {
         configureDrawCanvas,
       }));
       state.pdfFileName = fileInfo.displayName || file.name || 'Untitled';
-      updatePdfEngineToggle();
       updatePerformanceLogContext({ renderEngine: 'image' });
       onPageReady();
       showStatus(`Loaded ${fileInfo.displayName}`);
@@ -665,7 +665,6 @@ function resetDocState() {
   $('totalHeading').textContent = 'This Page Total';
   updateScaleLabel();
   updatePageLabel();
-  updatePdfEngineToggle();
 }
 
 function cacheGet(p, minRenderScale = 0) {
@@ -811,7 +810,6 @@ function onPageReady({ fit = true, resetInteraction = true } = {}) {
     if (state.continuousScrollMode) { focusContinuousPage(); applyTransform(); }
   }
   redrawActivePreview();
-  updatePdfEngineToggle();
   updatePerformanceLogContext();
   updateStatus();
 }
