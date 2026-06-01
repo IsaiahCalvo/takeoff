@@ -24,6 +24,24 @@
     return segments ? segments.map(cloneSegment) : null;
   }
 
+  function reverseSegment(segment) {
+    return {
+      ...segment,
+      from: clonePoint(segment.to),
+      c1: clonePoint(segment.c2),
+      c2: clonePoint(segment.c1),
+      to: clonePoint(segment.from),
+    };
+  }
+
+  function reverseSegments(segments) {
+    return (segments || []).slice().reverse().map(reverseSegment);
+  }
+
+  function samePoint(a, b) {
+    return !!(a && b && Math.hypot(a.x - b.x, a.y - b.y) <= 0.0001);
+  }
+
   function cloneMeasurementShape(measurement) {
     return measurementModel.cloneShapeMetadata(
       measurement && measurement.shape,
@@ -233,6 +251,58 @@
     return true;
   }
 
+  function continuationEndpointRole(measurement, target) {
+    if (!measurement || !target || target.kind !== 'anchor-hit') return null;
+    if (measurementModel.isCurveMeasurement(measurement)) {
+      if (!Array.isArray(measurement.segments) || !measurement.segments.length) return null;
+      const anchorIndex = curveAnchorIndexFromHandle(target);
+      if (anchorIndex === 0) return 'start';
+      if (anchorIndex === measurement.segments.length) return 'end';
+      return null;
+    }
+    const points = measurement.points || [];
+    if (points.length < 2 || !Number.isInteger(target.vertexIndex)) return null;
+    if (target.vertexIndex === 0) return 'start';
+    if (target.vertexIndex === points.length - 1) return 'end';
+    return null;
+  }
+
+  function appendUniquePoint(points, point) {
+    if (!point) return;
+    if (!points.length || !samePoint(points[points.length - 1], point)) points.push(clonePoint(point));
+  }
+
+  function continueLineMeasurement(measurement, { endpoint, points, pxPerInch } = {}) {
+    if (!measurement || !measurementModel.isLineMeasurement(measurement)) return false;
+    if (endpoint !== 'start' && endpoint !== 'end') return false;
+    const additions = clonePoints(points).slice(1);
+    if (!additions.length) return false;
+    const nextPoints = [];
+    if (endpoint === 'start') {
+      for (const point of additions.reverse()) appendUniquePoint(nextPoints, point);
+      for (const point of measurement.points || []) appendUniquePoint(nextPoints, point);
+    } else {
+      for (const point of measurement.points || []) appendUniquePoint(nextPoints, point);
+      for (const point of additions) appendUniquePoint(nextPoints, point);
+    }
+    if (nextPoints.length < 2) return false;
+    measurement.points = nextPoints;
+    measurement.segments = null;
+    return finalizeMeasurementGeometry(measurement, { pxPerInch });
+  }
+
+  function continueFreehandMeasurement(measurement, { endpoint, segments, pxPerInch } = {}) {
+    if (!measurement || !measurementModel.isCurveMeasurement(measurement)) return false;
+    if (endpoint !== 'start' && endpoint !== 'end') return false;
+    const nextSegments = cloneSegments(segments);
+    if (!nextSegments || !nextSegments.length) return false;
+    measurement.segments = endpoint === 'start'
+      ? [...reverseSegments(nextSegments), ...cloneSegments(measurement.segments)]
+      : [...cloneSegments(measurement.segments), ...nextSegments];
+    measurementModel.updateCurveAnchors(measurement);
+    return finalizeMeasurementGeometry(measurement, { pxPerInch });
+  }
+
   function measurementLabelPoint(measurement) {
     const points = measurementModel.measurementDisplayPoints(measurement);
     const position = geometry.pointAtPolylineT(points, measurement.labelT);
@@ -419,6 +489,9 @@
     canRemoveAnchorFromMeasurement,
     addAnchorToMeasurement,
     removeAnchorFromMeasurement,
+    continuationEndpointRole,
+    continueLineMeasurement,
+    continueFreehandMeasurement,
     measurementLabelPoint,
     convertFreehandMeasurementToLine,
     convertLineMeasurementToFreehand,

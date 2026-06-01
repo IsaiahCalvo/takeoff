@@ -1,8 +1,13 @@
 (function () {
-  function conversionMenuState({ measurement, measurementModel } = {}) {
+  function conversionMenuState({ measurement, measurementModel, measurementCommands, target } = {}) {
     const canConvertToLine = !!(measurement && measurementModel?.isFreehandMeasurement(measurement));
     const canConvertToFreehand = !!(measurement && measurementModel?.isLineMeasurement(measurement));
-    return { canConvertToLine, canConvertToFreehand };
+    const canContinuePath = !!(
+      measurement
+      && target
+      && measurementCommands?.continuationEndpointRole?.(measurement, target)
+    );
+    return { canConvertToLine, canConvertToFreehand, canContinuePath };
   }
 
   function setButtonState(button, visible) {
@@ -11,11 +16,113 @@
     button.disabled = !visible;
   }
 
-  function applyConversionMenuState({ contextMenu, measurement, measurementModel } = {}) {
-    const state = conversionMenuState({ measurement, measurementModel });
+  function applyConversionMenuState({ contextMenu, measurement, measurementModel, measurementCommands, target } = {}) {
+    const state = conversionMenuState({ measurement, measurementModel, measurementCommands, target });
     setButtonState(contextMenu?.querySelector('[data-action="convert-to-line"]'), state.canConvertToLine);
     setButtonState(contextMenu?.querySelector('[data-action="convert-to-freehand"]'), state.canConvertToFreehand);
+    setButtonState(contextMenu?.querySelector('[data-action="continue-path"]'), state.canContinuePath);
     return state;
+  }
+
+  function beginContinuePath({
+    state,
+    target,
+    measurementCommands,
+    isCurveMeasurement,
+    currentPage,
+    setMode,
+    clearActiveFitMode,
+    renderList,
+    redraw,
+    showStatus,
+  } = {}) {
+    if (!state || !target || target.kind !== 'anchor-hit') return false;
+    const measurement = state.measurements?.find(item => item.id === target.measurementId);
+    if (!measurement) return false;
+    const endpoint = measurementCommands?.continuationEndpointRole?.(measurement, target);
+    if (!endpoint) return false;
+    const points = measurement.points || [];
+    const point = endpoint === 'start' ? points[0] : points[points.length - 1];
+    if (!point) return false;
+    clearActiveFitMode();
+    setMode('measure');
+    state.selectedId = measurement.id;
+    state.inProgress = null;
+    state.freehandDraft = null;
+    const continuation = { measurementId: measurement.id, endpoint };
+    if (isCurveMeasurement(measurement)) {
+      state.freehandDraft = { page: measurement.page || currentPage(), rawPoints: [{ ...point }], previewSegments: [], continuation };
+    } else {
+      state.inProgress = { type: 'measure', page: measurement.page || currentPage(), points: [{ ...point }], continuation };
+    }
+    showStatus('Continue Path');
+    renderList();
+    redraw();
+    return true;
+  }
+
+  function finishLineContinuation({
+    state,
+    points,
+    page,
+    historyBefore,
+    measurementCommands,
+    scaleForPage,
+    recordHistory,
+    renderList,
+    redraw,
+    showStatus,
+  } = {}) {
+    const continuation = state?.inProgress?.continuation || null;
+    if (!continuation) return false;
+    const measurement = state.measurements?.find(item => item.id === continuation.measurementId);
+    const ok = measurementCommands?.continueLineMeasurement?.(measurement, {
+      endpoint: continuation.endpoint,
+      points: (points || []).slice(),
+      pxPerInch: scaleForPage(page),
+    });
+    state.inProgress = null;
+    if (ok) {
+      state.selectedId = measurement.id;
+      recordHistory(historyBefore, 'path continuation');
+      showStatus('Path continued');
+    }
+    renderList();
+    redraw();
+    return true;
+  }
+
+  function finishFreehandContinuation({
+    state,
+    draft,
+    measurement,
+    page,
+    historyBefore,
+    measurementCommands,
+    scaleForPage,
+    recordHistory,
+    renderList,
+    redraw,
+    showStatus,
+  } = {}) {
+    const continuation = draft?.continuation || null;
+    if (!continuation) return false;
+    const target = state?.measurements?.find(item => item.id === continuation.measurementId);
+    const ok = measurement && measurementCommands?.continueFreehandMeasurement?.(target, {
+      endpoint: continuation.endpoint,
+      segments: measurement.segments,
+      pxPerInch: scaleForPage(page),
+    });
+    if (ok) {
+      state.selectedId = target.id;
+      recordHistory(historyBefore, 'path continuation');
+      renderList();
+      redraw();
+      showStatus('Path continued');
+    } else {
+      redraw();
+    }
+    return true;
   }
 
   function convertSelectedMeasurement({
@@ -49,6 +156,9 @@
   window.TakeoffContextMenuController = {
     conversionMenuState,
     applyConversionMenuState,
+    beginContinuePath,
+    finishLineContinuation,
+    finishFreehandContinuation,
     convertSelectedMeasurement,
   };
 })();
