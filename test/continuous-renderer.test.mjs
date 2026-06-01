@@ -69,6 +69,27 @@ test('panYForPage returns a viewport pan that brings a page into focus', async (
   assert.equal(renderer.panYForPage({ layout, page: 99, zoom: 1, stageHeight: 300 }), null);
 });
 
+test('fitTransformForPage fits the active continuous page instead of the full stack', async () => {
+  const renderer = await loadContinuousRenderer();
+  const layout = renderer.buildContinuousPageLayout([
+    { page: 1, cssWidth: 100, cssHeight: 200 },
+    { page: 2, cssWidth: 100, cssHeight: 200 },
+  ], { pageGap: 20 });
+
+  assert.equal(typeof renderer.fitTransformForPage, 'function');
+  assert.deepEqual(plain(renderer.fitTransformForPage({
+    layout,
+    page: 2,
+    stageWidth: 500,
+    stageHeight: 300,
+    fitMode: 'page',
+  })), {
+    zoom: 1.34,
+    panX: 183,
+    panY: -278.8,
+  });
+});
+
 test('continuous layout maps stack points to page-local points and back', async () => {
   const renderer = await loadContinuousRenderer();
   const layout = renderer.buildContinuousPageLayout([
@@ -152,4 +173,58 @@ test('renderContinuousPdf reuses cache entries and paints one composite canvas',
     ['drawImage', 'cached-1', 0, 0, 100, 50],
     ['drawImage', 'rendered-2', 0, 74, 100, 60],
   ]);
+});
+
+test('renderContinuousPdf paints individual page canvases when a page layer is supplied', async () => {
+  const renderer = await loadContinuousRenderer();
+  const calls = [];
+  const canvas = { width: 0, height: 0, style: {} };
+  const context = {
+    calls,
+    clearRect: (...args) => calls.push(['clearRect', ...args]),
+    save: () => calls.push(['save']),
+    scale: (...args) => calls.push(['scale', ...args]),
+    drawImage: (...args) => calls.push(['drawImage', args[0].id, ...args.slice(1)]),
+    strokeRect: (...args) => calls.push(['strokeRect', ...args]),
+    restore: () => calls.push(['restore']),
+    set strokeStyle(value) { calls.push(['strokeStyle', value]); },
+    set lineWidth(value) { calls.push(['lineWidth', value]); },
+  };
+  const pageLayer = {
+    hidden: true,
+    style: {},
+    children: [],
+    replaceChildren() { this.children = []; },
+    appendChild(child) { this.children.push(child); },
+  };
+  const cached = { canvas: { id: 'cached-1', style: {} }, cssWidth: 100, cssHeight: 50 };
+  const rendered = { canvas: { id: 'rendered-2', style: {} }, cssWidth: 100, cssHeight: 60 };
+
+  const result = await renderer.renderContinuousPdf({
+    pageCount: 2,
+    requestedScale: 2,
+    maxBitmapEdge: 1000,
+    cacheGet: page => page === 1 ? cached : null,
+    renderPage: async () => rendered,
+    isCurrent: () => true,
+    canvas,
+    context,
+    pageLayer,
+    configureCanvasCssSize: (target, width, height) => {
+      target.style.width = `${width}px`;
+      target.style.height = `${height}px`;
+    },
+  });
+
+  assert.equal(result.renderScale, 2);
+  assert.equal(canvas.width, 1);
+  assert.equal(canvas.height, 1);
+  assert.equal(canvas.style.display, 'none');
+  assert.equal(pageLayer.hidden, false);
+  assert.equal(pageLayer.style.width, '100px');
+  assert.equal(pageLayer.style.height, '134px');
+  assert.deepEqual(pageLayer.children.map(child => child.id), ['cached-1', 'rendered-2']);
+  assert.equal(cached.canvas.style.left, '0px');
+  assert.equal(rendered.canvas.style.top, '74px');
+  assert.deepEqual(calls.filter(call => call[0] === 'drawImage'), []);
 });

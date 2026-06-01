@@ -518,13 +518,9 @@ function fitToView(fitMode = 'page') {
   const rect = stage.getBoundingClientRect();
   if (!state.baseW || !state.baseH) return;
   state.activeFitMode = fitMode;
-  const transform = viewerModel.computeFitViewTransform({
-    stageWidth: rect.width,
-    stageHeight: rect.height,
-    baseWidth: state.baseW,
-    baseHeight: state.baseH,
-    fitMode,
-  });
+  const transform = state.continuousScrollMode && state.continuousPageLayout
+    ? continuousRenderer.fitTransformForPage({ layout: state.continuousPageLayout, page: state.pdfPage, stageWidth: rect.width, stageHeight: rect.height, fitMode })
+    : viewerModel.computeFitViewTransform({ stageWidth: rect.width, stageHeight: rect.height, baseWidth: state.baseW, baseHeight: state.baseH, fitMode });
   if (!transform) return;
   state.zoom = transform.zoom;
   state.panX = transform.panX;
@@ -617,6 +613,7 @@ async function loadFile(file) {
 
 function resetDocState() {
   setDocumentLoaded(false);
+  continuousRenderer.clearContinuousPageLayer($('continuousBasePages'), baseCanvas);
   empty.style.display = 'flex';
   stateStore.resetDocumentState(state);
   updateHistoryButtons();
@@ -666,6 +663,7 @@ async function renderPageToCanvas(pageNum, requestedScale = state.minPdfRenderSc
 }
 
 function blitToBase(entry) {
+  continuousRenderer.clearContinuousPageLayer($('continuousBasePages'), baseCanvas);
   baseCanvas.width = entry.canvas.width;
   baseCanvas.height = entry.canvas.height;
   configureCanvasCssSize(baseCanvas, entry.cssWidth, entry.cssHeight);
@@ -682,7 +680,7 @@ async function renderContinuousPdfPage({ fit = true, resetInteraction = true, mi
   const result = await continuousRenderer.renderContinuousPdf({
     pageCount: state.pdfPages, requestedScale: minRenderScale, maxBitmapEdge: state.maxPdfBitmapEdge, cacheGet, renderPage: renderPageToCanvas,
     isCurrent: () => token === state.navToken,
-    canvas: baseCanvas, context: baseCtx, configureCanvasCssSize,
+    canvas: baseCanvas, context: baseCtx, pageLayer: $('continuousBasePages'), configureCanvasCssSize,
   });
   if (!result) return;
   state.baseW = result.layout.width; state.baseH = result.layout.height; state.continuousPageLayout = result.layout;

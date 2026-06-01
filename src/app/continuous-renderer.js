@@ -83,6 +83,7 @@
   function paintContinuousPages({ canvas, context, entries, layout, renderScale }) {
     canvas.width = Math.max(1, Math.ceil(layout.width * renderScale));
     canvas.height = Math.max(1, Math.ceil(layout.height * renderScale));
+    canvas.style.display = 'block';
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.save();
     context.scale(renderScale, renderScale);
@@ -96,6 +97,35 @@
     context.restore();
   }
 
+  function paintContinuousPageLayer({ layer, canvas, context, entries, layout }) {
+    if (!layer) return false;
+    layer.replaceChildren();
+    layer.hidden = false;
+    layer.style.width = `${layout.width}px`;
+    layer.style.height = `${layout.height}px`;
+    for (const page of layout.pages) {
+      const entry = entries.find(item => item.page === page.page);
+      entry.canvas.style.left = `${page.x}px`;
+      entry.canvas.style.top = `${page.y}px`;
+      entry.canvas.style.width = `${page.width}px`;
+      entry.canvas.style.height = `${page.height}px`;
+      layer.appendChild(entry.canvas);
+    }
+    canvas.width = 1;
+    canvas.height = 1;
+    canvas.style.display = 'none';
+    context.clearRect(0, 0, 1, 1);
+    return true;
+  }
+
+  function clearContinuousPageLayer(layer, canvas) {
+    if (layer) {
+      layer.replaceChildren();
+      layer.hidden = true;
+    }
+    if (canvas) canvas.style.display = 'block';
+  }
+
   async function renderContinuousPdf({
     pageCount,
     requestedScale,
@@ -105,6 +135,7 @@
     isCurrent,
     canvas,
     context,
+    pageLayer = null,
     configureCanvasCssSize,
   }) {
     const entries = [];
@@ -116,6 +147,10 @@
     }
     if (!isCurrent()) return null;
     const layout = buildContinuousPageLayout(entries);
+    if (paintContinuousPageLayer({ layer: pageLayer, canvas, context, entries, layout })) {
+      configureCanvasCssSize(canvas, layout.width, layout.height);
+      return { layout, renderScale: requestedScale };
+    }
     const renderScale = continuousRenderScale({ requestedScale, layout, maxBitmapEdge });
     paintContinuousPages({ canvas, context, entries, layout, renderScale });
     configureCanvasCssSize(canvas, layout.width, layout.height);
@@ -144,6 +179,23 @@
     return Math.min(topPadding, centered) - item.y * zoom;
   }
 
+  function fitTransformForPage({ layout, page, stageWidth, stageHeight, fitMode = 'page', padding = 32 }) {
+    const item = pageBoxForPage(layout, page);
+    if (!item || !stageWidth || !stageHeight || !item.width || !item.height) return null;
+    const availableW = Math.max(1, stageWidth - padding);
+    const availableH = Math.max(1, stageHeight - padding);
+    const zoom = fitMode === 'width'
+      ? availableW / item.width
+      : fitMode === 'height'
+        ? availableH / item.height
+        : Math.min(availableW / item.width, availableH / item.height);
+    return {
+      zoom,
+      panX: (stageWidth - item.width * zoom) / 2 - item.x * zoom,
+      panY: (stageHeight - item.height * zoom) / 2 - item.y * zoom,
+    };
+  }
+
   window.TakeoffContinuousRenderer = {
     buildContinuousPageLayout,
     pageBoxForPage,
@@ -153,8 +205,11 @@
     measurementToStackMeasurement,
     continuousRenderScale,
     paintContinuousPages,
+    paintContinuousPageLayer,
+    clearContinuousPageLayer,
     renderContinuousPdf,
     nearestPageForViewport,
     panYForPage,
+    fitTransformForPage,
   };
 })();
