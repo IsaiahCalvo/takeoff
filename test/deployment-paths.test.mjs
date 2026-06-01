@@ -222,6 +222,25 @@ test('page changes default uncalibrated pages to pan mode', async () => {
   assert.match(continuousPageBranch, /syncPageScaleAndMode\(n\)/);
 });
 
+test('continuous fit view targets the active page instead of the full stacked document', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const fitToView = main.match(/function fitToView[\s\S]*?\n\}/)?.[0] || '';
+
+  assert.match(fitToView, /continuousRenderer\.fitTransformForPage/);
+  assert.match(fitToView, /layout:\s*state\.continuousPageLayout/);
+  assert.match(fitToView, /page:\s*state\.pdfPage/);
+  assert.match(fitToView, /fitMode/);
+});
+
+test('continuous rendering uses a dedicated per-page bitmap layer', async () => {
+  const { html, styles } = await readIndexAndSidebarView();
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(html, /id="continuousBasePages"/);
+  assert.match(styles, /#continuousBasePages/);
+  assert.match(main, /pageLayer:\s*\$\('continuousBasePages'\)/);
+});
+
 test('single-page documents remove scope chrome entirely', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';
