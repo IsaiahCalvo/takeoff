@@ -272,6 +272,17 @@ test('PDF render engine toggle is present and wired into PDF loading', async () 
   assert.match(main, /switchPdfEngine/);
 });
 
+test('PDF.js detail tile is layered above the base bitmap and below measurements', async () => {
+  const { html, main, styles } = await readIndexAndSidebarView();
+
+  assert.match(html, /id="baseCanvas"[\s\S]*id="pdfDetailCanvas"[\s\S]*id="drawCanvas"/);
+  assert.match(styles, /#pdfDetailCanvas/);
+  assert.match(main, /import '\.\/app\/pdf-detail-tile\.js';/);
+  assert.match(main, /TakeoffPdfDetailTile\.createPdfDetailTileController/);
+  assert.match(main, /pdfDetailTile\.baseRenderScale/);
+  assert.match(main, /pdfDetailTile\.schedule/);
+});
+
 test('single-page documents remove scope chrome entirely', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';

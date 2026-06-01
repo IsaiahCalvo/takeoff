@@ -718,9 +718,13 @@ main {
 }
 #continuousBasePages[hidden] { display: none; }
 #continuousBasePages canvas { box-shadow: 0 0 0 1px rgba(125, 138, 145, 0.42); }
-#baseCanvas, #drawCanvas, #drawSvg {
+#baseCanvas, #pdfDetailCanvas, #drawCanvas, #drawSvg {
   position: absolute; top: 0; left: 0;
   display: block;
+}
+#pdfDetailCanvas {
+  display: none;
+  pointer-events: none;
 }
 #drawCanvas { display: none; }
 #drawSvg {

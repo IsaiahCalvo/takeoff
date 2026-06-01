@@ -244,6 +244,32 @@ test('PDF.js adapter requests flattened annotation rendering when supported', as
   assert.equal(pdf.lastPage.lastRenderOptions.annotationMode, 1);
 });
 
+test('PDF.js adapter can render a viewport-sized detail tile with flattened annotations', async () => {
+  const pdfEngine = await loadPdfEngine();
+  const pdf = fakePdfDocument();
+  const doc = pdfEngine.createPdfJsDocument(pdf, { annotationMode: { ENABLE: 1 } });
+
+  const entry = await doc.renderPageTile(1, {
+    scale: 4,
+    sourceX: 10,
+    sourceY: 20,
+    width: 120,
+    height: 80,
+    withAnnotations: true,
+  });
+
+  assert.equal(entry.cssX, 10);
+  assert.equal(entry.cssY, 20);
+  assert.equal(entry.cssWidth, 120);
+  assert.equal(entry.cssHeight, 80);
+  assert.equal(entry.renderScale, 4);
+  assert.equal(entry.engine, 'pdfjs-detail-tile');
+  assert.equal(entry.canvas.width, 480);
+  assert.equal(entry.canvas.height, 320);
+  assert.deepEqual(plain(pdf.lastPage.lastRenderOptions.transform), [1, 0, 0, 1, -40, -80]);
+  assert.equal(pdf.lastPage.lastRenderOptions.annotationMode, 1);
+});
+
 test('preferred engine receives flattened annotation render options', async () => {
   const pdfEngine = await loadPdfEngine();
   const options = [];

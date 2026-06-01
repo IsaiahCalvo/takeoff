@@ -62,6 +62,32 @@
           engine: 'pdfjs',
         };
       },
+      async renderPageTile(pageNumber, { scale = 1, sourceX = 0, sourceY = 0, width = 1, height = 1, withAnnotations = true } = {}) {
+        const page = await pdf.getPage(pageNumber);
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.ceil(width * scale));
+        canvas.height = Math.max(1, Math.ceil(height * scale));
+        markCanvasEngine(canvas, 'pdfjs-detail-tile');
+        await page.render({
+          ...renderOptionsForPdfJs({
+            canvasContext: canvas.getContext('2d'),
+            viewport: page.getViewport({ scale }),
+            withAnnotations,
+            pdfjsLib: options.pdfjsLib,
+            options,
+          }),
+          transform: [1, 0, 0, 1, -sourceX * scale, -sourceY * scale],
+        }).promise;
+        return {
+          canvas,
+          cssX: sourceX,
+          cssY: sourceY,
+          cssWidth: width,
+          cssHeight: height,
+          renderScale: scale,
+          engine: 'pdfjs-detail-tile',
+        };
+      },
       destroy() {
         if (typeof pdf.destroy === 'function') pdf.destroy();
       },

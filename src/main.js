@@ -17,6 +17,7 @@ import './app/viewer.js';
 import './app/pdf-page-cache.js';
 import './app/pdf-engine.js';
 import './app/pdf-engine-controller.js';
+import './app/pdf-detail-tile.js';
 import './app/performance-logger.js'; import './app/performance-controller.js';
 import './app/input-controller.js';
 import './app/pointer-controller.js';
@@ -160,6 +161,7 @@ const $ = (id) => document.getElementById(id);
 const stage = $('stage');
 const viewport = $('viewport');
 const baseCanvas = $('baseCanvas');
+const pdfDetailCanvas = $('pdfDetailCanvas');
 const drawCanvas = $('drawCanvas');
 const drawSvg = $('drawSvg');
 const baseCtx = baseCanvas.getContext('2d');
@@ -182,6 +184,9 @@ const copySummaryButton = $('copySummary');
 const pdfEngineController = window.TakeoffPdfEngineController.createPdfEngineController({
   state, pdfEngine, pdfjsLib, logger: performanceLogger, toggle: $('pdfEngineToggle'), documentStore,
   currentPage, totalPages, renderPdfPage, saveActiveDocument, showStatus,
+});
+const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
+  state, stage, viewport, detailCanvas: pdfDetailCanvas, logger: performanceLogger, desiredPdfRenderScale,
 });
 function updatePerformanceLogContext(patch = {}) { pdfEngineController.updateLogContext(patch); }
 function updatePdfEngineToggle() { pdfEngineController.updateToggle(); }
@@ -286,6 +291,7 @@ async function restoreDocument(doc) {
     configureDrawCanvas();
     baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
     baseCtx.drawImage(state.imageBitmap, 0, 0);
+    pdfDetailTile.clear();
     onPageReady({ fit: false, resetInteraction: false });
     applyTransform();
   }
@@ -374,6 +380,7 @@ function applyTransform() {
   viewport.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
   $('zoomLabel').innerHTML = `<strong>${Math.round(state.zoom * 100)}%</strong>`;
   updateRotationPill();
+  pdfDetailTile.schedule({ reason: 'viewport-transform' });
 }
 
 function desiredPdfRenderScale() {
@@ -646,6 +653,7 @@ async function loadFile(file) {
 function resetDocState() {
   setDocumentLoaded(false);
   continuousRenderer.clearContinuousPageLayer($('continuousBasePages'), baseCanvas);
+  pdfDetailTile.clear();
   empty.style.display = 'flex';
   stateStore.resetDocumentState(state);
   updateHistoryButtons();
@@ -676,6 +684,7 @@ async function renderPageToCanvas(pageNum, requestedScale = state.minPdfRenderSc
 
 function blitToBase(entry) {
   continuousRenderer.clearContinuousPageLayer($('continuousBasePages'), baseCanvas);
+  pdfDetailTile.clear();
   if (baseCanvas.dataset) baseCanvas.dataset.pdfEngine = entry.engine || '';
   baseCanvas.width = entry.canvas.width;
   baseCanvas.height = entry.canvas.height;
@@ -689,6 +698,7 @@ function blitToBase(entry) {
 }
 
 async function renderContinuousPdfPage({ fit = true, resetInteraction = true, minRenderScale = desiredPdfRenderScale(), shouldApply = () => true, reason = 'continuous-render' } = {}) {
+  pdfDetailTile.clear();
   state.navToken++;
   const token = state.navToken;
   const result = await continuousRenderer.renderContinuousPdf({
@@ -716,12 +726,14 @@ async function renderPdfPage({ fit = true, resetInteraction = true, minRenderSca
   state.navToken++;
   const myToken = state.navToken;
   const p = state.pdfPage;
+  const baseScale = pdfDetailTile.baseRenderScale(minRenderScale);
 
-  let cached = cacheGet(p, minRenderScale);
+  let cached = cacheGet(p, baseScale);
   if (cached) {
     if (!shouldApply()) return false;
     blitToBase(cached);
     onPageReady({ fit, resetInteraction });
+    await pdfDetailTile.renderNow({ reason: `${reason}-detail` });
     if (preRender) schedulePreRender();
     performanceLogger.recordRender({
       phase: 'cache-hit',
@@ -732,7 +744,7 @@ async function renderPdfPage({ fit = true, resetInteraction = true, minRenderSca
     });
     return true;
   }
-  cached = await renderPageToCanvas(p, minRenderScale, { reason });
+  cached = await renderPageToCanvas(p, baseScale, { reason });
   if (myToken !== state.navToken || !shouldApply()) {
     performanceLogger.recordRender({
       phase: 'stale',
@@ -745,13 +757,14 @@ async function renderPdfPage({ fit = true, resetInteraction = true, minRenderSca
   }
   blitToBase(cached);
   onPageReady({ fit, resetInteraction });
+  await pdfDetailTile.renderNow({ reason: `${reason}-detail` });
   if (preRender) schedulePreRender();
   return true;
 }
 
 function schedulePreRender() {
   if (!state.pdf) return;
-  const targetScale = desiredPdfRenderScale();
+  const targetScale = pdfDetailTile.baseRenderScale(desiredPdfRenderScale());
   state.preRenderQueue = pdfPageCache.planPreRenderPages({
     currentPage: state.pdfPage,
     pageCount: state.pdfPages,
@@ -768,7 +781,7 @@ async function runPreRender() {
   try {
     while (state.preRenderQueue.length > 0 && state.pdf) {
       const n = state.preRenderQueue.shift();
-      const targetScale = desiredPdfRenderScale();
+      const targetScale = pdfDetailTile.baseRenderScale(desiredPdfRenderScale());
       if (cacheHasUsable(n, targetScale)) continue;
       try { await renderPageToCanvas(n, targetScale, { reason: 'pre-render' }); } catch (_) { /* ignore */ }
       // Yield to keep UI responsive
