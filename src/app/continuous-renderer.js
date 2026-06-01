@@ -17,6 +17,14 @@
     return layout?.pages?.find(candidate => candidate.page === page) || null;
   }
 
+  function pageRenderBounds(layout) {
+    const pages = layout?.pages || [];
+    return {
+      width: Math.max(...pages.map(page => page.width), 1),
+      height: Math.max(...pages.map(page => page.height), 1),
+    };
+  }
+
   function pageAtStackPoint(layout, point) {
     if (!point) return null;
     return (layout?.pages || []).find(page => (
@@ -199,6 +207,7 @@
   window.TakeoffContinuousRenderer = {
     buildContinuousPageLayout,
     pageBoxForPage,
+    pageRenderBounds,
     pageAtStackPoint,
     stackPointToPagePoint,
     pagePointToStackPoint,

@@ -358,6 +358,7 @@ function applyTransform() {
 }
 
 function desiredPdfRenderScale() {
+  const renderBounds = state.continuousScrollMode && state.continuousPageLayout ? continuousRenderer.pageRenderBounds(state.continuousPageLayout) : { width: state.baseW, height: state.baseH };
   return pdfPageCache.desiredRenderScale({
     hasPdf: !!state.pdf,
     zoom: state.zoom,
@@ -365,8 +366,8 @@ function desiredPdfRenderScale() {
     minRenderScale: state.minPdfRenderScale,
     maxRenderScale: state.maxPdfRenderScale,
     maxBitmapEdge: state.maxPdfBitmapEdge,
-    baseWidth: state.baseW,
-    baseHeight: state.baseH,
+    baseWidth: renderBounds.width,
+    baseHeight: renderBounds.height,
   });
 }
 
