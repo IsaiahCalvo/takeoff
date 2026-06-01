@@ -17,6 +17,7 @@
       pdfPages: 0,
       continuousScrollMode: false,
       continuousPageLayout: null,
+      cachedContinuousPageLayout: null,
       imageBitmap: null,
       minPdfRenderScale: 2,
       maxPdfRenderScale: 12,
@@ -82,6 +83,7 @@
     state.pdfPage = 1;
     state.continuousScrollMode = false;
     state.continuousPageLayout = null;
+    state.cachedContinuousPageLayout = null;
     state.imageBitmap = null;
     state.baseW = 0;
     state.baseH = 0;
@@ -112,6 +114,7 @@
     state.pdfPages = doc.pdfPages || (doc.pdf ? doc.pdf.numPages : 1);
     state.continuousScrollMode = !!doc.continuousScrollMode;
     state.continuousPageLayout = null;
+    state.cachedContinuousPageLayout = null;
     state.imageBitmap = doc.imageBitmap || null;
     state.baseW = doc.baseW || 0;
     state.baseH = doc.baseH || 0;
