@@ -71,6 +71,16 @@ test('describeKeyDown maps mode hotkeys and skips text targets', async () => {
   assert.deepEqual(plain(input.describeKeyDown({ key: 'f' }, {})), { action: 'fit-view' });
 });
 
+test('describeKeyDown maps Shift+L to performance log save', async () => {
+  const input = await loadInputController();
+
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'L', shiftKey: true }, {})), {
+    action: 'save-performance-log',
+    preventDefault: true,
+  });
+  assert.equal(input.describeKeyDown({ key: 'l', shiftKey: true }, { target: { tagName: 'INPUT', readOnly: false } }), null);
+});
+
 test('describeKeyUp maps space and shift release actions', async () => {
   const input = await loadInputController();
 

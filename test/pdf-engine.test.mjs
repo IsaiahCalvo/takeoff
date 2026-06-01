@@ -4,7 +4,8 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadPdfEngine() {
-  const source = await readFile(new URL('../src/app/pdf-engine.js', import.meta.url), 'utf8');
+  const source = (await readFile(new URL('../src/app/pdf-engine.js', import.meta.url), 'utf8'))
+    .replaceAll('import.meta.url', JSON.stringify(new URL('../src/app/pdf-engine.js', import.meta.url).href));
   const sandbox = {
     console: { ...console, warn() {} },
     window: {},
@@ -75,6 +76,65 @@ function fakeEntry({ engine = 'embedpdf', cssWidth = 300, cssHeight = 200, rende
     renderScale,
     engine,
   };
+}
+
+function fakePdfiumWorkerFactory(messages) {
+  return () => ({
+    onmessage: null,
+    onerror: null,
+    terminated: false,
+    postMessage(message, transfer) {
+      messages.push({ message, transfer });
+      queueMicrotask(() => {
+        if (message.type === 'open') {
+          this.onmessage({ data: {
+            id: message.id,
+            ok: true,
+            result: {
+              docId: 'doc-1',
+              pageCount: 2,
+            },
+          } });
+          return;
+        }
+        if (message.type === 'getPageInfo') {
+          this.onmessage({ data: {
+            id: message.id,
+            ok: true,
+            result: {
+              pageNumber: message.pageNumber,
+              cssWidth: 612,
+              cssHeight: 792,
+              rotation: 0,
+            },
+          } });
+          return;
+        }
+        if (message.type === 'renderPage') {
+          this.onmessage({ data: {
+            id: message.id,
+            ok: true,
+            result: {
+              cssWidth: 612,
+              cssHeight: 792,
+              renderScale: message.scale,
+              width: 1224,
+              height: 1584,
+              buffer: new Uint8ClampedArray(1224 * 1584 * 4).buffer,
+              engine: 'pdfium-worker',
+            },
+          } });
+          return;
+        }
+        if (message.type === 'close') {
+          this.onmessage({ data: { id: message.id, ok: true, result: {} } });
+        }
+      });
+    },
+    terminate() {
+      this.terminated = true;
+    },
+  });
 }
 
 function plain(value) {
@@ -155,6 +215,40 @@ test('preferred engine receives flattened annotation render options', async () =
 
   assert.equal(doc.engine, 'embedpdf');
   assert.equal(options[0].withAnnotations, true);
+});
+
+test('PDFium worker adapter opens, renders, and closes through async messages', async () => {
+  const pdfEngine = await loadPdfEngine();
+  const messages = [];
+  const doc = await pdfEngine.createPdfiumWorkerDocument({
+    data: new Uint8Array([1, 2, 3]).buffer,
+    workerFactory: fakePdfiumWorkerFactory(messages),
+  });
+
+  assert.equal(doc.engine, 'pdfium-worker');
+  assert.equal(doc.numPages, 2);
+  assert.equal(messages[0].message.type, 'open');
+  assert.equal(messages[0].transfer.length, 1);
+
+  assert.deepEqual(plain(await doc.getPageInfo(1)), {
+    pageNumber: 1,
+    cssWidth: 612,
+    cssHeight: 792,
+    rotation: 0,
+  });
+
+  const entry = await doc.renderPage(1, { scale: 2, withAnnotations: true });
+
+  assert.equal(messages.find(item => item.message.type === 'renderPage').message.withAnnotations, true);
+  assert.equal(entry.engine, 'pdfium-worker');
+  assert.equal(entry.canvas.width, 1224);
+  assert.equal(entry.canvas.height, 1584);
+  assert.equal(entry.cssWidth, 612);
+  assert.equal(entry.cssHeight, 792);
+  assert.equal(entry.renderScale, 2);
+
+  await doc.destroy();
+  assert.equal(messages.at(-1).message.type, 'close');
 });
 
 test('preferred engine load failure falls back to PDF.js', async () => {

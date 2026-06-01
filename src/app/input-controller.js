@@ -30,6 +30,7 @@
     if (isCommand && key === 'c') return { action: 'copy', preventDefault: true };
     if (isCommand && key === 'x') return { action: 'cut', preventDefault: true };
     if (isCommand && key === 'v') return { action: 'paste', preventDefault: true };
+    if (!isCommand && event.shiftKey && key === 'l') return { action: 'save-performance-log', preventDefault: true };
 
     if (isSpaceKey(event)) {
       if (!state.spaceHeld && state.mode !== 'pan') {
