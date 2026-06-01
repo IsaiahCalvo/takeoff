@@ -48,6 +48,78 @@ test('curve controls are only returned when requested', async () => {
   assert.equal(hitTesting.findNearestVertex([measurement], { x: 20, y: 20 }, 4, { includeCurveControls: true }).control, 'c1');
 });
 
+test('curve vertex hit testing chooses the nearest visible handle, not the first in path order', async () => {
+  const hitTesting = await loadHitTesting();
+  const measurement = {
+    id: 88,
+    points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 6, y: 0 },
+      c2: { x: 80, y: 20 },
+      to: { x: 100, y: 0 },
+    }],
+  };
+
+  assert.deepEqual(JSON.parse(JSON.stringify(hitTesting.findNearestVertex(
+    [measurement],
+    { x: 5, y: 0 },
+    10,
+    { includeCurveControls: true },
+  ))), {
+    measurementId: 88,
+    kind: 'curve-control',
+    segmentIndex: 0,
+    control: 'c1',
+    point: { x: 6, y: 0 },
+  });
+});
+
+test('curve control can be selected when it overlaps an anchor, while nearby anchor clicks still select the anchor', async () => {
+  const hitTesting = await loadHitTesting();
+  const overlappedMeasurement = {
+    id: 89,
+    points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 0, y: 0 },
+      c2: { x: 80, y: 20 },
+      to: { x: 100, y: 0 },
+    }],
+  };
+  const nearMeasurement = {
+    id: 90,
+    points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 4, y: 0 },
+      c2: { x: 80, y: 20 },
+      to: { x: 100, y: 0 },
+    }],
+  };
+
+  const overlappedHit = hitTesting.findNearestVertex(
+    [overlappedMeasurement],
+    { x: 0, y: 0 },
+    10,
+    { includeCurveControls: true },
+  );
+  const anchorHit = hitTesting.findNearestVertex(
+    [nearMeasurement],
+    { x: 1, y: 0 },
+    10,
+    { includeCurveControls: true },
+  );
+
+  assert.equal(overlappedHit.kind, 'curve-control');
+  assert.equal(overlappedHit.control, 'c1');
+  assert.equal(anchorHit.kind, 'curve-anchor');
+  assert.equal(anchorHit.anchor, 'from');
+});
+
 test('findNearestPathPoint returns the nearest measurement path hit', async () => {
   const hitTesting = await loadHitTesting();
   const hit = hitTesting.findNearestPathPoint([
