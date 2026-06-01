@@ -210,6 +210,18 @@ test('calibration drafts are page-owned in continuous mode', async () => {
   assert.match(previewBlock, /const drawPts = continuousMeasurements\.stackPointsForPage\(state,\s*page,\s*pts\);/);
 });
 
+test('page changes default uncalibrated pages to pan mode', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const helper = main.match(/function syncPageScaleAndMode[^\n]+/)?.[0] || '';
+  const onPageReady = main.match(/function onPageReady[\s\S]*?\n\}/)?.[0] || '';
+  const continuousPageBranch = main.match(/if \(state\.continuousScrollMode && state\.continuousPageLayout\) \{[\s\S]*?\n    return;\n  \}/)?.[0] || '';
+
+  assert.match(helper, /stateStore\.syncCurrentPageScale\(state,\s*page\)/);
+  assert.match(helper, /if \(!state\.pxPerInch\) setMode\('pan'\)/);
+  assert.match(onPageReady, /syncPageScaleAndMode\(currentPage\(\)\)/);
+  assert.match(continuousPageBranch, /syncPageScaleAndMode\(n\)/);
+});
+
 test('single-page documents remove scope chrome entirely', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';

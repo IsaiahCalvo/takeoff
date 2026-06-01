@@ -303,6 +303,9 @@ function setMode(m, opts = {}) {
   redrawActivePreview();
   updateStatus();
 }
+
+function syncPageScaleAndMode(page) { stateStore.syncCurrentPageScale(state, page); if (!state.pxPerInch) setMode('pan'); }
+
 function updateStatus() {
   if (state.baseW || state.onboardingStatusSeen) {
     statusEl.classList.remove('show');
@@ -749,12 +752,9 @@ function onPageReady({ fit = true, resetInteraction = true } = {}) {
   setDocumentLoaded(true);
   empty.style.display = 'none';
   if (resetInteraction) state.inProgress = null;
-  stateStore.syncCurrentPageScale(state, currentPage());
-  $('prevPage').disabled = currentPage() <= 1;
-  $('nextPage').disabled = currentPage() >= totalPages();
-  updatePageLabel();
-  updateScaleLabel();
-  renderList();
+  syncPageScaleAndMode(currentPage());
+  $('prevPage').disabled = currentPage() <= 1; $('nextPage').disabled = currentPage() >= totalPages();
+  updatePageLabel(); updateScaleLabel(); renderList();
   if (fit) {
     fitToView(state.continuousScrollMode ? 'width' : 'page');
     if (state.continuousScrollMode) { focusContinuousPage(); applyTransform(); }
@@ -767,7 +767,7 @@ async function goToPage(n) {
   if (!state.pdf || n < 1 || n > state.pdfPages || n === state.pdfPage) return;
   state.pdfPage = n;
   if (state.continuousScrollMode && state.continuousPageLayout) {
-    stateStore.syncCurrentPageScale(state, n);
+    syncPageScaleAndMode(n);
     focusContinuousPage(n);
     applyTransform();
     updatePageLabel(); updateScaleLabel(); renderList();
