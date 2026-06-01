@@ -13,6 +13,31 @@
     return { width, height: Math.max(1, y - pageGap), pageGap, pages };
   }
 
+  function requestedPageNumbers(pageCount, pages = null) {
+    const count = Number(pageCount);
+    if (!Number.isInteger(count) || count <= 0) return [];
+    if (!Array.isArray(pages) || pages.length === 0) {
+      return Array.from({ length: count }, (_, index) => index + 1);
+    }
+    const seen = new Set();
+    return pages.filter(page => {
+      const number = Number(page);
+      if (!Number.isInteger(number) || number < 1 || number > count || seen.has(number)) return false;
+      seen.add(number);
+      return true;
+    }).map(Number);
+  }
+
+  function layoutPageNumbers(layout) {
+    return (layout?.pages || []).map(page => page.page);
+  }
+
+  function samePageNumbers(left, right) {
+    const a = left || [];
+    const b = right || [];
+    return a.length === b.length && a.every((page, index) => page === b[index]);
+  }
+
   function pageBoxForPage(layout, page) {
     return layout?.pages?.find(candidate => candidate.page === page) || null;
   }
@@ -134,6 +159,7 @@
 
   async function renderContinuousPdf({
     pageCount,
+    pages = null,
     requestedScale,
     maxBitmapEdge,
     cacheGet,
@@ -146,7 +172,7 @@
     configureCanvasCssSize,
   }) {
     const entries = [];
-    for (let page = 1; page <= pageCount; page += 1) {
+    for (const page of requestedPageNumbers(pageCount, pages)) {
       const entry = cacheGet(page, requestedScale) || await renderPage(page, requestedScale);
       if (!isCurrent()) return null;
       entries.push({ ...entry, page });
@@ -205,6 +231,9 @@
 
   window.TakeoffContinuousRenderer = {
     buildContinuousPageLayout,
+    requestedPageNumbers,
+    layoutPageNumbers,
+    samePageNumbers,
     pageBoxForPage,
     pageRenderBounds,
     pageAtStackPoint,

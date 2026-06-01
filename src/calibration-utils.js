@@ -101,6 +101,14 @@
     return Math.max(Math.abs(a), Math.abs(b), Number.EPSILON) * SAME_SCALE_RELATIVE_TOLERANCE;
   }
 
+  function isValidPageScale(scale) {
+    return Number.isFinite(scale) && scale > 0;
+  }
+
+  function pageScaleMatches(scale, canonicalScale) {
+    return isValidPageScale(scale) && Math.abs(scale - canonicalScale) <= sameScaleTolerance(scale, canonicalScale);
+  }
+
   function sameScalePdfEligibility(state) {
     const docState = state || {};
     const pageCount = Number(docState.pdfPages);
@@ -153,6 +161,71 @@
     return result;
   }
 
+  function sameScalePageGroupEligibility(state, page = null) {
+    const docState = state || {};
+    const pageCount = Number(docState.pdfPages);
+    const pageScales = docState.pageScales || {};
+    const result = {
+      eligible: false,
+      reason: '',
+      missingPages: [],
+      mismatchedPages: [],
+      canonicalScale: null,
+      pages: [],
+      startPage: null,
+      endPage: null,
+      groupPageCount: 0,
+      wholeDocument: false,
+    };
+
+    if (!docState.pdf) {
+      result.reason = 'not_pdf';
+      return result;
+    }
+
+    if (!Number.isInteger(pageCount) || pageCount <= 1) {
+      result.reason = 'single_page_pdf';
+      return result;
+    }
+
+    const requestedPage = Number(page ?? docState.pdfPage ?? 1);
+    const currentPage = Number.isInteger(requestedPage)
+      ? Math.min(Math.max(requestedPage, 1), pageCount)
+      : 1;
+    const currentScale = pageScales[currentPage];
+
+    if (!isValidPageScale(currentScale)) {
+      result.reason = 'missing_page_calibration';
+      result.missingPages.push(currentPage);
+      return result;
+    }
+
+    result.canonicalScale = currentScale;
+    let startPage = currentPage;
+    let endPage = currentPage;
+
+    while (startPage > 1 && pageScaleMatches(pageScales[startPage - 1], currentScale)) startPage -= 1;
+    while (endPage < pageCount && pageScaleMatches(pageScales[endPage + 1], currentScale)) endPage += 1;
+
+    for (let groupPage = startPage; groupPage <= endPage; groupPage += 1) {
+      result.pages.push(groupPage);
+    }
+    result.startPage = startPage;
+    result.endPage = endPage;
+    result.groupPageCount = result.pages.length;
+    result.wholeDocument = startPage === 1 && endPage === pageCount;
+
+    if (result.groupPageCount <= 1) {
+      result.reason = 'single_page_scale_group';
+      result.mismatchedPages.push(currentPage);
+      return result;
+    }
+
+    result.eligible = true;
+    result.reason = 'eligible';
+    return result;
+  }
+
   function applyScaleToPages({ measurements, pageScales, pages, pxPerInch, measureLengthPx }) {
     for (const page of pages || []) {
       pageScales[page] = pxPerInch;
@@ -183,6 +256,7 @@
     parsePageRange,
     computePxPerInch,
     sameScalePdfEligibility,
+    sameScalePageGroupEligibility,
     applyScaleToPages,
     clearPageScale,
     recomputeLengthsForPage,

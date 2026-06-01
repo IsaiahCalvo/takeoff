@@ -202,6 +202,82 @@ test('sameScalePdfEligibility treats tiny floating point scale differences as ma
   });
 });
 
+test('sameScalePageGroupEligibility returns the current consecutive same-scale group', async () => {
+  const utils = await loadUtils();
+  const state = {
+    pdf: {},
+    pdfPages: 8,
+    pdfPage: 2,
+    pageScales: { 1: 10, 2: 10, 3: 10, 4: 20, 5: 30, 6: 30, 7: 30, 8: 30 },
+  };
+
+  assert.deepEqual(plain(utils.sameScalePageGroupEligibility(state)), {
+    eligible: true,
+    reason: 'eligible',
+    missingPages: [],
+    mismatchedPages: [],
+    canonicalScale: 10,
+    pages: [1, 2, 3],
+    startPage: 1,
+    endPage: 3,
+    groupPageCount: 3,
+    wholeDocument: false,
+  });
+
+  assert.deepEqual(plain(utils.sameScalePageGroupEligibility({ ...state, pdfPage: 6 })), {
+    eligible: true,
+    reason: 'eligible',
+    missingPages: [],
+    mismatchedPages: [],
+    canonicalScale: 30,
+    pages: [5, 6, 7, 8],
+    startPage: 5,
+    endPage: 8,
+    groupPageCount: 4,
+    wholeDocument: false,
+  });
+});
+
+test('sameScalePageGroupEligibility rejects one-page and missing-scale groups', async () => {
+  const utils = await loadUtils();
+
+  assert.deepEqual(plain(utils.sameScalePageGroupEligibility({
+    pdf: {},
+    pdfPages: 4,
+    pdfPage: 4,
+    pageScales: { 1: 10, 2: 10, 3: 10, 4: 20 },
+  })), {
+    eligible: false,
+    reason: 'single_page_scale_group',
+    missingPages: [],
+    mismatchedPages: [4],
+    canonicalScale: 20,
+    pages: [4],
+    startPage: 4,
+    endPage: 4,
+    groupPageCount: 1,
+    wholeDocument: false,
+  });
+
+  assert.deepEqual(plain(utils.sameScalePageGroupEligibility({
+    pdf: {},
+    pdfPages: 4,
+    pdfPage: 3,
+    pageScales: { 1: 10, 2: 10, 4: 20 },
+  })), {
+    eligible: false,
+    reason: 'missing_page_calibration',
+    missingPages: [3],
+    mismatchedPages: [],
+    canonicalScale: null,
+    pages: [],
+    startPage: null,
+    endPage: null,
+    groupPageCount: 0,
+    wholeDocument: false,
+  });
+});
+
 test('applyScaleToPages updates page scales and recomputes page measurements', async () => {
   const utils = await loadUtils();
   const measurements = [

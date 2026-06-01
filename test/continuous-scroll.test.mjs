@@ -85,6 +85,27 @@ test('controlModel enables and reflects requested continuous scroll mode', async
   });
 });
 
+test('controlModel labels grouped continuous availability from the current page group', async () => {
+  const continuous = await loadContinuousScroll();
+
+  assert.deepEqual(plain(continuous.controlModel({
+    state: { pdf: {}, pdfPages: 8, continuousScrollMode: false },
+    eligibility: { eligible: true, reason: 'eligible', pages: [5, 6, 7, 8], wholeDocument: false },
+  })), {
+    visible: true,
+    enabled: true,
+    active: false,
+    title: 'Use continuous scroll for pages 5-8',
+    ariaLabel: 'Use continuous scroll for pages 5-8',
+    ariaPressed: 'false',
+  });
+
+  assert.equal(continuous.controlModel({
+    state: { pdf: {}, pdfPages: 8, continuousScrollMode: false },
+    eligibility: { eligible: false, reason: 'single_page_scale_group', mismatchedPages: [4] },
+  }).title, 'Continuous scroll needs adjacent pages with the same scale.');
+});
+
 test('exitReason explains why active continuous scroll was turned off', async () => {
   const continuous = await loadContinuousScroll();
 
