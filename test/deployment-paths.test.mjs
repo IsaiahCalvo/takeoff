@@ -280,6 +280,27 @@ test('continuous rendering uses a dedicated per-page bitmap layer', async () => 
   assert.match(main, /pageLayer:\s*\$\('continuousBasePages'\)/);
 });
 
+test('continuous PDF pages do not draw gray page borders', async () => {
+  const { styles } = await readIndexAndSidebarView();
+  const renderer = await readFile(new URL('../src/app/continuous-renderer.js', import.meta.url), 'utf8');
+  const continuousCanvasRules = [...styles.matchAll(/#continuousBasePages canvas\s*\{[^}]*\}/g)]
+    .map(match => match[0])
+    .join('\n');
+
+  assert.doesNotMatch(continuousCanvasRules, /box-shadow|border/);
+  assert.doesNotMatch(renderer, /strokeRect\(page\.x,\s*page\.y,\s*page\.width,\s*page\.height\)/);
+});
+
+test('upload controls avoid native browser title tooltips', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const uploadButton = html.match(/<button id="uploadButton"[\s\S]*?>/)?.[0] || '';
+  const emptyUploadButton = html.match(/<button id="emptyUploadButton"[\s\S]*?>/)?.[0] || '';
+
+  assert.doesNotMatch(uploadButton, /\btitle=/);
+  assert.doesNotMatch(emptyUploadButton, /\btitle=/);
+  assert.match(uploadButton, /aria-label="Upload Image\/PDF"/);
+});
+
 test('continuous zoom sharpening caps render scale by page bounds', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const desiredScale = main.match(/function desiredPdfRenderScale[\s\S]*?\n\}/)?.[0] || '';

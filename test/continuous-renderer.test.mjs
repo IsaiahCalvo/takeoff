@@ -188,6 +188,7 @@ test('renderContinuousPdf reuses cache entries and paints one composite canvas',
     ['drawImage', 'cached-1', 0, 0, 100, 50],
     ['drawImage', 'rendered-2', 0, 74, 100, 60],
   ]);
+  assert.deepEqual(calls.filter(call => call[0] === 'strokeRect'), []);
 });
 
 test('renderContinuousPdf paints individual page canvases when a page layer is supplied', async () => {

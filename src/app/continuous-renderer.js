@@ -95,12 +95,9 @@
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.save();
     context.scale(renderScale, renderScale);
-    context.strokeStyle = 'rgba(125, 138, 145, 0.42)';
-    context.lineWidth = 1 / renderScale;
     for (const page of layout.pages) {
       const entry = entries.find(item => item.page === page.page);
       context.drawImage(entry.canvas, page.x, page.y, page.width, page.height);
-      context.strokeRect(page.x, page.y, page.width, page.height);
     }
     context.restore();
   }
