@@ -166,6 +166,108 @@ test('convertFreehandMeasurementToLine avoids dense legacy freehand point clouds
   assert.equal(measurement.shape.previousFreehand.points.length, 30);
 });
 
+test('convertLineMeasurementToFreehand restores saved freehand geometry and preserves current line metadata', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 33,
+    drawType: 'line',
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    segments: null,
+    shape: {
+      active: 'line',
+      previousFreehand: {
+        points: [{ x: 0, y: 0 }, { x: 10, y: 8 }, { x: 20, y: 0 }],
+        segments: [{
+          type: 'cubic',
+          from: { x: 0, y: 0 },
+          c1: { x: 4, y: 16 },
+          c2: { x: 12, y: 16 },
+          to: { x: 20, y: 0 },
+        }],
+        labelT: 0.3,
+      },
+    },
+    lengthPx: 20,
+    lengthInches: 10,
+    labelT: 0.5,
+  };
+
+  assert.equal(commands.convertLineMeasurementToFreehand(measurement, { pxPerInch: 2 }), true);
+
+  assert.equal(measurement.drawType, 'freehand');
+  assert.equal(measurement.shape.active, 'freehand');
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.segments[0].c1)), { x: 4, y: 16 });
+  assert.ok(measurement.lengthPx > 20);
+  assert.equal(measurement.lengthInches, measurement.lengthPx / 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.shape.previousLine.points)), [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+  ]);
+  assert.equal(measurement.shape.previousLine.lengthPx, 20);
+
+  measurement.shape.previousLine.points[0].x = 99;
+  assert.equal(measurement.shape.previousFreehand.points[0].x, 0);
+});
+
+test('convertLineMeasurementToFreehand generates conservative freehand segments from pure line anchors', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 34,
+    drawType: 'line',
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 8 }],
+    shape: { active: 'line' },
+  };
+
+  assert.equal(commands.convertLineMeasurementToFreehand(measurement, { pxPerInch: 2 }), true);
+
+  assert.equal(measurement.drawType, 'freehand');
+  assert.equal(measurement.shape.active, 'freehand');
+  assert.equal(measurement.segments.length, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.segments[0].from)), { x: 0, y: 0 });
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.segments[1].to)), { x: 10, y: 8 });
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 10, y: 8 },
+  ]);
+  assert.equal(measurement.lengthPx, 18);
+  assert.equal(measurement.lengthInches, 9);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.shape.previousLine.points)), [
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 10, y: 8 },
+  ]);
+});
+
+test('converted line to freehand clipboard keeps active freehand and reversible metadata', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 35,
+    page: 1,
+    drawType: 'line',
+    points: [{ x: 0, y: 0 }, { x: 12, y: 0 }],
+    shape: { active: 'line' },
+  };
+
+  assert.equal(commands.convertLineMeasurementToFreehand(measurement, { pxPerInch: 3 }), true);
+  const clipboard = commands.cloneMeasurementForClipboard(measurement, { 1: 3 });
+
+  assert.equal(clipboard.shape.active, 'freehand');
+  assert.equal(clipboard.segments.length, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(clipboard.shape.previousLine.points)), [
+    { x: 0, y: 0 },
+    { x: 12, y: 0 },
+  ]);
+  measurement.shape.previousLine.points[0].x = 99;
+  measurement.segments[0].c1.x = 99;
+  assert.equal(clipboard.shape.previousLine.points[0].x, 0);
+  assert.equal(clipboard.segments[0].c1.x, 4);
+});
+
 test('cloneMeasurementForClipboard deep-copies geometry and stores source scale metadata', async () => {
   const commands = await loadCommands();
   const selected = {

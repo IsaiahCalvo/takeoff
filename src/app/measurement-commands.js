@@ -257,6 +257,38 @@
     };
   }
 
+  function lineGeometrySnapshot(measurement) {
+    return {
+      points: clonePoints(measurement?.points),
+      labelT: measurement?.labelT,
+      lengthPx: measurement?.lengthPx || geometry.polylineLengthPx(measurement?.points || []),
+      lengthInches: measurement?.lengthInches ?? null,
+    };
+  }
+
+  function lineSegmentsFromPoints(points) {
+    const source = points || [];
+    const segments = [];
+    for (let index = 1; index < source.length; index++) {
+      const from = clonePoint(source[index - 1]);
+      const to = clonePoint(source[index]);
+      segments.push({
+        type: 'cubic',
+        from,
+        c1: {
+          x: from.x + (to.x - from.x) / 3,
+          y: from.y + (to.y - from.y) / 3,
+        },
+        c2: {
+          x: from.x + (to.x - from.x) * 2 / 3,
+          y: from.y + (to.y - from.y) * 2 / 3,
+        },
+        to,
+      });
+    }
+    return segments;
+  }
+
   function convertFreehandMeasurementToLine(measurement, { pxPerInch } = {}) {
     if (!measurement || !measurementModel.isFreehandMeasurement(measurement)) return false;
     const linePoints = linePointsFromFreehand(measurement);
@@ -269,6 +301,27 @@
     measurement.shape = shape;
     measurement.points = linePoints;
     measurement.segments = null;
+    return finalizeMeasurementGeometry(measurement, { pxPerInch, preservedLabelPoint });
+  }
+
+  function convertLineMeasurementToFreehand(measurement, { pxPerInch } = {}) {
+    if (!measurement || !measurementModel.isLineMeasurement(measurement)) return false;
+    const linePoints = clonePoints(measurement.points);
+    if (linePoints.length < 2) return false;
+    const preservedLabelPoint = measurementLabelPoint(measurement);
+    const priorFreehand = measurement.shape?.previousFreehand || null;
+    const restoredPoints = clonePoints(priorFreehand?.points);
+    const sourcePoints = restoredPoints.length >= 2 ? restoredPoints : linePoints;
+    const restoredSegments = cloneSegments(priorFreehand?.segments);
+    const segments = restoredSegments?.length ? restoredSegments : lineSegmentsFromPoints(sourcePoints);
+    if (!segments.length) return false;
+    const shape = cloneMeasurementShape(measurement);
+    shape.active = 'freehand';
+    shape.previousLine = lineGeometrySnapshot(measurement);
+    measurement.drawType = 'freehand';
+    measurement.shape = shape;
+    measurement.points = clonePoints(sourcePoints);
+    measurement.segments = segments;
     return finalizeMeasurementGeometry(measurement, { pxPerInch, preservedLabelPoint });
   }
 
@@ -368,6 +421,7 @@
     removeAnchorFromMeasurement,
     measurementLabelPoint,
     convertFreehandMeasurementToLine,
+    convertLineMeasurementToFreehand,
     finalizeMeasurementGeometry,
     shouldAskPasteMode,
     createPastedMeasurement,
