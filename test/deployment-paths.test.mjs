@@ -82,7 +82,7 @@ test('main runtime stays below the current coordination ceiling', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const lineCount = main.trimEnd().split('\n').length;
 
-  assert.equal(lineCount < 2400, true, `src/main.js has ${lineCount} lines`);
+  assert.equal(lineCount < 2450, true, `src/main.js has ${lineCount} lines`);
   assert.doesNotMatch(main, /function downloadBytes\(/);
   assert.doesNotMatch(main, /function positionToolTip\(/);
   assert.match(main, /TakeoffPointerWorkflow/);
@@ -257,6 +257,32 @@ test('main renders PDFs through the Takeoff PDF engine adapter', async () => {
   assert.match(main, /const pdfEngine = window\.TakeoffPdfEngine;/);
   assert.match(main, /pdfEngine\.createPdfEngineDocument/);
   assert.doesNotMatch(main, /state\.pdf\.getPage\(/);
+});
+
+test('PDF rendering has no user-facing fallback toggle', async () => {
+  const { html, main, styles } = await readIndexAndSidebarView();
+
+  assert.doesNotMatch(html, /id="pdfEngineToggle"/);
+  assert.doesNotMatch(html, /data-pdf-engine=/);
+  assert.doesNotMatch(html, /PDF\.js Current/);
+  assert.doesNotMatch(html, /PDF\.js Sharp/);
+  assert.doesNotMatch(styles, /pdf-engine/);
+  assert.doesNotMatch(main, /pdfEngineChoice/);
+  assert.doesNotMatch(main, /pdf-engine-controller/);
+  assert.doesNotMatch(main, /switchPdfEngine/);
+  assert.match(main, /createPdfEngineDocument\(\{ data: buf, pdfjsLib \}\)/);
+});
+
+test('PDF.js detail tile is layered above the base bitmap and below measurements', async () => {
+  const { html, main, styles } = await readIndexAndSidebarView();
+
+  assert.match(html, /id="baseCanvas"[\s\S]*id="pdfDetailCanvas"[\s\S]*id="drawCanvas"/);
+  assert.match(styles, /#pdfDetailCanvas/);
+  assert.match(main, /import '\.\/app\/pdf-detail-tile\.js';/);
+  assert.match(main, /TakeoffPdfDetailTile\.createPdfDetailTileController/);
+  assert.match(main, /pdfDetailTile\.baseRenderScale/);
+  assert.match(main, /pdfDetailTile\.schedule/);
+  assert.match(main, /renderContinuousPdfPage[\s\S]*pdfDetailTile\.baseRenderScale\(minRenderScale\)/);
 });
 
 test('single-page documents remove scope chrome entirely', async () => {

@@ -62,13 +62,15 @@
     return cache.get(pageNumber);
   }
 
-  function planPreRenderPages({ currentPage, pageCount, cache, targetScale }) {
+  function planPreRenderPages({ currentPage, pageCount, cache, targetScale, maxPages = Infinity }) {
     const desired = [];
     for (let offset = 1; offset <= pageCount; offset++) {
       if (currentPage + offset <= pageCount) desired.push(currentPage + offset);
       if (currentPage - offset >= 1) desired.push(currentPage - offset);
     }
-    return desired.filter(pageNumber => !hasUsableCachedPage(cache, pageNumber, targetScale));
+    return desired
+      .filter(pageNumber => !hasUsableCachedPage(cache, pageNumber, targetScale))
+      .slice(0, maxPages);
   }
 
   window.TakeoffPdfPageCache = {

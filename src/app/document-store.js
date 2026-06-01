@@ -26,6 +26,8 @@
       id: state.activeDocId,
       name: nameOverride || activeDocumentName(state) || 'Untitled',
       pdf: state.pdf,
+      pdfSourceData: state.pdfSourceData,
+      pdfFileName: state.pdfFileName,
       pdfPage: state.pdfPage,
       pdfPages: state.pdfPages,
       continuousScrollMode: !!state.continuousScrollMode,

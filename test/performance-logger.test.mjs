@@ -55,6 +55,7 @@ test('performance logger records zoom direction, rate, and cursor anchor error',
     anchorBefore: { x: 50, y: 75 },
     anchorAfter: { x: 50.2, y: 74.9 },
     targetRenderScale: 2.24,
+    targetDetailRenderScale: 6.72,
   });
   perf.recordZoom({
     source: 'button',
@@ -75,6 +76,7 @@ test('performance logger records zoom direction, rate, and cursor anchor error',
   assert.equal(payload.summary.zoom.outCount, 1);
   assert.equal(payload.events[0].kind, 'zoom');
   assert.equal(payload.events[0].direction, 'in');
+  assert.equal(payload.events[0].targetDetailRenderScale, 6.72);
   assert.equal(payload.events[1].eventsPerSecond, 4);
   assert.deepEqual(plain(payload.events[0].cursorCentric), {
     anchorBefore: { x: 50, y: 75 },
@@ -119,6 +121,88 @@ test('performance logger records scroll input rate and reflected pan/page respon
   assert.equal(payload.events[0].pageBefore, 1);
   assert.equal(payload.events[0].pageAfter, 2);
   assert.equal(payload.events[1].scrollPixelsPerSecond, 480);
+});
+
+test('performance logger attaches current PDF, page, and render engine context to saved events', async () => {
+  const logger = await loadPerformanceLogger();
+  const perf = logger.createPerformanceLogger({
+    now: (() => {
+      const values = [5000, 5080];
+      return () => values.shift() ?? 5080;
+    })(),
+    dateNow: () => new Date('2026-06-01T12:00:02.000Z'),
+  });
+
+  perf.setContext({
+    fileName: 'SE-011 Security Shop Drawing.pdf',
+    page: 2,
+    pageCount: 12,
+    renderEngine: 'pdfjs',
+  });
+  perf.recordZoom({
+    source: 'wheel',
+    direction: 'in',
+    factor: 1.12,
+    before: { zoom: 1, panX: 0, panY: 0 },
+    after: { zoom: 1.12, panX: -10, panY: -20 },
+    cursor: { clientX: 100, clientY: 100 },
+    anchorBefore: { x: 50, y: 50 },
+    anchorAfter: { x: 50, y: 50 },
+    targetRenderScale: 2.24,
+  });
+
+  perf.setContext({ page: 3, renderEngine: 'pdfjs' });
+  perf.recordScroll({
+    source: 'wheel',
+    deltaX: 0,
+    deltaY: 120,
+    before: { panX: 0, panY: 0, page: 2 },
+    after: { panX: 0, panY: -120, page: 3 },
+    continuous: true,
+  });
+
+  const payload = perf.buildPayload();
+
+  assert.deepEqual(plain(payload.context), {
+    fileName: 'SE-011 Security Shop Drawing.pdf',
+    page: 3,
+    pageCount: 12,
+    renderEngine: 'pdfjs',
+  });
+  assert.deepEqual(plain(payload.events[0].context), {
+    fileName: 'SE-011 Security Shop Drawing.pdf',
+    page: 2,
+    pageCount: 12,
+    renderEngine: 'pdfjs',
+  });
+  assert.deepEqual(plain(payload.events[1].context), {
+    fileName: 'SE-011 Security Shop Drawing.pdf',
+    page: 3,
+    pageCount: 12,
+    renderEngine: 'pdfjs',
+  });
+});
+
+test('performance logger records periodic FPS samples with active context', async () => {
+  const logger = await loadPerformanceLogger();
+  const perf = logger.createPerformanceLogger({
+    now: () => 1600,
+    dateNow: () => new Date('2026-06-01T12:00:03.000Z'),
+  });
+
+  perf.setContext({ fileName: 'sample.pdf', page: 1, renderEngine: 'pdfjs' });
+  perf.recordFrameSample(1000);
+  perf.recordFrameSample(1016);
+  perf.recordFrameSample(1532);
+
+  const payload = perf.buildPayload();
+  const fpsEvent = payload.events.find(event => event.kind === 'fps');
+
+  assert.equal(payload.summary.frameRate.samples, 2);
+  assert.equal(fpsEvent.fps, 1.938);
+  assert.equal(fpsEvent.averageFps, 32.219);
+  assert.equal(fpsEvent.context.fileName, 'sample.pdf');
+  assert.equal(fpsEvent.context.renderEngine, 'pdfjs');
 });
 
 test('performance logger saves chronological timestamped logs to the local dev endpoint', async () => {

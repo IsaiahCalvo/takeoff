@@ -11,6 +11,8 @@
       prevMode: 'pan',
       spaceHeld: false,
       pdf: null,
+      pdfSourceData: null,
+      pdfFileName: null,
       pdfPage: 1,
       pdfPages: 0,
       continuousScrollMode: false,
@@ -18,6 +20,7 @@
       imageBitmap: null,
       minPdfRenderScale: 2,
       maxPdfRenderScale: 12,
+      maxPdfDetailTileScale: 40,
       maxPdfBitmapEdge: 15000,
       baseW: 0,
       baseH: 0,
@@ -56,6 +59,7 @@
       collapsedPageGroups: {},
       pageCache: new Map(),
       MAX_CACHE: 20,
+      maxPreRenderPages: 4,
       preRenderQueue: [],
       preRenderRunning: false,
       navToken: 0,
@@ -72,6 +76,8 @@
 
   function resetDocumentState(state) {
     state.pdf = null;
+    state.pdfSourceData = null;
+    state.pdfFileName = null;
     state.pdfPages = 0;
     state.pdfPage = 1;
     state.continuousScrollMode = false;
@@ -100,6 +106,8 @@
   function restoreDocumentState(state, doc) {
     state.activeDocId = doc.id;
     state.pdf = doc.pdf;
+    state.pdfSourceData = doc.pdfSourceData || null;
+    state.pdfFileName = doc.pdfFileName || doc.name || null;
     state.pdfPage = doc.pdfPage || 1;
     state.pdfPages = doc.pdfPages || (doc.pdf ? doc.pdf.numPages : 1);
     state.continuousScrollMode = !!doc.continuousScrollMode;
