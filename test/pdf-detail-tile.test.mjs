@@ -15,7 +15,7 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-test('PDF.js detail tiling caps only single-page PDF.js base renders', async () => {
+test('PDF.js detail tiling caps PDF.js base renders in single page and continuous modes', async () => {
   const detailTile = await loadPdfDetailTile();
 
   assert.equal(detailTile.shouldUseDetailTile({
@@ -31,14 +31,14 @@ test('PDF.js detail tiling caps only single-page PDF.js base renders', async () 
     baseMaxScale: 2.5,
   }), 2.5);
   assert.equal(detailTile.baseRenderScale({
-    engine: 'pdfium-worker',
-    continuousScrollMode: false,
-    requestedScale: 6,
-    baseMaxScale: 2.5,
-  }), 6);
-  assert.equal(detailTile.baseRenderScale({
     engine: 'pdfjs',
     continuousScrollMode: true,
+    requestedScale: 6,
+    baseMaxScale: 2.5,
+  }), 2.5);
+  assert.equal(detailTile.baseRenderScale({
+    engine: 'pdfium-worker',
+    continuousScrollMode: false,
     requestedScale: 6,
     baseMaxScale: 2.5,
   }), 6);
@@ -67,4 +67,25 @@ test('visibleTileRect maps the visible viewport into page coordinates', async ()
     baseHeight: 800,
     overscanPx: 0,
   }), null);
+});
+
+test('visiblePageTileRect maps a continuous page viewport into page and stack coordinates', async () => {
+  const detailTile = await loadPdfDetailTile();
+
+  assert.deepEqual(plain(detailTile.visiblePageTileRect({
+    stageRect: { left: 0, top: 0, right: 500, bottom: 700 },
+    viewportRect: { left: -200, top: -300, width: 1000, height: 1200 },
+    pageBox: { page: 2, x: 50, y: 300, width: 400, height: 300 },
+    baseWidth: 500,
+    baseHeight: 600,
+    overscanPx: 0,
+  })), {
+    page: 2,
+    sourceX: 50,
+    sourceY: 0,
+    width: 250,
+    height: 200,
+    stackX: 100,
+    stackY: 300,
+  });
 });

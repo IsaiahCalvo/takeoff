@@ -281,6 +281,7 @@ test('PDF.js detail tile is layered above the base bitmap and below measurements
   assert.match(main, /TakeoffPdfDetailTile\.createPdfDetailTileController/);
   assert.match(main, /pdfDetailTile\.baseRenderScale/);
   assert.match(main, /pdfDetailTile\.schedule/);
+  assert.match(main, /renderContinuousPdfPage[\s\S]*pdfDetailTile\.baseRenderScale\(minRenderScale\)/);
 });
 
 test('single-page documents remove scope chrome entirely', async () => {

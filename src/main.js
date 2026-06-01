@@ -701,8 +701,9 @@ async function renderContinuousPdfPage({ fit = true, resetInteraction = true, mi
   pdfDetailTile.clear();
   state.navToken++;
   const token = state.navToken;
+  const baseScale = pdfDetailTile.baseRenderScale(minRenderScale);
   const result = await continuousRenderer.renderContinuousPdf({
-    pageCount: state.pdfPages, requestedScale: minRenderScale, maxBitmapEdge: state.maxPdfBitmapEdge, cacheGet,
+    pageCount: state.pdfPages, requestedScale: baseScale, maxBitmapEdge: state.maxPdfBitmapEdge, cacheGet,
     renderPage: (page, requestedScale) => renderPageToCanvas(page, requestedScale, { reason }),
     isCurrent: () => token === state.navToken && shouldApply(),
     canvas: baseCanvas, context: baseCtx, pageLayer: $('continuousBasePages'), configureCanvasCssSize,
@@ -711,6 +712,7 @@ async function renderContinuousPdfPage({ fit = true, resetInteraction = true, mi
   state.baseW = result.layout.width; state.baseH = result.layout.height; state.continuousPageLayout = result.layout;
   configureDrawCanvas();
   onPageReady({ fit, resetInteraction });
+  await pdfDetailTile.renderNow({ reason: `${reason}-detail` });
   return true;
 }
 

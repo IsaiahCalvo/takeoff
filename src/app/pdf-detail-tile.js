@@ -21,12 +21,10 @@
 
   function shouldUseDetailTile({
     engine,
-    continuousScrollMode = false,
     requestedScale = 1,
     baseMaxScale = DEFAULT_BASE_MAX_SCALE,
   } = {}) {
     return engine === 'pdfjs'
-      && !continuousScrollMode
       && isPositive(requestedScale)
       && isPositive(baseMaxScale)
       && requestedScale > baseMaxScale;
@@ -68,6 +66,44 @@
     return { sourceX, sourceY, width, height };
   }
 
+  function visiblePageTileRect({
+    stageRect,
+    viewportRect,
+    pageBox,
+    baseWidth,
+    baseHeight,
+    overscanPx = DEFAULT_OVERSCAN_PX,
+  } = {}) {
+    if (!pageBox || !isPositive(pageBox.width) || !isPositive(pageBox.height)) return null;
+    if (!viewportRect || !isPositive(viewportRect.width) || !isPositive(viewportRect.height)) return null;
+    if (!isPositive(baseWidth) || !isPositive(baseHeight)) return null;
+    const scaleX = viewportRect.width / baseWidth;
+    const scaleY = viewportRect.height / baseHeight;
+    if (!isPositive(scaleX) || !isPositive(scaleY)) return null;
+    const pageRect = {
+      left: viewportRect.left + pageBox.x * scaleX,
+      top: viewportRect.top + pageBox.y * scaleY,
+      width: pageBox.width * scaleX,
+      height: pageBox.height * scaleY,
+    };
+    pageRect.right = pageRect.left + pageRect.width;
+    pageRect.bottom = pageRect.top + pageRect.height;
+    const tile = visibleTileRect({
+      stageRect,
+      viewportRect: pageRect,
+      baseWidth: pageBox.width,
+      baseHeight: pageBox.height,
+      overscanPx,
+    });
+    if (!tile) return null;
+    return {
+      page: pageBox.page,
+      ...tile,
+      stackX: pageBox.x + tile.sourceX,
+      stackY: pageBox.y + tile.sourceY,
+    };
+  }
+
   function createPdfDetailTileController({
     state,
     stage,
@@ -89,7 +125,6 @@
     function canTile(requestedScale = desiredPdfRenderScale?.()) {
       return hasTileRenderer() && shouldUseDetailTile({
         engine: state.pdf?.engine,
-        continuousScrollMode: state.continuousScrollMode,
         requestedScale,
         baseMaxScale,
       });
@@ -140,18 +175,19 @@
         return false;
       }
       const requestedScale = desiredPdfRenderScale();
-      const tileRect = visibleTileRect({
-        stageRect: stage.getBoundingClientRect(),
-        viewportRect: viewport.getBoundingClientRect(),
-        baseWidth: state.baseW,
-        baseHeight: state.baseH,
-        overscanPx,
-      });
+      const stageRect = stage.getBoundingClientRect();
+      const viewportRect = viewport.getBoundingClientRect();
+      const pageBox = state.continuousScrollMode && state.continuousPageLayout
+        ? state.continuousPageLayout.pages?.find(candidate => candidate.page === state.pdfPage)
+        : null;
+      const tileRect = pageBox
+        ? visiblePageTileRect({ stageRect, viewportRect, pageBox, baseWidth: state.baseW, baseHeight: state.baseH, overscanPx })
+        : visibleTileRect({ stageRect, viewportRect, baseWidth: state.baseW, baseHeight: state.baseH, overscanPx });
       if (!tileRect) {
         clear();
         return false;
       }
-      const page = state.pdfPage;
+      const page = tileRect.page || state.pdfPage;
       const myGeneration = ++generation;
       const startedAt = performance.now();
       logger?.recordRender?.({
@@ -170,7 +206,11 @@
           withAnnotations: true,
         });
         if (myGeneration !== generation || page !== state.pdfPage) return false;
-        paint(entry);
+        paint({
+          ...entry,
+          cssX: tileRect.stackX ?? entry.cssX,
+          cssY: tileRect.stackY ?? entry.cssY,
+        });
         logger?.recordRender?.({
           phase: 'end',
           reason,
@@ -225,6 +265,7 @@
     shouldUseDetailTile,
     baseRenderScale,
     visibleTileRect,
+    visiblePageTileRect,
     createPdfDetailTileController,
   };
 })();
