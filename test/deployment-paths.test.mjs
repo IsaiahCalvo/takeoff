@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 
 async function readIndexAndSidebarView() {
   const [html, main, sidebarView, sidebarController, styles] = await Promise.all([
@@ -73,6 +73,29 @@ test('run summary text is owned by the dynamic counter', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
   assert.doesNotMatch(html, /<span id="runCount">[^<]*<\/span>\s+runs/);
+});
+
+test('pan toolbar icon is inline so it cannot lose its mask asset path', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const panButton = html.match(/<button id="btn-pan"[\s\S]*?<\/button>/)?.[0] || '';
+
+  assert.match(panButton, /<svg\b/);
+  assert.doesNotMatch(panButton, /mask-icon|toolbar-pan\.svg/);
+});
+
+test('toolbar icons use one inline svg contract instead of external mask assets', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const publicFiles = await readdir(new URL('../public', import.meta.url));
+  const toolbarButtons = [...html.matchAll(/<button id="(btn-[^"]+)" class="tool-btn"[\s\S]*?<\/button>/g)];
+
+  assert.ok(toolbarButtons.length >= 4, 'expected primary toolbar buttons to be covered');
+  for (const [markup, id] of toolbarButtons) {
+    assert.match(markup, /<svg\b/, `${id} must render an inline SVG icon`);
+    assert.doesNotMatch(markup, /mask-icon|toolbar-[a-z-]+\.svg|--icon:url/, `${id} must not use external icon masks`);
+  }
+  assert.doesNotMatch(styles, /\.mask-icon|\bmask:\s*var\(--icon\)|-webkit-mask:\s*var\(--icon\)/);
+  assert.deepEqual(publicFiles.filter(file => /^toolbar-.*\.svg$/.test(file)), []);
 });
 
 test('calibration apply scope uses one compact combo row', async () => {

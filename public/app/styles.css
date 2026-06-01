@@ -610,15 +610,6 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   color: var(--accent);
   background: var(--accent-soft);
 }
-.mask-icon {
-  width: 20px;
-  height: 20px;
-  display: block;
-  background: currentColor;
-  mask: var(--icon) center / contain no-repeat;
-  -webkit-mask: var(--icon) center / contain no-repeat;
-}
-button.active .mask-icon { background: currentColor; }
 .sr-only {
   position: absolute;
   width: 1px;
