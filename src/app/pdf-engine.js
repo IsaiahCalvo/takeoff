@@ -85,8 +85,107 @@
   }
 
   function copyArrayBuffer(data) {
+    if (data?.slice && typeof data.byteLength === 'number' && data.byteOffset == null) return data.slice(0);
     if (data instanceof ArrayBuffer) return data.slice(0);
     return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  }
+
+  function defaultPdfiumWorkerFactory() {
+    if (typeof Worker === 'undefined') throw new Error('PDFium worker rendering is unavailable.');
+    return new Worker(new URL('./pdfium-render-worker.js', import.meta.url), { type: 'module' });
+  }
+
+  function workerMessageError(error) {
+    return error instanceof Error ? error : new Error(error?.message || String(error || 'PDFium worker failed.'));
+  }
+
+  function createWorkerClient(worker) {
+    let nextId = 1;
+    const pending = new Map();
+    worker.onmessage = event => {
+      const message = event.data || {};
+      const callbacks = pending.get(message.id);
+      if (!callbacks) return;
+      pending.delete(message.id);
+      if (message.ok) callbacks.resolve(message.result);
+      else callbacks.reject(new Error(message.error || 'PDFium worker failed.'));
+    };
+    worker.onerror = event => {
+      const error = workerMessageError(event.error || event.message);
+      for (const callbacks of pending.values()) callbacks.reject(error);
+      pending.clear();
+    };
+    return {
+      post(type, payload = {}, transfer = []) {
+        const id = nextId;
+        nextId += 1;
+        const promise = new Promise((resolve, reject) => {
+          pending.set(id, { resolve, reject });
+        });
+        worker.postMessage({ id, type, ...payload }, transfer);
+        return promise;
+      },
+      terminate() {
+        worker.terminate();
+      },
+    };
+  }
+
+  function canvasFromWorkerRender(result) {
+    const rgba = new Uint8ClampedArray(result.buffer);
+    const canvas = document.createElement('canvas');
+    canvas.width = result.width;
+    canvas.height = result.height;
+    markCanvasEngine(canvas, result.engine || 'pdfium-worker');
+    canvas.getContext('2d').putImageData(new ImageData(rgba, result.width, result.height), 0, 0);
+    return {
+      canvas,
+      cssWidth: result.cssWidth,
+      cssHeight: result.cssHeight,
+      renderScale: result.renderScale,
+      engine: result.engine || 'pdfium-worker',
+    };
+  }
+
+  async function createPdfiumWorkerDocument({
+    data,
+    workerFactory = defaultPdfiumWorkerFactory,
+  } = {}) {
+    const worker = workerFactory();
+    const client = createWorkerClient(worker);
+    const buffer = copyArrayBuffer(data);
+    try {
+      const opened = await client.post('open', { data: buffer }, [buffer]);
+      return {
+        engine: 'pdfium-worker',
+        numPages: opened.pageCount,
+        getPageCount() {
+          return opened.pageCount;
+        },
+        getPageInfo(pageNumber) {
+          return client.post('getPageInfo', { docId: opened.docId, pageNumber });
+        },
+        async renderPage(pageNumber, { scale = 1, withAnnotations = true } = {}) {
+          const result = await client.post('renderPage', {
+            docId: opened.docId,
+            pageNumber,
+            scale,
+            withAnnotations,
+          });
+          return canvasFromWorkerRender(result);
+        },
+        async destroy() {
+          try {
+            await client.post('close', { docId: opened.docId });
+          } finally {
+            client.terminate();
+          }
+        },
+      };
+    } catch (error) {
+      client.terminate();
+      throw error;
+    }
   }
 
   function pageDimensions(pdfium, pagePtr) {
@@ -202,7 +301,7 @@
   async function createPdfEngineDocument({
     data,
     pdfjsLib,
-    preferredFactory = createPdfiumDocumentFromBuffer,
+    preferredFactory = createPdfiumWorkerDocument,
   } = {}) {
     if (preferredFactory) {
       try {
@@ -230,6 +329,7 @@
 
   window.TakeoffPdfEngine = {
     createPdfJsDocument,
+    createPdfiumWorkerDocument,
     createPdfiumDocument,
     createPdfEngineDocument,
   };
