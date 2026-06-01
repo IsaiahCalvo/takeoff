@@ -41,20 +41,20 @@ test('controlModel disables multi-page PDFs with helper-derived reasons', async 
 
   assert.deepEqual(plain(continuous.controlModel({
     state: { pdf: {}, pdfPages: 4, continuousScrollMode: false },
-    eligibility: { eligible: false, reason: 'missing_page_calibration', missingPages: [2, 4] },
+    eligibility: { eligible: false, reason: 'not_pdf' },
   })), {
     visible: true,
     enabled: false,
     active: false,
-    title: 'Calibrate pages 2 and 4 to use continuous scroll.',
-    ariaLabel: 'Calibrate pages 2 and 4 to use continuous scroll.',
+    title: 'Continuous scroll needs a multi-page PDF.',
+    ariaLabel: 'Continuous scroll needs a multi-page PDF.',
     ariaPressed: 'false',
   });
 
   assert.equal(continuous.controlModel({
     state: { pdf: {}, pdfPages: 4, continuousScrollMode: true },
-    eligibility: { eligible: false, reason: 'mismatched_page_scale', mismatchedPages: [3] },
-  }).title, 'Match calibration on page 3 to use continuous scroll.');
+    eligibility: { eligible: false, reason: 'single_page_pdf' },
+  }).title, 'Continuous scroll needs a multi-page PDF.');
 });
 
 test('controlModel enables and reflects requested continuous scroll mode', async () => {
@@ -67,8 +67,8 @@ test('controlModel enables and reflects requested continuous scroll mode', async
     visible: true,
     enabled: true,
     active: false,
-    title: 'Use continuous scroll',
-    ariaLabel: 'Use continuous scroll',
+    title: 'Turn continuous scroll on',
+    ariaLabel: 'Turn continuous scroll on',
     ariaPressed: 'false',
   });
 
@@ -79,31 +79,26 @@ test('controlModel enables and reflects requested continuous scroll mode', async
     visible: true,
     enabled: true,
     active: true,
-    title: 'Return to single-page view',
-    ariaLabel: 'Return to single-page view',
+    title: 'Turn continuous scroll off',
+    ariaLabel: 'Turn continuous scroll off',
     ariaPressed: 'true',
   });
 });
 
-test('controlModel labels grouped continuous availability from the current page group', async () => {
+test('controlModel labels whole-document continuous availability without calibration group text', async () => {
   const continuous = await loadContinuousScroll();
 
   assert.deepEqual(plain(continuous.controlModel({
     state: { pdf: {}, pdfPages: 8, continuousScrollMode: false },
-    eligibility: { eligible: true, reason: 'eligible', pages: [5, 6, 7, 8], wholeDocument: false },
+    eligibility: { eligible: true, reason: 'eligible', pages: [1, 2, 3, 4, 5, 6, 7, 8], wholeDocument: true },
   })), {
     visible: true,
     enabled: true,
     active: false,
-    title: 'Use continuous scroll for pages 5-8',
-    ariaLabel: 'Use continuous scroll for pages 5-8',
+    title: 'Turn continuous scroll on',
+    ariaLabel: 'Turn continuous scroll on',
     ariaPressed: 'false',
   });
-
-  assert.equal(continuous.controlModel({
-    state: { pdf: {}, pdfPages: 8, continuousScrollMode: false },
-    eligibility: { eligible: false, reason: 'single_page_scale_group', mismatchedPages: [4] },
-  }).title, 'Continuous scroll needs adjacent pages with the same scale.');
 });
 
 test('group preferences remember the user-selected scroll mode for each eligible page group', async () => {

@@ -254,22 +254,25 @@ test('continuous page layer is retained for fast toggle re-entry', async () => {
   assert.match(blitToBase, /layer\.hidden = true/);
 });
 
-test('continuous navigation clears stale layouts when the destination group is not eligible', async () => {
+test('continuous navigation keeps document-wide mode across mixed-calibration pages', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const goToPage = main.match(/async function goToPage[\s\S]*?\n\}/)?.[0] || '';
 
   assert.match(goToPage, /const eligibility = continuousEligibility\(n\)/);
+  assert.match(main, /pdfContinuousScrollEligibility/);
+  assert.doesNotMatch(main, /sameScalePageGroupEligibility/);
+  assert.match(goToPage, /state\.continuousScrollMode = eligibility\.eligible && wasContinuous/);
+  assert.doesNotMatch(goToPage, /preferredGroupMode/);
   assert.match(goToPage, /if \(!eligibility\.eligible\) state\.continuousPageLayout = null/);
 });
 
-test('continuous navigation restores the saved preference for a returning page group', async () => {
+test('continuous toggle stores one document-level on off state', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
-  const goToPage = main.match(/async function goToPage[\s\S]*?\n\}/)?.[0] || '';
   const toggleHandler = main.match(/\$\('continuousScrollToggle'\)\.addEventListener\('click'[\s\S]*?\n\}\);/)?.[0] || '';
 
-  assert.match(goToPage, /continuousScroll\.preferredGroupMode/);
-  assert.match(goToPage, /state\.continuousScrollMode = eligibility\.eligible && \(preferred === null \? wasContinuous : preferred\)/);
-  assert.match(toggleHandler, /continuousScroll\.recordGroupPreference/);
+  assert.match(toggleHandler, /state\.continuousScrollMode = !state\.continuousScrollMode/);
+  assert.match(toggleHandler, /saveActiveDocument\(\)/);
+  assert.doesNotMatch(toggleHandler, /recordGroupPreference/);
 });
 
 test('continuous page layer is prewarmed before the first toggle', async () => {
@@ -296,6 +299,18 @@ test('continuous rendering uses a dedicated per-page bitmap layer', async () => 
   assert.match(html, /id="continuousBasePages"/);
   assert.match(styles, /#continuousBasePages/);
   assert.match(main, /pageLayer:\s*\$\('continuousBasePages'\)/);
+});
+
+test('continuous scroll active state highlights the icon instead of button chrome', async () => {
+  const { styles } = await readIndexAndSidebarView();
+  const activeRule = styles.match(/\.left-rail \.continuous-scroll-toggle\.active,\s*\n\.left-rail \.continuous-scroll-toggle\[aria-pressed="true"\]\s*\{[^}]+\}/)?.[0] || '';
+  const iconRule = styles.match(/\.left-rail \.continuous-scroll-toggle\[aria-pressed="true"\] svg\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(activeRule, /background:\s*transparent/);
+  assert.match(activeRule, /border-color:\s*transparent/);
+  assert.match(activeRule, /box-shadow:\s*none/);
+  assert.match(activeRule, /color:\s*var\(--accent\)/);
+  assert.match(iconRule, /filter:\s*drop-shadow/);
 });
 
 test('continuous PDF pages do not draw gray page borders', async () => {

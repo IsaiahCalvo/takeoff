@@ -226,6 +226,14 @@
     return result;
   }
 
+  function pdfContinuousScrollEligibility(state) {
+    const pageCount = Number(state?.pdfPages);
+    if (!state?.pdf) return { eligible: false, reason: 'not_pdf', pages: [], startPage: null, endPage: null, groupPageCount: 0, wholeDocument: false };
+    if (!Number.isInteger(pageCount) || pageCount <= 1) return { eligible: false, reason: 'single_page_pdf', pages: [], startPage: null, endPage: null, groupPageCount: 0, wholeDocument: false };
+    const pages = Array.from({ length: pageCount }, (_, index) => index + 1);
+    return { eligible: true, reason: 'eligible', pages, startPage: 1, endPage: pageCount, groupPageCount: pageCount, wholeDocument: true };
+  }
+
   function applyScaleToPages({ measurements, pageScales, pages, pxPerInch, measureLengthPx }) {
     for (const page of pages || []) {
       pageScales[page] = pxPerInch;
@@ -257,6 +265,7 @@
     computePxPerInch,
     sameScalePdfEligibility,
     sameScalePageGroupEligibility,
+    pdfContinuousScrollEligibility,
     applyScaleToPages,
     clearPageScale,
     recomputeLengthsForPage,
