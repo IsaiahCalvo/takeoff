@@ -16,6 +16,7 @@ import './app/hit-testing.js';
 import './app/viewer.js';
 import './app/pdf-page-cache.js';
 import './app/pdf-engine.js';
+import './app/pdf-engine-controller.js';
 import './app/performance-logger.js'; import './app/performance-controller.js';
 import './app/input-controller.js';
 import './app/pointer-controller.js';
@@ -74,6 +75,7 @@ function currentPage() { return pageState.currentPage(state); }
 function totalPages() { return pageState.totalPages(state); }
 function documentPageCount() { return pageState.documentPageCount(state); }
 
+
 function updateSidebarScopeChrome(model) {
   sidebarController.applyScopeChrome({
     scopeTabs: $('scopeTabs'),
@@ -103,6 +105,7 @@ function updatePageLabel() {
   $('pageLabel').innerHTML = `<span class="page-current">${current}</span><span class="page-sep">·</span><span>${total}</span>`;
   $('pageLabel').setAttribute('aria-label', state.baseW ? `Page ${current} of ${total}` : 'No page loaded');
   $('pageLabel').title = state.baseW ? `Page ${current} of ${total}` : 'No page loaded';
+  updatePerformanceLogContext();
 }
 
 function updateContinuousScrollControl(eligibility = sameScalePdfEligibility(state)) {
@@ -175,6 +178,15 @@ const exportButton = $('exportButton');
 const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
 const copySummaryButton = $('copySummary');
+
+const pdfEngineController = window.TakeoffPdfEngineController.createPdfEngineController({
+  state, pdfEngine, pdfjsLib, logger: performanceLogger, toggle: $('pdfEngineToggle'), documentStore,
+  currentPage, totalPages, renderPdfPage, saveActiveDocument, showStatus,
+});
+function updatePerformanceLogContext(patch = {}) { pdfEngineController.updateLogContext(patch); }
+function updatePdfEngineToggle() { pdfEngineController.updateToggle(); }
+function switchPdfEngine(choice) { return pdfEngineController.switchEngine(choice); }
+updatePerformanceLogContext();
 
 function setDocumentLoaded(loaded) { document.body.classList.toggle('no-document', !loaded); }
 
@@ -263,6 +275,8 @@ async function restoreDocument(doc) {
   updateHistoryButtons();
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === state.sidebarTab));
   $('totalHeading').textContent = state.sidebarTab === 'page' ? 'This Page Total' : 'Grand Total';
+  updatePdfEngineToggle();
+  updatePerformanceLogContext();
   if (state.pdf) {
     await renderPdfPage({ fit: false, resetInteraction: false });
   } else if (state.imageBitmap) {
@@ -560,6 +574,9 @@ $('emptyUploadButton').addEventListener('click', () => {
 });
 undoButton.addEventListener('click', undoHistory);
 redoButton.addEventListener('click', redoHistory);
+document.querySelectorAll('#pdfEngineToggle [data-pdf-engine]').forEach(button => {
+  button.addEventListener('click', () => switchPdfEngine(button.dataset.pdfEngine));
+});
 
 stage.addEventListener('dragover', (e) => {
   e.preventDefault();
@@ -587,10 +604,14 @@ async function loadFile(file) {
     resetDocState();
     if (fileInfo.kind === 'pdf') {
       const buf = await file.arrayBuffer();
-      const pdfDoc = await pdfEngine.createPdfEngineDocument({ data: buf, pdfjsLib });
+      const pdfDoc = await pdfEngine.createPdfEngineDocument({ data: buf, pdfjsLib, engine: state.pdfEngineChoice });
       Object.assign(state, documentAdapters.createPdfDocumentState(
         pdfDoc
       ));
+      state.pdfSourceData = buf.slice(0);
+      state.pdfFileName = fileInfo.displayName || file.name || 'Untitled';
+      updatePdfEngineToggle();
+      updatePerformanceLogContext({ renderEngine: pdfDoc.engine || 'unknown' });
       await renderPdfPage();
       showStatus(`Loaded ${fileInfo.displayName}`);
     } else {
@@ -602,6 +623,9 @@ async function loadFile(file) {
         configureCanvasCssSize,
         configureDrawCanvas,
       }));
+      state.pdfFileName = fileInfo.displayName || file.name || 'Untitled';
+      updatePdfEngineToggle();
+      updatePerformanceLogContext({ renderEngine: 'image' });
       onPageReady();
       showStatus(`Loaded ${fileInfo.displayName}`);
     }
@@ -629,6 +653,7 @@ function resetDocState() {
   $('totalHeading').textContent = 'This Page Total';
   updateScaleLabel();
   updatePageLabel();
+  updatePdfEngineToggle();
 }
 
 function cacheGet(p, minRenderScale = 0) {
@@ -645,6 +670,7 @@ function cacheSet(p, entry) {
 }
 
 async function renderPageToCanvas(pageNum, requestedScale = state.minPdfRenderScale, options = {}) {
+  updatePerformanceLogContext({ renderEngine: state.pdf?.engine || 'unknown' });
   return performanceController.renderPageToCanvas(pageNum, requestedScale, options);
 }
 
@@ -657,6 +683,7 @@ function blitToBase(entry) {
   state.baseW = entry.cssWidth;
   state.baseH = entry.cssHeight;
   state.continuousPageLayout = null;
+  updatePerformanceLogContext({ renderEngine: entry.engine || state.pdf?.engine || 'unknown' });
   configureDrawCanvas();
   baseCtx.drawImage(entry.canvas, 0, 0);
 }
@@ -730,6 +757,7 @@ function schedulePreRender() {
     pageCount: state.pdfPages,
     cache: state.pageCache,
     targetScale,
+    maxPages: state.maxPreRenderPages,
   });
   runPreRender();
 }
@@ -764,6 +792,8 @@ function onPageReady({ fit = true, resetInteraction = true } = {}) {
     if (state.continuousScrollMode) { focusContinuousPage(); applyTransform(); }
   }
   redrawActivePreview();
+  updatePdfEngineToggle();
+  updatePerformanceLogContext();
   updateStatus();
 }
 
@@ -793,6 +823,7 @@ $('continuousScrollToggle').addEventListener('click', async () => {
   if (state.continuousScrollMode) syncContinuousPageFromView();
   state.continuousScrollMode = !state.continuousScrollMode;
   const model = updateContinuousScrollControl(eligibility);
+  updatePerformanceLogContext();
   await renderPdfPage({ fit: true, resetInteraction: false });
   saveActiveDocument();
   showStatus(model.active ? 'Continuous scroll ready.' : 'Single-page view.', 1400, { force: true });

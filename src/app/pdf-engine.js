@@ -301,8 +301,10 @@
   async function createPdfEngineDocument({
     data,
     pdfjsLib,
+    engine = 'embedpdf',
     preferredFactory = createPdfiumWorkerDocument,
   } = {}) {
+    if (engine === 'pdfjs') return loadPdfJsDocument({ data, pdfjsLib });
     if (preferredFactory) {
       try {
         const preferred = await preferredFactory({ data });

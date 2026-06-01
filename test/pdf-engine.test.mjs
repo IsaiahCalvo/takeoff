@@ -160,6 +160,57 @@ test('createPdfEngineDocument falls back to PDF.js when preferred engine is unav
   assert.deepEqual(calls, [3]);
 });
 
+test('createPdfEngineDocument can be forced to PDF.js without probing the preferred engine', async () => {
+  const pdfEngine = await loadPdfEngine();
+  const calls = [];
+  let preferredCalls = 0;
+  const doc = await pdfEngine.createPdfEngineDocument({
+    data: new Uint8Array([1, 2, 3]).buffer,
+    engine: 'pdfjs',
+    pdfjsLib: {
+      getDocument({ data }) {
+        calls.push(['pdfjs', data.byteLength]);
+        return { promise: Promise.resolve(fakePdfDocument({ pages: [fakePage()] })) };
+      },
+    },
+    preferredFactory: async () => {
+      preferredCalls += 1;
+      throw new Error('preferred engine should not be probed when PDF.js is selected');
+    },
+  });
+
+  assert.equal(doc.engine, 'pdfjs');
+  assert.equal(doc.getPageCount(), 1);
+  assert.equal(preferredCalls, 0);
+  assert.deepEqual(calls, [['pdfjs', 3]]);
+});
+
+test('createPdfEngineDocument uses the EmbedPDF/PDFium path when requested', async () => {
+  const pdfEngine = await loadPdfEngine();
+  const calls = [];
+  const doc = await pdfEngine.createPdfEngineDocument({
+    data: new Uint8Array([4, 5, 6]).buffer,
+    engine: 'embedpdf',
+    pdfjsLib: { getDocument: () => { throw new Error('PDF.js should not load'); } },
+    preferredFactory: async ({ data }) => {
+      calls.push(['preferred', data.byteLength]);
+      return {
+        engine: 'pdfium-worker',
+        getPageCount: () => 1,
+        getPageInfo: async () => ({ pageNumber: 1, cssWidth: 300, cssHeight: 200, rotation: 0 }),
+        renderPage: async (_pageNumber, renderOptions) => fakeEntry({ engine: 'pdfium-worker', renderScale: renderOptions.scale }),
+        destroy() {},
+      };
+    },
+  });
+
+  const entry = await doc.renderPage(1, { scale: 2 });
+
+  assert.equal(doc.engine, 'pdfium-worker');
+  assert.equal(entry.engine, 'pdfium-worker');
+  assert.deepEqual(calls, [['preferred', 3]]);
+});
+
 test('PDF.js adapter returns page info and render entries through one contract', async () => {
   const pdfEngine = await loadPdfEngine();
   const pdf = fakePdfDocument();

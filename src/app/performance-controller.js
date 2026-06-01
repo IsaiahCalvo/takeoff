@@ -101,6 +101,7 @@
 
     function schedulePdfRerenderForZoom() {
       if (!state.pdf) return;
+      state.preRenderQueue = [];
       zoomRenderSeq += 1;
       const seq = zoomRenderSeq;
       clearTimeout(state.zoomRenderTimer);

@@ -78,6 +78,14 @@ test('describeKeyDown maps Shift+L to performance log save', async () => {
     action: 'save-performance-log',
     preventDefault: true,
   });
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'L', shiftKey: true, metaKey: true }, {})), {
+    action: 'save-performance-log',
+    preventDefault: true,
+  });
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'L', shiftKey: true, ctrlKey: true }, {})), {
+    action: 'save-performance-log',
+    preventDefault: true,
+  });
   assert.equal(input.describeKeyDown({ key: 'l', shiftKey: true }, { target: { tagName: 'INPUT', readOnly: false } }), null);
 });
 

@@ -25,12 +25,12 @@
     const isCommand = !!(event.ctrlKey || event.metaKey);
     const key = keyName(event);
 
+    if (event.shiftKey && key === 'l') return { action: 'save-performance-log', preventDefault: true };
     if (isCommand && key === 'z') return { action: event.shiftKey ? 'redo' : 'undo', preventDefault: true };
     if (isCommand && key === 'y') return { action: 'redo', preventDefault: true };
     if (isCommand && key === 'c') return { action: 'copy', preventDefault: true };
     if (isCommand && key === 'x') return { action: 'cut', preventDefault: true };
     if (isCommand && key === 'v') return { action: 'paste', preventDefault: true };
-    if (!isCommand && event.shiftKey && key === 'l') return { action: 'save-performance-log', preventDefault: true };
 
     if (isSpaceKey(event)) {
       if (!state.spaceHeld && state.mode !== 'pan') {

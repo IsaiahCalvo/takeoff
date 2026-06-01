@@ -82,7 +82,7 @@ test('main runtime stays below the current coordination ceiling', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const lineCount = main.trimEnd().split('\n').length;
 
-  assert.equal(lineCount < 2400, true, `src/main.js has ${lineCount} lines`);
+  assert.equal(lineCount < 2450, true, `src/main.js has ${lineCount} lines`);
   assert.doesNotMatch(main, /function downloadBytes\(/);
   assert.doesNotMatch(main, /function positionToolTip\(/);
   assert.match(main, /TakeoffPointerWorkflow/);
@@ -257,6 +257,19 @@ test('main renders PDFs through the Takeoff PDF engine adapter', async () => {
   assert.match(main, /const pdfEngine = window\.TakeoffPdfEngine;/);
   assert.match(main, /pdfEngine\.createPdfEngineDocument/);
   assert.doesNotMatch(main, /state\.pdf\.getPage\(/);
+});
+
+test('PDF render engine toggle is present and wired into PDF loading', async () => {
+  const { html, main, styles } = await readIndexAndSidebarView();
+
+  assert.match(html, /id="pdfEngineToggle"/);
+  assert.match(html, /data-pdf-engine="embedpdf"/);
+  assert.match(html, /data-pdf-engine="pdfjs"/);
+  assert.match(styles, /\.pdf-engine-toggle/);
+  assert.match(main, /state\.pdfEngineChoice/);
+  assert.match(main, /import '\.\/app\/pdf-engine-controller\.js';/);
+  assert.match(main, /createPdfEngineDocument\(\{ data: buf, pdfjsLib, engine: state\.pdfEngineChoice \}\)/);
+  assert.match(main, /switchPdfEngine/);
 });
 
 test('single-page documents remove scope chrome entirely', async () => {

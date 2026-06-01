@@ -24,6 +24,10 @@
       <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M6 2v8M2 6h8"/></svg>
     </button>
   </div>
+  <div id="pdfEngineToggle" class="pdf-engine-toggle" role="group" aria-label="PDF render engine" hidden>
+    <button class="pdf-engine-option active" type="button" data-pdf-engine="embedpdf" aria-pressed="true">EmbedPDF</button>
+    <button class="pdf-engine-option" type="button" data-pdf-engine="pdfjs" aria-pressed="false">PDF.js</button>
+  </div>
   <div class="top-actions" aria-label="Edit history">
     <button id="undoButton" class="top-action" type="button" title="Undo" aria-label="Undo" disabled>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>

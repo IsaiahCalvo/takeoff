@@ -11,6 +11,9 @@
       prevMode: 'pan',
       spaceHeld: false,
       pdf: null,
+      pdfEngineChoice: 'embedpdf',
+      pdfSourceData: null,
+      pdfFileName: null,
       pdfPage: 1,
       pdfPages: 0,
       continuousScrollMode: false,
@@ -56,6 +59,7 @@
       collapsedPageGroups: {},
       pageCache: new Map(),
       MAX_CACHE: 20,
+      maxPreRenderPages: 4,
       preRenderQueue: [],
       preRenderRunning: false,
       navToken: 0,
@@ -72,6 +76,8 @@
 
   function resetDocumentState(state) {
     state.pdf = null;
+    state.pdfSourceData = null;
+    state.pdfFileName = null;
     state.pdfPages = 0;
     state.pdfPage = 1;
     state.continuousScrollMode = false;
@@ -100,6 +106,9 @@
   function restoreDocumentState(state, doc) {
     state.activeDocId = doc.id;
     state.pdf = doc.pdf;
+    state.pdfEngineChoice = doc.pdfEngineChoice || state.pdfEngineChoice || 'embedpdf';
+    state.pdfSourceData = doc.pdfSourceData || null;
+    state.pdfFileName = doc.pdfFileName || doc.name || null;
     state.pdfPage = doc.pdfPage || 1;
     state.pdfPages = doc.pdfPages || (doc.pdf ? doc.pdf.numPages : 1);
     state.continuousScrollMode = !!doc.continuousScrollMode;

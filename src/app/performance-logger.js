@@ -46,19 +46,30 @@
     const frame = {
       running: false,
       lastAt: null,
+      lastEventAt: null,
       samples: 0,
       maxFps: 0,
       averageFps: 0,
       worstFrameMs: 0,
     };
+    let context = {};
     let lastZoomAt = null;
     let lastScrollAt = null;
+
+    function setContext(patch = {}) {
+      context = {
+        ...context,
+        ...clone(patch),
+      };
+      return clone(context);
+    }
 
     function append(event) {
       events.push({
         id: events.length + 1,
         at: dateNow().toISOString(),
         t: round(now()),
+        context: clone(context),
         ...event,
       });
       while (events.length > maxEvents) events.shift();
@@ -74,13 +85,27 @@
     }
 
     function recordFrameSample(timestamp = now()) {
-      if (frame.lastAt != null) {
-        const frameMs = Math.max(0, timestamp - frame.lastAt);
-        const fps = frameMs > 0 ? 1000 / frameMs : 0;
-        frame.samples += 1;
-        frame.maxFps = Math.max(frame.maxFps, fps);
-        frame.averageFps = ((frame.averageFps * (frame.samples - 1)) + fps) / frame.samples;
-        frame.worstFrameMs = Math.max(frame.worstFrameMs, frameMs);
+      if (frame.lastAt == null) {
+        frame.lastAt = timestamp;
+        frame.lastEventAt = timestamp;
+        return;
+      }
+      const frameMs = Math.max(0, timestamp - frame.lastAt);
+      const fps = frameMs > 0 ? 1000 / frameMs : 0;
+      frame.samples += 1;
+      frame.maxFps = Math.max(frame.maxFps, fps);
+      frame.averageFps = ((frame.averageFps * (frame.samples - 1)) + fps) / frame.samples;
+      frame.worstFrameMs = Math.max(frame.worstFrameMs, frameMs);
+      if (frame.lastEventAt == null || timestamp - frame.lastEventAt >= 500) {
+        append({
+          kind: 'fps',
+          fps: round(fps),
+          frameMs: round(frameMs),
+          averageFps: round(frame.averageFps),
+          maxFps: round(frame.maxFps),
+          worstFrameMs: round(frame.worstFrameMs),
+        });
+        frame.lastEventAt = timestamp;
       }
       frame.lastAt = timestamp;
     }
@@ -206,6 +231,7 @@
         app: 'Takeoff',
         version: 'performance-log-v1',
         startedAt,
+        context: clone(context),
         summary: summary(),
         events: clone(events),
       };
@@ -245,6 +271,7 @@
     }
 
     return {
+      setContext,
       recordZoom,
       recordScroll,
       recordRender,

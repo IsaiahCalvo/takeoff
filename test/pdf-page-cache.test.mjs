@@ -98,3 +98,15 @@ test('planPreRenderPages prioritizes nearest neighbors and skips cached usable p
     targetScale: 2,
   })), [4, 5, 1, 6]);
 });
+
+test('planPreRenderPages can cap background work for large PDFs', async () => {
+  const pageCache = await loadPdfPageCache();
+
+  assert.deepEqual(plain(pageCache.planPreRenderPages({
+    currentPage: 10,
+    pageCount: 99,
+    cache: new Map(),
+    targetScale: 2,
+    maxPages: 4,
+  })), [11, 9, 12, 8]);
+});
