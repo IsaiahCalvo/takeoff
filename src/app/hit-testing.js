@@ -16,22 +16,33 @@
   }
 
   function findNearestVertex(measurementList, point, tolerance, opts = {}) {
+    let best = null;
+    const epsilon = 1e-9;
+    const consider = (measurement, handle, priority = 0) => {
+      const distance = geometry.distancePx(point, handle.point);
+      if (distance > tolerance) return;
+      if (!best || distance < best.distance - epsilon || (Math.abs(distance - best.distance) <= epsilon && priority > best.priority)) {
+        best = { distance, priority, hit: { measurementId: measurement.id, ...handle } };
+      }
+    };
+
     for (const measurement of measurementList || []) {
       if (measurements.isCurveMeasurement(measurement)) {
         for (const handle of curveEditHandles(measurement)) {
           if (handle.kind === 'curve-control' && !opts.includeCurveControls) continue;
-          if (geometry.distancePx(point, handle.point) <= tolerance) return { measurementId: measurement.id, ...handle };
+          consider(measurement, handle, handle.kind === 'curve-control' ? 1 : 0);
         }
         continue;
       }
       for (let index = 0; index < measurement.points.length; index++) {
         const vertex = measurement.points[index];
-        if (geometry.distancePx(point, vertex) <= tolerance) {
-          return { measurementId: measurement.id, kind: 'line-anchor', vertexIndex: index };
-        }
+        consider(measurement, { kind: 'line-anchor', vertexIndex: index, point: vertex });
       }
     }
-    return null;
+    if (!best) return null;
+    const { point: _point, ...hit } = best.hit;
+    if (hit.kind === 'curve-anchor' || hit.kind === 'curve-control') return best.hit;
+    return hit;
   }
 
   function findNearestAnchor(measurementList, point, tolerance) {
