@@ -685,7 +685,6 @@ main {
   pointer-events: none;
 }
 #continuousBasePages[hidden] { display: none; }
-#continuousBasePages canvas { box-shadow: 0 0 0 1px rgba(125, 138, 145, 0.42); }
 #baseCanvas, #pdfDetailCanvas, #drawCanvas, #drawSvg {
   position: absolute; top: 0; left: 0;
   display: block;
