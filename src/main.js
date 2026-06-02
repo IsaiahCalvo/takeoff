@@ -191,7 +191,10 @@ const exportWrap = $('exportWrap');
 const exportButton = $('exportButton');
 const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
-const VIEWPORT_BOUND_MARGIN = 96; const copySummaryButton = $('copySummary');
+const VIEWPORT_BOUND_MARGIN = 96;
+const SNAP_ANCHOR_SCREEN_TOLERANCE = 12, SNAP_CENTERLINE_SCREEN_TOLERANCE = 8;
+const copySummaryButton = $('copySummary');
+const snapToggle = $('snapToPaths');
 window.TakeoffPathTemplateView.createPathTemplateHome({ root: $('pathTemplatesHome'), state, pathTemplates: window.TakeoffPathTemplates, store: pathTemplateStore, renderer: window.TakeoffPathStyleRenderer });
 
 const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
@@ -389,7 +392,7 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
   contextMenu.querySelector('[data-action="copy"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="rotate"]').disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
-  contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target });
+  contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target, measurements: state.measurements });
   contextMenu.style.left = `${Math.min(clientX, window.innerWidth - 170)}px`;
   contextMenu.style.top = `${Math.min(clientY, window.innerHeight - 220)}px`;
   contextMenu.classList.add('show');
@@ -549,6 +552,39 @@ function drawingPointInfo(point, page = null) {
   const info = continuousMeasurements.pagePointInfo(state, point, page);
   if (info?.page) setContinuousCurrentPage(info.page);
   return info;
+}
+
+function snapTolerances(excludeMeasurementIds = []) { return { anchorTolerance: SNAP_ANCHOR_SCREEN_TOLERANCE / state.zoom, centerlineTolerance: SNAP_CENTERLINE_SCREEN_TOLERANCE / state.zoom, excludeMeasurementIds }; }
+function measurementsForSnap(page) { return visibleMeasurementsForPathCategories().filter(m => (m.page || 1) === (page || currentPage())); }
+function setSnapFeedback(page, snap) { state.snapFeedback = snap?.point ? { ...snap, point: continuousMeasurements.stackPointForPage(state, page, snap.point) } : null; return snap; }
+function snapPointOnPage(page, point, excludeMeasurementIds = []) {
+  const resolved = pointerWorkflow.resolveSnapPoint({ enabled: state.snapToPaths, point, findSnapTarget: p => window.TakeoffHitTesting.findSnapTarget(measurementsForSnap(page), p, snapTolerances(excludeMeasurementIds)) });
+  setSnapFeedback(page, resolved.snap);
+  return resolved;
+}
+function placementPointInfo(stackPoint, { page = null, previous = null, shiftKey = false, excludeMeasurementIds = [] } = {}) {
+  const info = drawingPointInfo(stackPoint, page);
+  if (!info) return null;
+  const angled = previous && shiftKey ? snapAngle(previous, info.point, info.page) : info.point;
+  const resolved = snapPointOnPage(info.page, angled, excludeMeasurementIds);
+  return { ...info, point: resolved.point, snap: resolved.snap };
+}
+function recordDraftEndpointSnap(draft, endpoint, snap) {
+  if (!draft || (endpoint !== 'start' && endpoint !== 'end')) return;
+  draft.snapConnections = draft.snapConnections || {};
+  if (snap?.kind === 'anchor' && snap.endpoint) draft.snapConnections[endpoint] = { targetId: snap.measurementId, targetEndpoint: snap.endpoint };
+  else delete draft.snapConnections[endpoint];
+}
+function applyDraftSnapConnections(measurement, draft) {
+  for (const endpoint of ['start', 'end']) {
+    const connection = draft?.snapConnections?.[endpoint];
+    if (connection) measurementCommands.setEndpointSnapConnection(measurement, endpoint, connection);
+  }
+}
+function updateEndpointSnapConnection(measurement, endpoint, snap) {
+  if (!endpoint) return;
+  if (snap?.kind === 'anchor' && snap.endpoint) measurementCommands.setEndpointSnapConnection(measurement, endpoint, snap);
+  else measurementCommands.clearEndpointSnapConnection(measurement, endpoint);
 }
 
 function createRotationFrame(m) {
@@ -960,6 +996,7 @@ $('btn-pan').classList.add('active');
 // ------- Zoom buttons -------
 $('zoomIn').addEventListener('click', () => zoomAt(stageCenter(), 1.25, 'button'));
 $('zoomOut').addEventListener('click', () => zoomAt(stageCenter(), 0.8, 'button'));
+snapToggle.addEventListener('change', () => { state.snapToPaths = snapToggle.checked; state.snapFeedback = null; redrawActivePreview(); });
 $('zoomFit').addEventListener('click', (e) => {
   e.stopPropagation();
   fitToView('page');
@@ -1152,14 +1189,16 @@ stage.addEventListener('mousedown', (e) => {
       redraw(getEffectiveCursor());
       return;
     }
-    const drawInfo = continuousMeasurements.pagePointInfo(state, p);
-    if (!drawInfo) return;
-    if (state.inProgress && drawInfo.page !== state.inProgress.page) { showStatus('Finish calibration on the same page.', 2200); redraw(); return; }
+    const rawInfo = drawingPointInfo(p);
+    if (!rawInfo) return;
+    if (state.inProgress && rawInfo.page !== state.inProgress.page) { showStatus('Finish calibration on the same page.', 2200); redraw(); return; }
+    const previous = state.inProgress?.points?.[state.inProgress.points.length - 1] || null;
+    const drawInfo = placementPointInfo(p, { page: state.inProgress?.page || rawInfo.page, previous, shiftKey: e.shiftKey });
     setContinuousCurrentPage(drawInfo.page);
     if (!state.inProgress) {
       state.inProgress = { type: 'calib', page: drawInfo.page, points: [drawInfo.point] };
     } else {
-      state.inProgress = pointerWorkflow.appendPointToDraft({ inProgress: state.inProgress, point: drawInfo.point, shiftKey: e.shiftKey, snapPoint: (from, to) => snapAngle(from, to, state.inProgress.page) });
+      state.inProgress = pointerWorkflow.appendPointToDraft({ inProgress: state.inProgress, point: drawInfo.point });
       openCalibModal();
     }
     redraw();
@@ -1176,33 +1215,39 @@ stage.addEventListener('mousedown', (e) => {
       freehandDraft: state.freehandDraft,
     });
     if (activeDrawMode === 'freehand') {
-      const drawInfo = drawingPointInfo(p, state.freehandDraft?.page || null);
+      const draft = state.freehandDraft;
+      const excludeMeasurementIds = draft?.continuation?.measurementId ? [draft.continuation.measurementId] : [];
+      const drawInfo = placementPointInfo(p, { page: draft?.page || null, excludeMeasurementIds });
       if (!drawInfo) return;
-      if (state.freehandDraft) {
-        const raw = state.freehandDraft.rawPoints;
+      if (draft) {
+        const raw = draft.rawPoints;
         const last = raw[raw.length - 1];
         if (!last || distancePx(last, drawInfo.point) > 0.5) raw.push(drawInfo.point);
+        recordDraftEndpointSnap(draft, draft.continuation?.endpoint || 'end', drawInfo.snap);
         finishFreehandMeasurement();
         e.preventDefault();
         return;
       }
       state.inProgress = null;
-      state.freehandDraft = { page: drawInfo.page, rawPoints: [drawInfo.point], previewSegments: [] };
+      state.freehandDraft = { page: drawInfo.page, rawPoints: [drawInfo.point], previewSegments: [], snapConnections: {} };
+      recordDraftEndpointSnap(state.freehandDraft, 'start', drawInfo.snap);
       redraw();
       e.preventDefault();
       return;
     }
-    const drawInfo = drawingPointInfo(p, state.inProgress?.page || null);
+    const previous = state.inProgress?.points?.[state.inProgress.points.length - 1] || null;
+    const excludeMeasurementIds = state.inProgress?.continuation?.measurementId ? [state.inProgress.continuation.measurementId] : [];
+    const drawInfo = placementPointInfo(p, { page: state.inProgress?.page || null, previous, shiftKey: e.shiftKey, excludeMeasurementIds });
     if (!drawInfo) return;
     if (!state.inProgress) {
-      state.inProgress = { type: 'measure', page: drawInfo.page, points: [drawInfo.point] };
+      state.inProgress = { type: 'measure', page: drawInfo.page, points: [drawInfo.point], snapConnections: {} };
+      recordDraftEndpointSnap(state.inProgress, 'start', drawInfo.snap);
     } else {
       state.inProgress = pointerWorkflow.appendPointToDraft({
         inProgress: state.inProgress,
         point: drawInfo.point,
-        shiftKey: e.shiftKey,
-        snapPoint: (from, to) => snapAngle(from, to, state.inProgress.page),
       });
+      recordDraftEndpointSnap(state.inProgress, state.inProgress.continuation?.endpoint || 'end', drawInfo.snap);
     }
     redraw();
   } else if (state.mode === 'erase') {
@@ -1242,6 +1287,8 @@ stage.addEventListener('mousemove', (e) => {
   if (state.freehandDraft) {
     const raw = state.freehandDraft.rawPoints;
     const previewPoint = continuousMeasurements.localPointForPage(state, state.freehandDraft.page, state.cursorImg);
+    const excludeMeasurementIds = state.freehandDraft.continuation?.measurementId ? [state.freehandDraft.continuation.measurementId] : [];
+    snapPointOnPage(state.freehandDraft.page, previewPoint, excludeMeasurementIds);
     if (previewPoint && (!raw.length || distancePx(raw[raw.length - 1], previewPoint) > 0)) {
       const previewRaw = [...raw, previewPoint];
       state.freehandDraft.previewSegments = previewRaw.length > 2 ? buildFreehandSegments(previewRaw, 8) : [];
@@ -1269,7 +1316,10 @@ stage.addEventListener('mousemove', (e) => {
   if (state.dragVertex) {
     const m = state.measurements.find(x => x.id === state.dragVertex.measurementId);
     if (m) {
-      applyVertexDrag(m, state.dragVertex, localPointForMeasurement(m));
+      const endpoint = measurementCommands.continuationEndpointRole(m, state.dragVertex);
+      const resolved = snapPointOnPage(m.page, localPointForMeasurement(m), [m.id]);
+      applyVertexDrag(m, state.dragVertex, resolved.point);
+      updateEndpointSnapConnection(m, endpoint, resolved.snap);
       recomputeMeasurementLength(m);
       renderList();
       redraw();
@@ -1280,12 +1330,20 @@ stage.addEventListener('mousemove', (e) => {
   if (state.dragMeasurement) {
     const m = state.measurements.find(x => x.id === state.dragMeasurement.measurementId);
     if (m) {
-      pointerWorkflow.applyMeasurementDrag({
+      const result = pointerWorkflow.applyMeasurementDrag({
         measurement: m,
         drag: state.dragMeasurement,
         cursor: localPointForMeasurement(m),
         constrainDelta: (bounds, dx, dy) => constrainDeltaToPage(bounds, dx, dy, m.page),
+        snapDelta: ({ dx, dy, originalPoints, originalSegments }) => state.snapToPaths
+          ? window.TakeoffHitTesting.findTranslatedMeasurementSnap({ ...m, points: originalPoints, segments: originalSegments }, measurementsForSnap(m.page), dx, dy, snapTolerances([m.id]))
+          : null,
       });
+      setSnapFeedback(m.page, result.snap);
+      measurementCommands.clearEndpointSnapConnections(m);
+      if (result.snap?.kind === 'anchor' && result.snap.endpoint && result.snap.source?.endpoint) {
+        measurementCommands.setEndpointSnapConnection(m, result.snap.source.endpoint, result.snap);
+      }
       if (isCurveMeasurement(m)) {
         updateCurveAnchors(m);
       }
@@ -1380,6 +1438,7 @@ function finishPointerDrag() {
     stage.classList.remove('dragging');
     updateRotationPill();
   }
+  if (state.snapFeedback && !state.inProgress && !state.freehandDraft) { state.snapFeedback = null; redraw(); }
 }
 
 stage.addEventListener('mouseup', finishPointerDrag);
@@ -1499,6 +1558,7 @@ contextMenu.addEventListener('click', (e) => {
   if (action === 'add-anchor') handledAnchorAction = addAnchorFromContext();
   if (action === 'remove-anchor') handledAnchorAction = removeAnchorFromContext();
   if (action === 'continue-path') handledAnchorAction = contextMenuController.beginContinuePath({ state, target: state.contextTarget, measurementCommands, isCurveMeasurement, currentPage, setMode, clearActiveFitMode, renderList, redraw, showStatus });
+  if (action === 'merge-paths') handledAnchorAction = contextMenuController.mergeSnappedPaths({ state, target: state.contextTarget, measurementCommands, scaleForPage, createHistorySnapshot, setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }), endRotateMode, renderList, redraw, recordHistory, showStatus });
   closeContextMenu();
   if (handledAnchorAction) return;
   if (action === 'cut') cutSelectedMeasurement();
@@ -1540,7 +1600,7 @@ window.addEventListener('keyup', (e) => {
   }
   if (inputAction.action === 'shift-up') {
     state.shiftHeld = false;
-    if (inputAction.redraw) redraw(state.inProgress ? state.cursorImg : undefined);
+    if (inputAction.redraw) redraw(state.inProgress ? getEffectiveCursor() : undefined);
   }
 });
 
@@ -1558,6 +1618,7 @@ function finishMeasurement() {
     page,
     pxPerInch: scaleForPage(page), activePath: window.TakeoffPathTemplates.activePathForState(state),
   });
+  applyDraftSnapConnections(measurement, state.inProgress);
   const result = measurementWorkflows.appendMeasurementResult({
     measurements: state.measurements,
     measurement,
@@ -1601,6 +1662,7 @@ function finishFreehandMeasurement() {
   });
   if (contextMenuController.finishFreehandContinuation({ state, draft, measurement, page, historyBefore, measurementCommands, scaleForPage, recordHistory, renderList, redraw, showStatus })) return;
   if (!measurement) { redraw(); return; }
+  applyDraftSnapConnections(measurement, draft);
   const result = measurementWorkflows.appendMeasurementResult({
     measurements: state.measurements,
     measurement,
@@ -1634,16 +1696,12 @@ function snapAngle(from, to, page = currentPage()) {
 
 function getEffectiveCursor() {
   if (!state.inProgress || !state.cursorImg) return state.cursorImg;
-  if (state.inProgress.type !== 'measure') {
-    const page = state.inProgress.page || currentPage();
-    const cursor = continuousMeasurements.localPointForPage(state, page, state.cursorImg);
-    if (!state.shiftHeld || state.inProgress.points.length < 1) return cursor;
-    return snapAngle(state.inProgress.points[state.inProgress.points.length - 1], cursor, page);
-  }
-  const cursor = continuousMeasurements.localPointForPage(state, state.inProgress.page, state.cursorImg);
-  if (!state.shiftHeld || state.inProgress.points.length < 1) return cursor;
-  const last = state.inProgress.points[state.inProgress.points.length - 1];
-  return snapAngle(last, cursor, state.inProgress.page);
+  const page = state.inProgress.page || currentPage();
+  const points = state.inProgress.points || [];
+  const previous = points.length ? points[points.length - 1] : null;
+  const excludeMeasurementIds = state.inProgress.continuation?.measurementId ? [state.inProgress.continuation.measurementId] : [];
+  const info = placementPointInfo(state.cursorImg, { page, previous, shiftKey: state.shiftHeld, excludeMeasurementIds });
+  return info?.point || continuousMeasurements.localPointForPage(state, page, state.cursorImg);
 }
 
 function cleanMeasurementName(value, m) {
@@ -2302,6 +2360,7 @@ function redraw(previewTo) {
     drawEndpointAnchors(drawRaw, '#b6ff3c');
   }
   lengthEditController.bindActiveCanvasLengthInput();
+  if (state.snapFeedback) svgRenderer.drawSnapFeedback(state.snapFeedback);
 }
 
 function redrawActivePreview() { redraw(state.inProgress ? getEffectiveCursor() : undefined); }

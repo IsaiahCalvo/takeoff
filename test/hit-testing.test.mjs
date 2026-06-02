@@ -131,6 +131,85 @@ test('findNearestPathPoint returns the nearest measurement path hit', async () =
   assert.equal(Math.round(hit.point.x), 50);
 });
 
+test('findSnapTarget prioritizes path anchors over closer centerline hits', async () => {
+  const hitTesting = await loadHitTesting();
+  const hit = hitTesting.findSnapTarget([
+    { id: 1, points: [{ x: 0, y: 0 }, { x: 40, y: 0 }] },
+    { id: 2, points: [{ x: 0, y: 1 }, { x: 40, y: 1 }] },
+  ], { x: 11, y: 0 }, {
+    anchorTolerance: 12,
+    centerlineTolerance: 8,
+  });
+
+  assert.equal(hit.kind, 'anchor');
+  assert.equal(hit.measurementId, 1);
+  assert.equal(hit.endpoint, 'start');
+  assert.deepEqual(JSON.parse(JSON.stringify(hit.point)), { x: 0, y: 0 });
+});
+
+test('findSnapTarget snaps to Line centerlines within tolerance', async () => {
+  const hitTesting = await loadHitTesting();
+  const hit = hitTesting.findSnapTarget([
+    { id: 3, shape: { active: 'line' }, points: [{ x: 0, y: 0 }, { x: 100, y: 0 }] },
+  ], { x: 42, y: 7 }, {
+    anchorTolerance: 5,
+    centerlineTolerance: 8,
+  });
+
+  assert.equal(hit.kind, 'centerline');
+  assert.equal(hit.measurementId, 3);
+  assert.equal(hit.type, 'line');
+  assert.equal(Math.round(hit.point.x), 42);
+  assert.equal(Math.round(hit.point.y), 0);
+});
+
+test('findSnapTarget snaps to Freehand sampled centerlines within tolerance', async () => {
+  const hitTesting = await loadHitTesting();
+  const hit = hitTesting.findSnapTarget([
+    {
+      id: 4,
+      shape: { active: 'freehand' },
+      points: [{ x: 0, y: 20 }, { x: 60, y: 20 }],
+      segments: [{
+        type: 'cubic',
+        from: { x: 0, y: 20 },
+        c1: { x: 20, y: 20 },
+        c2: { x: 40, y: 20 },
+        to: { x: 60, y: 20 },
+      }],
+    },
+  ], { x: 30, y: 26 }, {
+    anchorTolerance: 5,
+    centerlineTolerance: 8,
+  });
+
+  assert.equal(hit.kind, 'centerline');
+  assert.equal(hit.measurementId, 4);
+  assert.equal(hit.type, 'curve');
+  assert.ok(Math.abs(hit.point.x - 30) < 0.6);
+  assert.ok(Math.abs(hit.point.y - 20) < 0.6);
+});
+
+test('findSnapTarget respects tolerance, hidden targets, and self exclusion', async () => {
+  const hitTesting = await loadHitTesting();
+
+  assert.equal(hitTesting.findSnapTarget([
+    { id: 5, points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+  ], { x: 13, y: 13 }, {
+    anchorTolerance: 12,
+    centerlineTolerance: 0,
+  }), null);
+
+  assert.equal(hitTesting.findSnapTarget([
+    { id: 6, points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+    { id: 7, hidden: true, points: [{ x: 1, y: 0 }, { x: 20, y: 0 }] },
+  ], { x: 1, y: 0 }, {
+    anchorTolerance: 12,
+    centerlineTolerance: 8,
+    excludeMeasurementIds: [6],
+  }), null);
+});
+
 test('active line metadata makes stale curve data non-interactive', async () => {
   const hitTesting = await loadHitTesting();
   const measurement = {

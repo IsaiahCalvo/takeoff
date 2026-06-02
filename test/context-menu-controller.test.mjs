@@ -20,7 +20,7 @@ async function loadController() {
 
 function createContextMenu() {
   const buttons = new Map();
-  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path']) {
+  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path', 'merge-paths']) {
     buttons.set(action, { hidden: false, disabled: false });
   }
   return {
@@ -46,6 +46,7 @@ test('conversionMenuState exposes only Convert to Line for Freehand measurements
     canConvertToLine: true,
     canConvertToFreehand: false,
     canContinuePath: false,
+    canMergePaths: false,
   });
 });
 
@@ -59,6 +60,7 @@ test('conversionMenuState exposes only Convert to Freehand for active Line measu
     canConvertToLine: false,
     canConvertToFreehand: true,
     canContinuePath: false,
+    canMergePaths: false,
   });
 });
 
@@ -74,6 +76,8 @@ test('applyConversionMenuState hides conversion actions when no measurement is t
   assert.equal(menu.buttons.get('convert-to-freehand').disabled, true);
   assert.equal(menu.buttons.get('continue-path').hidden, true);
   assert.equal(menu.buttons.get('continue-path').disabled, true);
+  assert.equal(menu.buttons.get('merge-paths').hidden, true);
+  assert.equal(menu.buttons.get('merge-paths').disabled, true);
 });
 
 test('conversionMenuState exposes Continue Path only for terminal anchors', async () => {
@@ -96,6 +100,7 @@ test('conversionMenuState exposes Continue Path only for terminal anchors', asyn
     canConvertToLine: false,
     canConvertToFreehand: true,
     canContinuePath: true,
+    canMergePaths: false,
   });
 
   assert.equal(controller.conversionMenuState({
@@ -104,6 +109,47 @@ test('conversionMenuState exposes Continue Path only for terminal anchors', asyn
     measurementCommands: { continuationEndpointRole: () => null },
     target: { kind: 'anchor-hit', vertexIndex: 1 },
   }).canContinuePath, false);
+});
+
+test('conversionMenuState exposes Merge Paths only for eligible snapped endpoints', async () => {
+  const { controller, measurements } = await loadController();
+  const measurement = {
+    id: 20,
+    shape: { active: 'line' },
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+  };
+  const target = { kind: 'anchor-hit', vertexIndex: 1 };
+
+  assert.deepEqual(plain(controller.conversionMenuState({
+    measurement,
+    measurementModel: measurements,
+    measurementCommands: {
+      continuationEndpointRole: () => 'end',
+      mergeConnectionForTarget({ measurement: targetMeasurement, target: targetHit }) {
+        return targetMeasurement === measurement && targetHit === target
+          ? { sourceId: 20, sourceEndpoint: 'end', targetId: 21, targetEndpoint: 'start' }
+          : null;
+      },
+    },
+    target,
+    measurements: [measurement],
+  })), {
+    canConvertToLine: false,
+    canConvertToFreehand: true,
+    canContinuePath: true,
+    canMergePaths: true,
+  });
+
+  assert.equal(controller.conversionMenuState({
+    measurement,
+    measurementModel: measurements,
+    measurementCommands: {
+      continuationEndpointRole: () => 'end',
+      mergeConnectionForTarget: () => null,
+    },
+    target,
+    measurements: [measurement],
+  }).canMergePaths, false);
 });
 
 test('convertSelectedMeasurement records history, keeps selection, and refreshes UI hooks', async () => {
@@ -174,5 +220,51 @@ test('convertSelectedMeasurement refreshes UI hooks and selection for Line to Fr
     ['redraw'],
     ['history', true, 'run conversion'],
     ['status', 'Converted to Freehand'],
+  ]);
+});
+
+test('mergeSnappedPaths records history, replaces measurements, and refreshes UI hooks', async () => {
+  const { controller } = await loadController();
+  const calls = [];
+  const measurement = { id: 30, page: 2, shape: { active: 'line' } };
+  const target = { kind: 'anchor-hit', vertexIndex: 1 };
+  const state = { selectedId: 30, contextTarget: target, measurements: [measurement, { id: 31 }] };
+
+  assert.equal(controller.mergeSnappedPaths({
+    state,
+    target,
+    measurementCommands: {
+      mergeConnectionForTarget({ measurement: targetMeasurement, target: targetHit }) {
+        calls.push(['connection', targetMeasurement.id, targetHit.vertexIndex]);
+        return { sourceId: 30, sourceEndpoint: 'end', targetId: 31, targetEndpoint: 'start' };
+      },
+      mergeSnappedEndpointPaths(measurements, connection, options) {
+        calls.push(['merge', measurements.length, connection.targetId, options.pxPerInch]);
+        return {
+          merged: true,
+          measurement: { id: 30 },
+          measurements: [{ id: 30 }],
+        };
+      },
+    },
+    scaleForPage: page => page * 10,
+    createHistorySnapshot: () => ({ before: true }),
+    setMeasurements: (measurements, selectedId) => calls.push(['set', measurements.length, selectedId]),
+    endRotateMode: () => calls.push(['end-rotate']),
+    renderList: () => calls.push(['render-list']),
+    redraw: () => calls.push(['redraw']),
+    recordHistory: (before, label) => calls.push(['history', before.before, label]),
+    showStatus: text => calls.push(['status', text]),
+  }), true);
+
+  assert.deepEqual(calls, [
+    ['connection', 30, 1],
+    ['merge', 2, 31, 20],
+    ['set', 1, 30],
+    ['end-rotate'],
+    ['render-list'],
+    ['redraw'],
+    ['history', true, 'path merge'],
+    ['status', 'Merge Paths'],
   ]);
 });

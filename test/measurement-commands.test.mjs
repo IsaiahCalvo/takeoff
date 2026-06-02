@@ -1034,3 +1034,167 @@ test('updateMeasurementLabelFromPoint stores path position and dragged offset', 
   assert.equal(measurement.labelT, 0.25);
   assert.deepEqual(JSON.parse(JSON.stringify(measurement.labelOffset)), { x: 0, y: -30 });
 });
+
+test('mergeSnappedEndpointPaths orders Line geometry for every terminal connection', async () => {
+  const commands = await loadCommands();
+  const cases = [
+    {
+      sourceEndpoint: 'end',
+      targetEndpoint: 'start',
+      a: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      b: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+    },
+    {
+      sourceEndpoint: 'end',
+      targetEndpoint: 'end',
+      a: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      b: [{ x: 20, y: 0 }, { x: 10, y: 0 }],
+    },
+    {
+      sourceEndpoint: 'start',
+      targetEndpoint: 'end',
+      a: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+      b: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+    },
+    {
+      sourceEndpoint: 'start',
+      targetEndpoint: 'start',
+      a: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+      b: [{ x: 10, y: 0 }, { x: 0, y: 0 }],
+    },
+  ];
+
+  for (const item of cases) {
+    const a = { id: `a-${item.sourceEndpoint}-${item.targetEndpoint}`, page: 1, shape: { active: 'line' }, points: item.a, snapConnections: [] };
+    const b = { id: `b-${item.sourceEndpoint}-${item.targetEndpoint}`, page: 1, shape: { active: 'line' }, points: item.b };
+    commands.setEndpointSnapConnection(a, item.sourceEndpoint, {
+      measurementId: b.id,
+      endpoint: item.targetEndpoint,
+    });
+
+    const result = commands.mergeSnappedEndpointPaths([a, b], {
+      sourceId: a.id,
+      sourceEndpoint: item.sourceEndpoint,
+      targetId: b.id,
+      targetEndpoint: item.targetEndpoint,
+    }, { pxPerInch: 2 });
+
+    assert.equal(result.merged, true, `${item.sourceEndpoint}-${item.targetEndpoint} should merge`);
+    assert.equal(result.measurements.length, 1);
+    assert.equal(result.measurement.id, a.id);
+    assert.deepEqual(JSON.parse(JSON.stringify(result.measurement.points)), [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 20, y: 0 },
+    ]);
+    assert.equal(result.measurement.lengthPx, 20);
+    assert.equal(result.measurement.lengthInches, 10);
+    assert.deepEqual(JSON.parse(JSON.stringify(result.measurement.snapConnections)), []);
+  }
+});
+
+test('mergeSnappedEndpointPaths merges compatible Freehand endpoint paths', async () => {
+  const commands = await loadCommands();
+  const a = {
+    id: 1,
+    page: 1,
+    drawType: 'freehand',
+    shape: { active: 'freehand' },
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 3, y: 0 },
+      c2: { x: 7, y: 0 },
+      to: { x: 10, y: 0 },
+    }],
+    snapConnections: [{ endpoint: 'end', targetId: 2, targetEndpoint: 'start' }],
+  };
+  const b = {
+    id: 2,
+    page: 1,
+    drawType: 'freehand',
+    shape: { active: 'freehand' },
+    points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 10, y: 0 },
+      c1: { x: 13, y: 0 },
+      c2: { x: 17, y: 0 },
+      to: { x: 20, y: 0 },
+    }],
+  };
+
+  const result = commands.mergeSnappedEndpointPaths([a, b], {
+    sourceId: 1,
+    sourceEndpoint: 'end',
+    targetId: 2,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 5 });
+
+  assert.equal(result.merged, true);
+  assert.equal(result.measurements.length, 1);
+  assert.equal(result.measurement.segments.length, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(result.measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 20, y: 0 },
+  ]);
+  assert.ok(Math.abs(result.measurement.lengthPx - 20) < 0.0001);
+  assert.ok(Math.abs(result.measurement.lengthInches - 4) < 0.0001);
+});
+
+test('mergeConnectionForTarget requires snapped terminal endpoints and compatible path styling', async () => {
+  const commands = await loadCommands();
+  const target = { kind: 'anchor-hit', vertexIndex: 1 };
+  const compatibleA = {
+    id: 10,
+    page: 1,
+    pathTemplateId: 'template-a',
+    pathId: 'path-a',
+    shape: { active: 'line' },
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+    snapConnections: [{ endpoint: 'end', targetId: 11, targetEndpoint: 'start' }],
+  };
+  const compatibleB = {
+    id: 11,
+    page: 1,
+    pathTemplateId: 'template-a',
+    pathId: 'path-a',
+    shape: { active: 'line' },
+    points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+  };
+  const stale = {
+    ...compatibleA,
+    id: 12,
+    points: [{ x: 0, y: 0 }, { x: 9, y: 0 }],
+    snapConnections: [{ endpoint: 'end', targetId: 11, targetEndpoint: 'start' }],
+  };
+  const mismatchedStyle = {
+    ...compatibleA,
+    id: 13,
+    pathId: 'path-b',
+    snapConnections: [{ endpoint: 'end', targetId: 11, targetEndpoint: 'start' }],
+  };
+
+  assert.deepEqual(JSON.parse(JSON.stringify(commands.mergeConnectionForTarget({
+    measurements: [compatibleA, compatibleB],
+    measurement: compatibleA,
+    target,
+  }))), {
+    sourceId: 10,
+    sourceEndpoint: 'end',
+    targetId: 11,
+    targetEndpoint: 'start',
+  });
+  assert.equal(commands.mergeConnectionForTarget({
+    measurements: [stale, compatibleB],
+    measurement: stale,
+    target,
+  }), null);
+  assert.equal(commands.mergeConnectionForTarget({
+    measurements: [mismatchedStyle, compatibleB],
+    measurement: mismatchedStyle,
+    target,
+  }), null);
+});

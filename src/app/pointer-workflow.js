@@ -70,6 +70,15 @@
     };
   }
 
+  function resolveSnapPoint({ enabled = false, point, findSnapTarget } = {}) {
+    if (!enabled || !point || typeof findSnapTarget !== 'function') return { point, snap: null };
+    const snap = findSnapTarget(point) || null;
+    return {
+      point: snap?.point || point,
+      snap,
+    };
+  }
+
   function createRotationDrag({ measurement, frame, pointer, historyBefore }) {
     const center = { x: frame.cx, y: frame.cy };
     return {
@@ -98,10 +107,27 @@
     };
   }
 
-  function applyMeasurementDrag({ measurement, drag, cursor, constrainDelta }) {
+  function applyMeasurementDrag({ measurement, drag, cursor, constrainDelta, snapDelta = null }) {
     const rawDx = cursor.x - drag.start.x;
     const rawDy = cursor.y - drag.start.y;
-    const { dx, dy } = constrainDelta(drag.originalBounds, rawDx, rawDy);
+    let { dx, dy } = constrainDelta(drag.originalBounds, rawDx, rawDy);
+    let snap = null;
+    if (typeof snapDelta === 'function') {
+      const snapped = snapDelta({
+        dx,
+        dy,
+        rawDx,
+        rawDy,
+        originalPoints: drag.originalPoints,
+        originalSegments: drag.originalSegments,
+        originalBounds: drag.originalBounds,
+      });
+      if (snapped && Number.isFinite(snapped.dx) && Number.isFinite(snapped.dy)) {
+        dx = snapped.dx;
+        dy = snapped.dy;
+        snap = snapped.snap || null;
+      }
+    }
     measurement.points = geometry.translatePoints(drag.originalPoints, dx, dy);
     if (isCurveMeasurement(measurement) && drag.originalSegments) {
       measurement.segments = geometry.translateSegments(drag.originalSegments, dx, dy);
@@ -116,7 +142,7 @@
         cy: drag.originalFrame.cy + dy,
       };
     }
-    return { dx, dy };
+    return snap ? { dx, dy, snap } : { dx, dy };
   }
 
   function applyRotationFromSnapshot({
@@ -202,6 +228,7 @@
   window.TakeoffPointerWorkflow = {
     buildContextMenuHit,
     appendPointToDraft,
+    resolveSnapPoint,
     createRotationDrag,
     createMeasurementDrag,
     applyMeasurementDrag,

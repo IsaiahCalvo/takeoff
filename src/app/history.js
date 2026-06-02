@@ -41,6 +41,7 @@
     state.dragMeasurement = null;
     state.dragLabel = null;
     state.rotationDrag = null;
+    state.snapFeedback = null;
     state.rotationInputVisible = false;
     state.pendingPaste = null;
     state.contextTarget = null;
