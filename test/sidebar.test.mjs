@@ -200,6 +200,9 @@ test('buildSidebarModel uses visible category totals while retaining hidden cate
   });
 
   assert.equal(model.totalLenText, '5.00');
+  assert.equal(model.totalHeadingText, 'Visible Total');
+  assert.equal(model.showEntireTotal, true);
+  assert.equal(model.entireTotalText, 'Entire Total 15.00 ft');
   assert.deepEqual(plain(model.categoryVisibilityControls), {
     totalCount: 2,
     hiddenCount: 1,

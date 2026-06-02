@@ -99,6 +99,25 @@
     return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6c1.5 0 2.8.3 4 .8"/><path d="M21.5 12s-3.5 6-9.5 6c-1.5 0-2.8-.3-4-.8"/><path d="m4 4 16 16"/><path d="M9.8 9.8a2.5 2.5 0 0 0 3.4 3.4"/></svg>';
   }
 
+  function templateCategoryIconSvg() {
+    return `
+      <svg viewBox="-3 -42 170 170" focusable="false" aria-hidden="true">
+        <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+        <circle class="anchor-dot" cx="20" cy="52" r="13" />
+        <circle class="anchor-dot" cx="144" cy="43" r="13" />
+      </svg>
+    `;
+  }
+
+  function categoryIconMarkup({ color = '#7d8a91', iconKind = 'template', hidden = false } = {}) {
+    const kind = iconKind === 'manual' ? 'manual' : 'template';
+    const hiddenClass = hidden ? ' hidden-icon' : '';
+    const artwork = kind === 'manual'
+      ? '<span class="path-category-square" aria-hidden="true"></span>'
+      : templateCategoryIconSvg();
+    return `<span class="path-category-icon path-category-icon-${kind}${hiddenClass}" style="--path-color:${escapeHtml(color)}" aria-hidden="true">${artwork}</span>`;
+  }
+
   function buildCategoryHeaderMarkup({
     key = '',
     name = 'Uncategorized',
@@ -107,6 +126,8 @@
     hiddenText = '',
     totalText = '0.00',
     totalUnitText = '',
+    color = '#7d8a91',
+    iconKind = 'template',
   } = {}) {
     const isVisible = categoryVisible !== false;
     const summaryMarkup = summaryText
@@ -117,19 +138,20 @@
       : '';
     const actionText = isVisible ? 'Hide' : 'Show';
     return `
-      <div class="path-category-copy">
-        <div class="path-category-title">${escapeHtml(name)}</div>
-        <div class="path-category-meta">
-          ${summaryMarkup}
-          ${hiddenMarkup}
-        </div>
-      </div>
-      <div class="path-category-controls">
-        <span class="path-category-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
-        <button class="path-category-visibility-toggle" type="button" data-path-category-key="${escapeHtml(key)}" data-next-visible="${isVisible ? 'false' : 'true'}" aria-pressed="${isVisible ? 'true' : 'false'}" aria-label="${actionText} ${escapeHtml(name)} category" title="${actionText} category">
-          ${visibilityIconMarkup(isVisible)}
-        </button>
-      </div>
+      <button class="path-category-row" type="button" data-path-category-key="${escapeHtml(key)}" data-next-visible="${isVisible ? 'false' : 'true'}" aria-pressed="${isVisible ? 'true' : 'false'}" aria-label="${actionText} ${escapeHtml(name)} category">
+        ${categoryIconMarkup({ color, iconKind, hidden: !isVisible })}
+        <span class="path-category-copy">
+          <span class="path-category-title">${escapeHtml(name)}</span>
+          <span class="path-category-meta">
+            ${summaryMarkup}
+            ${hiddenMarkup}
+          </span>
+        </span>
+        <span class="path-category-controls">
+          <span class="path-category-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
+          <span class="path-category-status${isVisible ? '' : ' off'}">${isVisible ? 'Visible' : 'Hidden'}</span>
+        </span>
+      </button>
     `;
   }
 

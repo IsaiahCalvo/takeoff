@@ -82,17 +82,24 @@ test('buildCategoryHeaderMarkup renders category label and summary safely', asyn
     summaryText: '2 paths · 4 runs',
     totalText: '18.25',
     totalUnitText: 'ft',
+    color: '#36d399',
+    iconKind: 'template',
   });
 
-  assert.match(markup, /class="path-category-title">Power &lt;Branch&gt;<\/div>/);
+  assert.match(markup, /class="path-category-icon path-category-icon-template"/);
+  assert.match(markup, /style="--path-color:#36d399"/);
+  assert.match(markup, /<svg viewBox="-3 -42 170 170"/);
+  assert.match(markup, /class="tail"/);
+  assert.match(markup, /class="anchor-dot"/);
+  assert.match(markup, /class="path-category-title">Power &lt;Branch&gt;<\/span>/);
   assert.match(markup, /class="path-category-summary">2 paths · 4 runs<\/span>/);
   assert.match(markup, /class="path-category-total"><strong>18\.25<\/strong><span>ft<\/span>/);
-  assert.match(markup, /data-path-category-key="category:power"/);
   assert.match(markup, /data-next-visible="false"/);
   assert.match(markup, /aria-label="Hide Power &lt;Branch&gt; category"/);
+  assert.doesNotMatch(markup, /title="/);
 });
 
-test('buildCategoryHeaderMarkup renders understated hidden category controls', async () => {
+test('buildCategoryHeaderMarkup renders approved hidden category icon styling', async () => {
   const view = await loadSidebarView();
   const markup = view.buildCategoryHeaderMarkup({
     key: 'category:low-voltage',
@@ -102,8 +109,14 @@ test('buildCategoryHeaderMarkup renders understated hidden category controls', a
     hiddenText: '1 hidden',
     totalText: '0.00',
     totalUnitText: 'ft',
+    color: '#59d6ff',
+    iconKind: 'manual',
   });
 
+  assert.match(markup, /class="path-category-icon path-category-icon-manual hidden-icon"/);
+  assert.match(markup, /style="--path-color:#59d6ff"/);
+  assert.match(markup, /class="path-category-square"/);
+  assert.doesNotMatch(markup, /#f00|#ff0000|red/i);
   assert.match(markup, /class="path-category-hidden">1 hidden<\/span>/);
   assert.match(markup, /data-next-visible="true"/);
   assert.match(markup, /aria-pressed="false"/);

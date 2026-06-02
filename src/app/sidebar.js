@@ -99,6 +99,12 @@
     return '—';
   }
 
+  function formatTotalsByUnit(totalsByUnit, unit, source = {}) {
+    const value = Number(totalsByUnit?.[unit] || 0);
+    if (source?.scaledRunCount > 0 || source?.unscaledRunCount === 0) return value.toFixed(2);
+    return '—';
+  }
+
   function formatPathRunCount(group) {
     const count = Number(group?.runCount || 0);
     return `${count} run${count === 1 ? '' : 's'}`;
@@ -172,11 +178,15 @@
     const pathCount = pathGroups.length || Number(category.pathKeys?.length || 0);
     const hiddenRunCount = Number(category.hiddenRunCount || 0);
     const visibleRunCount = Number(category.visibleRunCount || 0);
+    const templateBacked = pathGroups.some(group => !group.isLegacy && group.pathTemplateId && group.pathId);
+    const firstColorGroup = pathGroups.find(group => group.color);
     return {
       key: category.key,
       name: category.displayName || category.name || 'Uncategorized',
       categoryVisible: category.categoryVisible !== false,
       isVisible: category.isVisible !== false,
+      color: firstColorGroup?.color || '#7d8a91',
+      iconKind: templateBacked ? 'template' : 'manual',
       visibleRunCount,
       hiddenRunCount,
       hiddenText: formatHiddenRunCount(category),
@@ -226,6 +236,9 @@
       pathGroups,
       categorySections,
     } = buildPathGroups(all, currentPage, effectiveSidebarTab, unit, pathCategoryVisibility);
+    const hiddenCount = Number(pathRunAggregation.hiddenRunCount || 0);
+    const hasHidden = hiddenCount > 0;
+    const allTotalText = formatTotalsByUnit(pathRunAggregation.allTotalsByUnit, unit, pathRunAggregation);
     return {
       measurementsForTab,
       pageSummary: summary.page,
@@ -237,11 +250,13 @@
       effectiveSidebarTab,
       isSinglePage,
       showScopeTabs: !isSinglePage,
-      totalHeadingText: isSinglePage ? 'Total' : ({
+      totalHeadingText: hasHidden ? 'Visible Total' : isSinglePage ? 'Total' : ({
         page: 'This Page Total',
         categories: 'Categories Total',
         all: 'Grand Total',
       }[effectiveSidebarTab]),
+      showEntireTotal: hasHidden,
+      entireTotalText: `Entire Total ${allTotalText} ${UNIT_LABEL[unit] || unit}`,
       pathRunAggregation,
       pathGroups,
       categorySections: effectiveSidebarTab === 'categories' ? categorySections : [],

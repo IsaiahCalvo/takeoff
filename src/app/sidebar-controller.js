@@ -1,7 +1,11 @@
 (function () {
-  function applyScopeChrome({ scopeTabs, totalHeading, tabs, model }) {
+  function applyScopeChrome({ scopeTabs, totalHeading, entireTotal, tabs, model }) {
     scopeTabs.hidden = !model.showScopeTabs;
     totalHeading.textContent = model.totalHeadingText;
+    if (entireTotal) {
+      entireTotal.hidden = !model.showEntireTotal;
+      entireTotal.textContent = model.entireTotalText || '';
+    }
     for (const tab of tabs || []) {
       tab.classList.toggle('active', tab.dataset.tab === model.effectiveSidebarTab);
     }
@@ -158,7 +162,7 @@
   }
 
   function categoryVisibilityKeys(root) {
-    return [...new Set([...root.querySelectorAll('.path-category-visibility-toggle[data-path-category-key]')]
+    return [...new Set([...root.querySelectorAll('[data-path-category-key]')]
       .map(button => button.dataset.pathCategoryKey)
       .filter(Boolean))];
   }
@@ -174,6 +178,7 @@
       const visibilityButton = event.target.closest('[data-path-category-key]');
       if (!visibilityButton || !root.contains(visibilityButton)) return;
       event.stopPropagation();
+      if (event.preventDefault) event.preventDefault();
       setVisibility([visibilityButton.dataset.pathCategoryKey], visibilityButton.dataset.nextVisible !== 'false');
     });
   }
