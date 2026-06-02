@@ -514,7 +514,7 @@ function scaleForPage(page) { return state.pageScales[page] || (page === current
 function pxToInches(px, page = currentPage()) { return unitModel.pxToInches(px, scaleForPage(page)); }
 function formatLen(inches) { return unitModel.formatLengthInUnit(inches, state.unit); }
 const lengthEditController = window.TakeoffLengthEditController.createLengthEditController({
-  state, input: lengthEditInput, pill: lengthEditPill, stage, sidebarController, scaleForPage, formatLength: formatLen,
+  state, input: lengthEditInput, pill: lengthEditPill, stage, sidebarController, scaleForPage, formatLength: formatLen, unitLabel: () => unitModel.unitLabel(state.unit),
   parseLengthInUnit: value => unitModel.parseLengthInUnit(value, state.unit),
   resizeMeasurementToLength: (measurement, options) => measurementCommands.resizeMeasurementToLength(measurement, options),
   createHistorySnapshot, recordHistory, renderList, redraw, showStatus, syncSidebarSelection,
