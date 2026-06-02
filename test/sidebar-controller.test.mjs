@@ -25,6 +25,7 @@ test('applyScopeChrome hides tabs and marks the effective tab active', async () 
   const totalHeading = { textContent: '' };
   const tabs = [
     { dataset: { tab: 'page' }, classList: { active: false, toggle(_, value) { this.active = value; } } },
+    { dataset: { tab: 'categories' }, classList: { active: false, toggle(_, value) { this.active = value; } } },
     { dataset: { tab: 'all' }, classList: { active: false, toggle(_, value) { this.active = value; } } },
   ];
 
@@ -32,86 +33,14 @@ test('applyScopeChrome hides tabs and marks the effective tab active', async () 
     scopeTabs,
     totalHeading,
     tabs,
-    model: { showScopeTabs: false, totalHeadingText: 'Total', effectiveSidebarTab: 'all' },
+    model: { showScopeTabs: false, totalHeadingText: 'Total', effectiveSidebarTab: 'categories' },
   });
 
   assert.equal(scopeTabs.hidden, true);
   assert.equal(totalHeading.textContent, 'Total');
   assert.equal(tabs[0].classList.active, false);
   assert.equal(tabs[1].classList.active, true);
-});
-
-test('applyPageGroupCollapsedState keeps page group chrome in sync', async () => {
-  const sidebar = await loadSidebarController();
-  const groupClasses = new Set(['page-group', 'open']);
-  const attrs = {};
-  const toggleAttrs = {};
-  const iconPathAttrs = {};
-  const toggle = {
-    title: '',
-    setAttribute(name, value) { toggleAttrs[name] = value; },
-  };
-  const iconPath = {
-    setAttribute(name, value) { iconPathAttrs[name] = value; },
-  };
-  const groupEl = {
-    classList: {
-      toggle(name, value) {
-        if (value) groupClasses.add(name);
-        else groupClasses.delete(name);
-      },
-    },
-  };
-  const header = {
-    setAttribute(name, value) { attrs[name] = value; },
-    querySelector(selector) {
-      if (selector === '.collapse-toggle') return toggle;
-      if (selector === '.collapse-toggle-icon path') return iconPath;
-      return null;
-    },
-  };
-
-  sidebar.applyPageGroupCollapsedState({
-    groupEl,
-    header,
-    page: 2,
-    collapsed: true,
-    collapseIconPath: collapsed => collapsed ? 'collapsed-path' : 'open-path',
-  });
-
-  assert.equal(groupClasses.has('collapsed'), true);
-  assert.equal(groupClasses.has('open'), false);
-  assert.equal(attrs['aria-expanded'], 'false');
-  assert.equal(toggleAttrs['aria-expanded'], 'false');
-  assert.equal(toggleAttrs['aria-label'], 'Expand page 2');
-  assert.equal(toggle.title, 'Expand page 2');
-  assert.equal(iconPathAttrs.d, 'collapsed-path');
-});
-
-test('setPageInfoOpen updates tooltip visibility state and accessibility', async () => {
-  const sidebar = await loadSidebarController();
-  const classes = new Set();
-  const attrs = {};
-  const button = {
-    classList: {
-      toggle(name, value) {
-        if (value) classes.add(name);
-        else classes.delete(name);
-      },
-      remove(name) {
-        classes.delete(name);
-      },
-    },
-    setAttribute(name, value) { attrs[name] = value; },
-  };
-
-  sidebar.setPageInfoOpen(button, true);
-  assert.equal(classes.has('is-open'), true);
-  assert.equal(attrs['aria-expanded'], 'true');
-
-  sidebar.setPageInfoOpen(button, false);
-  assert.equal(classes.has('is-open'), false);
-  assert.equal(attrs['aria-expanded'], 'false');
+  assert.equal(tabs[2].classList.active, false);
 });
 
 test('buildMeasurementItemViewModel prepares sidebar row display data', async () => {

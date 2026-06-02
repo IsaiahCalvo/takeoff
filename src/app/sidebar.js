@@ -1,9 +1,15 @@
 (function () {
   const UNIT_TO_INCH = { in: 1, ft: 12, yd: 36, cm: 0.393700787, m: 39.3700787 };
   const UNIT_LABEL = { in: 'in', ft: 'ft', yd: 'yd', cm: 'cm', m: 'm' };
+  const SIDEBAR_TABS = new Set(['page', 'categories', 'all']);
 
   function inchesToUnit(inches, unit) {
     return inches / (UNIT_TO_INCH[unit] || UNIT_TO_INCH.ft);
+  }
+
+  function cleanString(value) {
+    const text = String(value ?? '').trim();
+    return text || null;
   }
 
   function measurementPage(measurement) {
@@ -61,51 +67,153 @@
     return Math.max(1, ...pages);
   }
 
-  function pageGroups(measurements, pageScales, unit, collapsedPageGroups = {}) {
-    const byPage = new Map();
-    for (const measurement of measurements || []) {
-      const page = measurementPage(measurement);
-      if (!byPage.has(page)) byPage.set(page, []);
-      byPage.get(page).push(measurement);
-    }
-    return [...byPage.keys()].sort((a, b) => a - b).map(page => {
-      const list = byPage.get(page);
-      const pageSummary = summarizeMeasurements(measurements, page).page;
-      return {
-        page,
-        measurements: list,
-        measurementCount: list.length,
-        collapsed: collapsedPageGroups[page] !== false,
-        hasScale: !!(pageScales || {})[page],
-        pageTotalText: pageSummary.totalDisplayAvailable
-          ? `${inchesToUnit(pageSummary.totalInches, unit).toFixed(2)} ${UNIT_LABEL[unit]}`
-          : 'no measured total',
-        excludedText: pageSummary.unscaledCount ? ` · ${pageSummary.unscaledCount} unscaled excluded` : '',
-      };
-    });
+  function normalizeSidebarTab(sidebarTab) {
+    return SIDEBAR_TABS.has(sidebarTab) ? sidebarTab : 'page';
   }
 
-  function buildSidebarModel({ measurements, currentPage, sidebarTab, pageScales, collapsedPageGroups, pageCount, unit }) {
+  function pathAggregationForTab(measurements, currentPage, effectiveSidebarTab, unit, pathCategoryVisibility) {
+    const aggregation = window.TakeoffPathAggregation;
+    if (!aggregation?.buildPathRunGroups) {
+      throw new Error('TakeoffPathAggregation.buildPathRunGroups is required for sidebar Path groups.');
+    }
+    const options = { units: [unit], pathCategoryVisibility };
+    if (effectiveSidebarTab === 'page') {
+      options.scope = 'page';
+      options.page = currentPage;
+    }
+    return aggregation.buildPathRunGroups(measurements, options);
+  }
+
+  function measurementLookup(measurements) {
+    const byId = new Map();
+    (measurements || []).forEach((measurement, index) => {
+      if (measurement?.id != null) byId.set(measurement.id, measurement);
+      byId.set(`index:${index}`, measurement);
+    });
+    return byId;
+  }
+
+  function formatPathTotal(group, unit) {
+    const value = Number(group?.totalsByUnit?.[unit] || 0);
+    if (group?.scaledRunCount > 0 || group?.unscaledRunCount === 0) return value.toFixed(2);
+    return '—';
+  }
+
+  function formatPathRunCount(group) {
+    const count = Number(group?.runCount || 0);
+    return `${count} run${count === 1 ? '' : 's'}`;
+  }
+
+  function formatAggregationRunCount(aggregation) {
+    const countText = formatPathRunCount(aggregation);
+    const unscaledText = formatUnscaledCount(aggregation);
+    return unscaledText ? `${countText} · ${unscaledText}` : countText;
+  }
+
+  function formatUnscaledCount(group) {
+    const count = Number(group?.unscaledRunCount || 0);
+    return count ? `${count} unscaled excluded` : '';
+  }
+
+  function categorySubtitle(group) {
+    if (group?.hasMixedCategories) return 'Mixed categories';
+    return cleanString(group?.categoryName) || '';
+  }
+
+  function pageCoverageText(group) {
+    const label = cleanString(group?.pageCoverage?.label);
+    return label ? `P ${label}` : 'No page';
+  }
+
+  function pathGroupViewModel(group, measurements, unit, lookup) {
+    return {
+      id: group.id,
+      key: group.key,
+      kind: group.kind,
+      isLegacy: !!group.isLegacy,
+      pathCategoryVisibilityKey: group.pathCategoryVisibilityKey,
+      categoryKey: group.pathCategoryVisibilityKey || group.categoryKey || 'uncategorized',
+      categoryName: group.hasMixedCategories ? 'Mixed categories' : (group.categoryName || 'Uncategorized'),
+      categoryVisible: group.categoryVisible !== false,
+      isVisible: group.isVisible !== false,
+      visibleRunCount: group.visibleRunCount || 0,
+      hiddenRunCount: group.hiddenRunCount || 0,
+      displayName: group.displayName || 'Path',
+      categorySubtitle: categorySubtitle(group),
+      color: group.color || '#7d8a91',
+      runCount: group.runCount,
+      runCountText: formatPathRunCount(group),
+      unscaledText: formatUnscaledCount(group),
+      totalText: formatPathTotal(group, unit),
+      totalUnitText: UNIT_LABEL[unit] || unit,
+      pageCoverageText: pageCoverageText(group),
+      measurements: (group.runs || []).map(run => (
+        lookup.get(run.measurementId) || lookup.get(`index:${run.sourceIndex}`)
+      )).filter(Boolean),
+    };
+  }
+
+  function categorySectionViewModel(category, pathGroupsByKey, unit) {
+    const pathGroups = (category.pathKeys || []).map(key => pathGroupsByKey.get(key)).filter(Boolean);
+    const pathCount = pathGroups.length || Number(category.pathKeys?.length || 0);
+    return {
+      key: category.key,
+      name: category.displayName || category.name || 'Uncategorized',
+      categoryVisible: category.categoryVisible !== false,
+      isVisible: category.isVisible !== false,
+      pathGroups,
+      pathCount,
+      runCount: category.runCount || 0,
+      summaryText: `${pathCount} path${pathCount === 1 ? '' : 's'} · ${formatPathRunCount(category)}`,
+      totalText: formatPathTotal(category, unit),
+      totalUnitText: UNIT_LABEL[unit] || unit,
+    };
+  }
+
+  function buildPathGroups(measurements, currentPage, effectiveSidebarTab, unit, pathCategoryVisibility) {
+    const aggregation = pathAggregationForTab(measurements, currentPage, effectiveSidebarTab, unit, pathCategoryVisibility);
+    const lookup = measurementLookup(measurements);
+    const pathGroups = (aggregation.groups || []).map(group => pathGroupViewModel(group, measurements, unit, lookup));
+    const pathGroupsByKey = new Map(pathGroups.map(group => [group.key, group]));
+    return {
+      aggregation,
+      pathGroups,
+      categorySections: (aggregation.categories || []).map(category => categorySectionViewModel(category, pathGroupsByKey, unit)),
+    };
+  }
+
+  function buildSidebarModel({ measurements, currentPage, sidebarTab, pageCount, unit, pathCategoryVisibility }) {
     const all = measurements || [];
     const resolvedPageCount = resolvePageCount(all, pageCount);
     const isSinglePage = resolvedPageCount <= 1;
-    const effectiveSidebarTab = isSinglePage ? 'page' : (sidebarTab === 'all' ? 'all' : 'page');
+    const effectiveSidebarTab = isSinglePage ? 'page' : normalizeSidebarTab(sidebarTab);
     const measurementsForTab = all.filter(measurement => measurementPage(measurement) === currentPage);
     const summary = summarizeMeasurements(all, currentPage);
     const activeSummary = effectiveSidebarTab === 'page' ? summary.page : summary.all;
+    const {
+      aggregation: pathRunAggregation,
+      pathGroups,
+      categorySections,
+    } = buildPathGroups(all, currentPage, effectiveSidebarTab, unit, pathCategoryVisibility);
     return {
       measurementsForTab,
       pageSummary: summary.page,
       allSummary: summary.all,
       activeSummary,
-      totalLenText: formatTotal(activeSummary, unit),
-      runCountText: formatRunCount(activeSummary),
+      totalLenText: formatPathTotal(pathRunAggregation, unit),
+      runCountText: formatAggregationRunCount(pathRunAggregation),
       totalUnitText: UNIT_LABEL[unit],
       effectiveSidebarTab,
       isSinglePage,
       showScopeTabs: !isSinglePage,
-      totalHeadingText: isSinglePage ? 'Total' : (effectiveSidebarTab === 'page' ? 'This Page Total' : 'Grand Total'),
-      pageGroups: effectiveSidebarTab === 'all' ? pageGroups(all, pageScales, unit, collapsedPageGroups) : [],
+      totalHeadingText: isSinglePage ? 'Total' : ({
+        page: 'This Page Total',
+        categories: 'Categories Total',
+        all: 'Grand Total',
+      }[effectiveSidebarTab]),
+      pathRunAggregation,
+      pathGroups,
+      categorySections: effectiveSidebarTab === 'categories' ? categorySections : [],
     };
   }
 

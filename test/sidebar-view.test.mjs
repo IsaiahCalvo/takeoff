@@ -45,22 +45,36 @@ test('buildMeasurementItemMarkup escapes names and keeps row controls in one tem
   assert.match(markup, /data-id="12"/);
 });
 
-test('buildPageHeaderMarkup keeps page label, status, info, and jump actions distributed', async () => {
+test('buildPathGroupMarkup renders Path summary, category, coverage, and total safely', async () => {
   const view = await loadSidebarView();
-  const markup = view.buildPageHeaderMarkup({
-    page: 2,
-    collapsed: true,
-    hasScale: false,
-    scaleText: 'No scale',
-    excludedTitle: '2 unscaled excluded on page 2',
-    tooltipId: 'page-info-2',
+  const markup = view.buildPathGroupMarkup({
+    color: '#36d399',
+    displayName: 'Cat 6 <A>',
+    categorySubtitle: 'Low Voltage & Data',
+    runCountText: '2 runs',
+    unscaledText: '1 unscaled excluded',
+    pageCoverageText: 'P 1-3',
+    totalText: '12.50',
+    totalUnitText: 'ft',
   });
 
-  assert.match(markup, /class="collapse-toggle"/);
-  assert.match(markup, /Page <strong>2<\/strong>/);
-  assert.match(markup, /page-status page-status-scale no-scale/);
-  assert.match(markup, /aria-label="2 unscaled excluded on page 2"/);
-  assert.match(markup, /class="jump" data-page="2"/);
-  assert.equal(view.collapseIconPath(true), 'M4.5 3 7.5 6 4.5 9');
-  assert.equal(view.collapseIconPath(false), 'M2.5 4.5 6 8l3.5-3.5');
+  assert.match(markup, /class="path-group-marker"/);
+  assert.match(markup, /style="background:#36d399; color:#36d399"/);
+  assert.match(markup, /Cat 6 &lt;A&gt;/);
+  assert.match(markup, /Low Voltage &amp; Data/);
+  assert.match(markup, /2 runs/);
+  assert.match(markup, /P 1-3/);
+  assert.match(markup, /1 unscaled excluded/);
+  assert.match(markup, /<strong>12\.50<\/strong><span>ft<\/span>/);
+});
+
+test('buildCategoryHeaderMarkup renders category label and summary safely', async () => {
+  const view = await loadSidebarView();
+  const markup = view.buildCategoryHeaderMarkup({
+    name: 'Power <Branch>',
+    summaryText: '2 paths · 4 runs',
+  });
+
+  assert.match(markup, /class="path-category-title">Power &lt;Branch&gt;<\/div>/);
+  assert.match(markup, /class="path-category-summary">2 paths · 4 runs<\/span>/);
 });

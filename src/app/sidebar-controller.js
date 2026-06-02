@@ -7,25 +7,6 @@
     }
   }
 
-  function applyPageGroupCollapsedState({ groupEl, header, page, collapsed, collapseIconPath }) {
-    groupEl.classList.toggle('collapsed', collapsed);
-    groupEl.classList.toggle('open', !collapsed);
-    header.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-    const toggle = header.querySelector('.collapse-toggle');
-    const iconPath = header.querySelector('.collapse-toggle-icon path');
-    if (toggle) {
-      toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
-      toggle.setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} page ${page}`);
-      toggle.title = `${collapsed ? 'Expand' : 'Collapse'} page ${page}`;
-    }
-    if (iconPath) iconPath.setAttribute('d', collapseIconPath(collapsed));
-  }
-
-  function setPageInfoOpen(button, isOpen) {
-    button.classList.toggle('is-open', isOpen);
-    button.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-  }
-
   function buildMeasurementItemViewModel({
     measurement,
     currentPage,
@@ -178,8 +159,6 @@
 
   window.TakeoffSidebarController = {
     applyScopeChrome,
-    applyPageGroupCollapsedState,
-    setPageInfoOpen,
     buildMeasurementItemViewModel,
     createEditableLengthInput,
   };
