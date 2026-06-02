@@ -4,15 +4,17 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadCommands() {
-  const [geometry, measurements, commands] = await Promise.all([
+  const [geometry, measurements, runDetails, commands] = await Promise.all([
     readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/run-details.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/measurement-commands.js', import.meta.url), 'utf8'),
   ]);
   const sandbox = { window: {} };
   vm.createContext(sandbox);
   vm.runInContext(geometry, sandbox, { filename: 'geometry.js' });
   vm.runInContext(measurements, sandbox, { filename: 'measurements.js' });
+  vm.runInContext(runDetails, sandbox, { filename: 'run-details.js' });
   vm.runInContext(commands, sandbox, { filename: 'measurement-commands.js' });
   return sandbox.window.TakeoffMeasurementCommands;
 }
@@ -86,6 +88,55 @@ function freehandPath(id, from, to, overrides = {}) {
     ...overrides,
   };
 }
+
+test('saveMeasurementRunDetails normalizes details and replaces only the target measurement', async () => {
+  const commands = await loadCommands();
+  const untouched = {
+    id: 'keep',
+    name: 'Keep',
+    runDetails: { text: 'existing', photos: [{ id: 'kept-photo' }], videos: [] },
+  };
+  const target = {
+    id: 'target',
+    name: 'Target',
+    runDetails: { text: 'old', photos: [{ id: 'old-photo' }], videos: [] },
+  };
+  const measurements = [untouched, target];
+  const input = {
+    text: 42,
+    photos: [
+      { id: 'photo-1', metadata: { tags: ['rough-in'] } },
+      'invalid',
+    ],
+    videos: [{ id: 'video-1', metadata: { durationSeconds: 12 } }],
+    ignored: 'extra',
+  };
+
+  const result = commands.saveMeasurementRunDetails(measurements, 'target', input);
+  input.photos[0].metadata.tags.push('mutated');
+  input.videos[0].metadata.durationSeconds = 99;
+
+  assert.equal(result.updated, true);
+  assert.notEqual(result.measurements, measurements);
+  assert.equal(result.measurements[0], untouched);
+  assert.notEqual(result.measurements[1], target);
+  assert.equal(result.measurement, result.measurements[1]);
+  assert.deepEqual(plain(result.measurement.runDetails), {
+    text: '42',
+    photos: [{ id: 'photo-1', metadata: { tags: ['rough-in'] } }],
+    videos: [{ id: 'video-1', metadata: { durationSeconds: 12 } }],
+  });
+  assert.deepEqual(plain(target.runDetails), {
+    text: 'old',
+    photos: [{ id: 'old-photo' }],
+    videos: [],
+  });
+
+  const missing = commands.saveMeasurementRunDetails(measurements, 'missing', { text: 'no-op' });
+  assert.equal(missing.updated, false);
+  assert.equal(missing.measurements, measurements);
+  assert.equal(missing.measurement, null);
+});
 
 test('createLineMeasurement builds a scaled run and clones points', async () => {
   const commands = await loadCommands();
@@ -732,6 +783,45 @@ test('converted freehand to line clipboard and paste keep reversible freehand me
   assert.deepEqual(JSON.parse(JSON.stringify(pasted.shape.previousFreehand.segments[0].c1)), { x: 94, y: 116 });
 });
 
+test('copy and paste preserve normalized run details without sharing attachment objects', async () => {
+  const commands = await loadCommands();
+  const source = linePath(75, [{ x: 0, y: 0 }, { x: 20, y: 0 }], {
+    runDetails: {
+      text: 'Install above ceiling',
+      photos: [{ id: 'photo-1', metadata: { tags: ['ceiling'] } }],
+      videos: [{ id: 'video-1', metadata: { durationSeconds: 8 } }],
+    },
+  });
+
+  const clipboard = commands.cloneMeasurementForClipboard(source, { 1: 2 });
+  source.runDetails.photos[0].metadata.tags.push('mutated-source');
+  const pasted = commands.createPastedMeasurement({
+    source: clipboard,
+    id: 76,
+    existingMeasurements: [],
+    palette: [],
+    pasteAt: { x: 100, y: 100 },
+    currentPage: 2,
+    pxPerInch: 2,
+  });
+  clipboard.runDetails.photos[0].metadata.tags.push('mutated-clipboard');
+  clipboard.runDetails.videos[0].metadata.durationSeconds = 99;
+
+  assert.deepEqual(plain(clipboard.runDetails), {
+    text: 'Install above ceiling',
+    photos: [{ id: 'photo-1', metadata: { tags: ['ceiling', 'mutated-clipboard'] } }],
+    videos: [{ id: 'video-1', metadata: { durationSeconds: 99 } }],
+  });
+  assert.deepEqual(plain(pasted.runDetails), {
+    text: 'Install above ceiling',
+    photos: [{ id: 'photo-1', metadata: { tags: ['ceiling'] } }],
+    videos: [{ id: 'video-1', metadata: { durationSeconds: 8 } }],
+  });
+  assert.notEqual(clipboard.runDetails, source.runDetails);
+  assert.notEqual(pasted.runDetails, clipboard.runDetails);
+  assert.notEqual(pasted.runDetails.photos[0], clipboard.runDetails.photos[0]);
+});
+
 test('cloneMeasurementForClipboard deep-copies geometry and stores source scale metadata', async () => {
   const commands = await loadCommands();
   const selected = {
@@ -934,6 +1024,33 @@ test('copy/paste and Line/Freehand conversion preserve Path metadata after setti
   assert.deepEqual(JSON.parse(JSON.stringify(pasted.pathStyle)), {
     stroke: { color: '#ff9b3c', style: 'dotted' },
     anchors: { fill: '#101820', border: '#f7fbfc', borderMatchesStroke: false },
+  });
+});
+
+test('Line and Freehand conversion preserve saved run details', async () => {
+  const commands = await loadCommands();
+  const measurement = freehandPath(95, { x: 0, y: 0 }, { x: 20, y: 0 }, {
+    runDetails: {
+      text: 'Freehand route details',
+      photos: [{ id: 'photo-freehand' }],
+      videos: [{ id: 'video-freehand' }],
+    },
+  });
+
+  assert.equal(commands.convertFreehandMeasurementToLine(measurement, { pxPerInch: 2 }), true);
+  assert.equal(measurement.shape.active, 'line');
+  assert.deepEqual(plain(measurement.runDetails), {
+    text: 'Freehand route details',
+    photos: [{ id: 'photo-freehand' }],
+    videos: [{ id: 'video-freehand' }],
+  });
+
+  assert.equal(commands.convertLineMeasurementToFreehand(measurement, { pxPerInch: 2 }), true);
+  assert.equal(measurement.shape.active, 'freehand');
+  assert.deepEqual(plain(measurement.runDetails), {
+    text: 'Freehand route details',
+    photos: [{ id: 'photo-freehand' }],
+    videos: [{ id: 'video-freehand' }],
   });
 });
 
@@ -1364,11 +1481,25 @@ test('mergeSnappedEndpointPaths merges compatible Freehand endpoint paths', asyn
 
 test('mergeSnappedEndpointPaths merges Line and Freehand terminal paths without converting portions', async () => {
   const commands = await loadCommands();
+  const lineRunDetails = {
+    text: 'Line source details',
+    photos: [{ id: 'line-photo', metadata: { tags: ['line'] } }],
+    videos: [],
+  };
+  const freehandRunDetails = {
+    text: 'Freehand source details',
+    photos: [],
+    videos: [{ id: 'freehand-video', metadata: { durationSeconds: 5 } }],
+  };
   const line = linePath(100, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
     name: 'Line original',
+    runDetails: lineRunDetails,
     snapConnections: [{ endpoint: 'end', targetId: 101, targetEndpoint: 'start' }],
   });
-  const freehand = freehandPath(101, { x: 10, y: 0 }, { x: 20, y: 0 }, { name: 'Freehand original' });
+  const freehand = freehandPath(101, { x: 10, y: 0 }, { x: 20, y: 0 }, {
+    name: 'Freehand original',
+    runDetails: freehandRunDetails,
+  });
 
   const result = commands.mergeSnappedEndpointPaths([line, freehand], {
     sourceId: 100,
@@ -1394,6 +1525,10 @@ test('mergeSnappedEndpointPaths merges Line and Freehand terminal paths without 
   assert.equal(result.measurement.mergeMemory.sources[1].original.name, 'Freehand original');
   assert.equal(result.measurement.mergeMemory.sources[0].original.notes, 'note-100');
   assert.equal(result.measurement.mergeMemory.sources[1].original.details, 'detail-101');
+  assert.deepEqual(plain(result.measurement.mergeMemory.sources[0].original.runDetails), lineRunDetails);
+  assert.deepEqual(plain(result.measurement.mergeMemory.sources[1].original.runDetails), freehandRunDetails);
+  assert.notEqual(result.measurement.mergeMemory.sources[0].original.runDetails, lineRunDetails);
+  assert.notEqual(result.measurement.mergeMemory.sources[1].original.runDetails, freehandRunDetails);
   assert.deepEqual(plain(result.measurement.snapConnections), []);
 });
 
@@ -1452,9 +1587,12 @@ test('mergeSnappedEndpointPaths flattens repeated merge memory into one ordered 
 test('copy and paste preserve mixed merge memory and move portion boundaries', async () => {
   const commands = await loadCommands();
   const line = linePath(130, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    runDetails: { text: 'Line detail', photos: [{ id: 'line-photo' }], videos: [] },
     snapConnections: [{ endpoint: 'end', targetId: 131, targetEndpoint: 'start' }],
   });
-  const freehand = freehandPath(131, { x: 10, y: 0 }, { x: 20, y: 0 });
+  const freehand = freehandPath(131, { x: 10, y: 0 }, { x: 20, y: 0 }, {
+    runDetails: { text: 'Freehand detail', photos: [], videos: [{ id: 'freehand-video' }] },
+  });
   const merged = commands.mergeSnappedEndpointPaths([line, freehand], {
     sourceId: 130,
     sourceEndpoint: 'end',
@@ -1482,15 +1620,29 @@ test('copy and paste preserve mixed merge memory and move portion boundaries', a
   assert.deepEqual(plain(pasted.mergeMemory.sources[0].current.points), [{ x: 90, y: 100 }, { x: 100, y: 100 }]);
   assert.deepEqual(plain(pasted.mergeMemory.sources[1].current.segments[0].from), { x: 100, y: 100 });
   assert.deepEqual(plain(pasted.mergeMemory.sources[1].current.segments[0].to), { x: 110, y: 100 });
+  assert.deepEqual(plain(pasted.mergeMemory.sources[0].original.runDetails), {
+    text: 'Line detail',
+    photos: [{ id: 'line-photo' }],
+    videos: [],
+  });
+  assert.deepEqual(plain(pasted.mergeMemory.sources[1].original.runDetails), {
+    text: 'Freehand detail',
+    photos: [],
+    videos: [{ id: 'freehand-video' }],
+  });
 });
 
 test('unmergePaths can restore originals or maintain safely mapped mixed edits', async () => {
   const commands = await loadCommands();
   const line = linePath(140, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
     name: 'Original Line',
+    runDetails: { text: 'Original line details', photos: [{ id: 'line-photo' }], videos: [] },
     snapConnections: [{ endpoint: 'end', targetId: 141, targetEndpoint: 'start' }],
   });
-  const freehand = freehandPath(141, { x: 10, y: 0 }, { x: 20, y: 0 }, { name: 'Original Freehand' });
+  const freehand = freehandPath(141, { x: 10, y: 0 }, { x: 20, y: 0 }, {
+    name: 'Original Freehand',
+    runDetails: { text: 'Original freehand details', photos: [], videos: [{ id: 'freehand-video' }] },
+  });
   const result = commands.mergeSnappedEndpointPaths([line, freehand], {
     sourceId: 140,
     sourceEndpoint: 'end',
@@ -1509,6 +1661,10 @@ test('unmergePaths can restore originals or maintain safely mapped mixed edits',
   assert.deepEqual(plain(original.measurements.map(measurement => measurement.name)), ['Original Line', 'Original Freehand']);
   assert.deepEqual(plain(original.measurements[0].points), [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
   assert.deepEqual(plain(original.measurements[1].points), [{ x: 10, y: 0 }, { x: 20, y: 0 }]);
+  assert.deepEqual(plain(original.measurements.map(measurement => measurement.runDetails)), [
+    { text: 'Original line details', photos: [{ id: 'line-photo' }], videos: [] },
+    { text: 'Original freehand details', photos: [], videos: [{ id: 'freehand-video' }] },
+  ]);
 
   const maintainState = commands.unmergePathState(merged);
   assert.equal(maintainState.canMaintainEdits, true);
@@ -1517,6 +1673,10 @@ test('unmergePaths can restore originals or maintain safely mapped mixed edits',
   assert.deepEqual(plain(maintained.measurements.map(measurement => measurement.name)), ['Original Line', 'Original Freehand']);
   assert.deepEqual(plain(maintained.measurements[0].points), [{ x: 5, y: 5 }, { x: 15, y: 5 }]);
   assert.deepEqual(plain(maintained.measurements[1].segments[0].to), { x: 25, y: 5 });
+  assert.deepEqual(plain(maintained.measurements.map(measurement => measurement.runDetails)), [
+    { text: 'Original line details', photos: [{ id: 'line-photo' }], videos: [] },
+    { text: 'Original freehand details', photos: [], videos: [{ id: 'freehand-video' }] },
+  ]);
 });
 
 test('unmergePathState disables maintain edits when portion boundaries are unsafe', async () => {

@@ -37,6 +37,11 @@ test('createDocumentSnapshot captures persisted document state only when a docum
       id: 1,
       pathCategoryId: 'low-voltage',
       lengthInches: 120,
+      runDetails: {
+        text: 'Snapshot details',
+        photos: [{ id: 'photo-1', metadata: { tags: ['snapshot'] } }],
+        videos: [],
+      },
       shape: {
         active: 'line',
         previousFreehand: {
@@ -53,6 +58,7 @@ test('createDocumentSnapshot captures persisted document state only when a docum
 
   const snapshot = store.createDocumentSnapshot(state);
   state.measurements[0].shape.previousFreehand.points[0].x = 99;
+  state.measurements[0].runDetails.photos[0].metadata.tags.push('mutated');
   state.measurements[0].lengthInches = 0;
   state.pathCategoryVisibility['category:low-voltage'] = true;
 
@@ -64,6 +70,11 @@ test('createDocumentSnapshot captures persisted document state only when a docum
   assert.equal(snapshot.measurements[0].shape.previousFreehand.points[0].x, 0);
   assert.equal(snapshot.measurements[0].pathCategoryId, 'low-voltage');
   assert.equal(snapshot.measurements[0].lengthInches, 120);
+  assert.deepEqual(plain(snapshot.measurements[0].runDetails), {
+    text: 'Snapshot details',
+    photos: [{ id: 'photo-1', metadata: { tags: ['snapshot'] } }],
+    videos: [],
+  });
   assert.deepEqual(plain(snapshot.pathCategoryVisibility), { 'category:low-voltage': false });
   assert.equal(snapshot.pageCache.get(2).page, 2);
   assert.equal(store.createDocumentSnapshot({ activeDocId: 'doc-2', pdf: null, imageBitmap: null }), null);
