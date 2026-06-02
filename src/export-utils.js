@@ -15,6 +15,10 @@
     'Group Total',
     'Group Unit',
     'Visible',
+    'Note',
+    'Photo Count',
+    'Video Count',
+    'Attachments',
   ];
 
   function cleanName(value, fallback) {
@@ -44,6 +48,38 @@
   function roundExportNumber(value) {
     const number = Number(value);
     return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
+  }
+
+  function fallbackNormalizeRunDetails(details = {}) {
+    const source = details && typeof details === 'object' && !Array.isArray(details) ? details : {};
+    return {
+      text: String(source.text ?? ''),
+      photos: Array.isArray(source.photos) ? source.photos.filter(item => item && typeof item === 'object' && !Array.isArray(item)) : [],
+      videos: Array.isArray(source.videos) ? source.videos.filter(item => item && typeof item === 'object' && !Array.isArray(item)) : [],
+    };
+  }
+
+  function normalizeRunDetails(details = {}) {
+    const helper = window.TakeoffRunDetails;
+    if (helper && typeof helper.normalizeRunDetails === 'function') {
+      return helper.normalizeRunDetails(details);
+    }
+    return fallbackNormalizeRunDetails(details);
+  }
+
+  function attachmentIndicator(photoCount, videoCount) {
+    const parts = [];
+    if (photoCount) parts.push(`${photoCount} photo${photoCount === 1 ? '' : 's'}`);
+    if (videoCount) parts.push(`${videoCount} video${videoCount === 1 ? '' : 's'}`);
+    return parts.join('; ');
+  }
+
+  function summaryDetailText(row) {
+    const parts = [];
+    const note = String(row?.note || '').replace(/\s+/g, ' ').trim();
+    if (note) parts.push(`Note: ${note.length > 120 ? `${note.slice(0, 117)}...` : note}`);
+    if (row?.attachments) parts.push(`Media: ${row.attachments}`);
+    return parts.length ? ` | ${parts.join(' | ')}` : '';
   }
 
   function categoryDisplayName(run) {
@@ -105,6 +141,9 @@
 
     for (const group of aggregation.groups || []) {
       for (const run of group.runs || []) {
+        const details = normalizeRunDetails(measurements?.[run.sourceIndex]?.runDetails);
+        const photoCount = details.photos.length;
+        const videoCount = details.videos.length;
         const breakdown = breakdowns.get(breakdownKey(run)) || {
           groupOrder: 0,
           path: cleanName(group.displayName || run.pathName, LEGACY_PATH_DISPLAY_NAME),
@@ -128,6 +167,10 @@
           groupTotal: roundExportNumber(breakdown.total),
           groupUnit: unitLabel,
           visible: run.isVisible ? 'Y' : 'N',
+          note: details.text,
+          photoCount,
+          videoCount,
+          attachments: attachmentIndicator(photoCount, videoCount),
         });
       }
     }
@@ -163,6 +206,10 @@
         formatLength(row.groupTotal),
         row.groupUnit,
         row.visible,
+        row.note,
+        row.photoCount,
+        row.videoCount,
+        row.attachments,
       ].map(csvCell).join(','));
     }
     return lines.join('\r\n');
@@ -222,10 +269,10 @@
           const visibilityNote = row.visible === 'N' ? ' (hidden)' : '';
           if (row.scaled === 'Y' && row.length != null) {
             pageTotal += row.length;
-            lines.push(`- ${row.name}: ${formatLength(row.length)} ${row.unit}${visibilityNote}`);
+            lines.push(`- ${row.name}: ${formatLength(row.length)} ${row.unit}${visibilityNote}${summaryDetailText(row)}`);
           } else {
             unscaledCount += 1;
-            lines.push(`- ${row.name}: Unscaled${visibilityNote}`);
+            lines.push(`- ${row.name}: Unscaled${visibilityNote}${summaryDetailText(row)}`);
           }
         }
       }
@@ -280,7 +327,7 @@
   function buildSheetXml(rows) {
     const rowCount = Math.max(1, (rows || []).length + 1);
     const lastColumn = columnName(HEADERS.length);
-    const columnWidths = [10.83, 19.33, 11, 13, 13, 12.33, 20, 18, 17, 14, 13, 12.33];
+    const columnWidths = [10.83, 19.33, 11, 13, 13, 12.33, 20, 18, 17, 14, 13, 12.33, 28, 13, 13, 18];
     const data = [];
     data.push(`<row r="1">${HEADERS.map((header, i) => textCell(1, i + 1, header, 1)).join('')}</row>`);
     (rows || []).forEach((row, i) => {
@@ -298,6 +345,10 @@
         numberCell(r, 10, formatLength(row.groupTotal), 3),
         textCell(r, 11, row.groupUnit, 1),
         textCell(r, 12, row.visible, 1),
+        textCell(r, 13, row.note, 2),
+        numberCell(r, 14, Number(row.photoCount) || 0, 1),
+        numberCell(r, 15, Number(row.videoCount) || 0, 1),
+        textCell(r, 16, row.attachments, 2),
       ].join('') + '</row>');
     });
 

@@ -4,21 +4,24 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadUtils() {
-  const [pathAggregation, source] = await Promise.all([
+  const [pathAggregation, runDetails, source] = await Promise.all([
     readFile(new URL('../src/app/path-aggregation.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/run-details.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/export-utils.js', import.meta.url), 'utf8'),
   ]);
   const sandbox = { window: {}, Blob, TextEncoder, TextDecoder };
   vm.createContext(sandbox);
   vm.runInContext(pathAggregation, sandbox, { filename: 'path-aggregation.js' });
+  vm.runInContext(runDetails, sandbox, { filename: 'run-details.js' });
   vm.runInContext(source, sandbox, { filename: 'export-utils.js' });
   return sandbox.window.TakeoffExportUtils;
 }
 
 async function loadConversionExportModules() {
-  const [geometry, measurements, commands, pathAggregation, exportUtils] = await Promise.all([
+  const [geometry, measurements, runDetails, commands, pathAggregation, exportUtils] = await Promise.all([
     readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/run-details.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/measurement-commands.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/path-aggregation.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/export-utils.js', import.meta.url), 'utf8'),
@@ -27,6 +30,7 @@ async function loadConversionExportModules() {
   vm.createContext(sandbox);
   vm.runInContext(geometry, sandbox, { filename: 'geometry.js' });
   vm.runInContext(measurements, sandbox, { filename: 'measurements.js' });
+  vm.runInContext(runDetails, sandbox, { filename: 'run-details.js' });
   vm.runInContext(commands, sandbox, { filename: 'measurement-commands.js' });
   vm.runInContext(pathAggregation, sandbox, { filename: 'path-aggregation.js' });
   vm.runInContext(exportUtils, sandbox, { filename: 'export-utils.js' });
@@ -63,6 +67,10 @@ test('buildExportRows creates Excel-ready rows with scaled flags', async () => {
     groupTotal: 60.45,
     groupUnit: 'ft',
     visible: 'Y',
+    note: '',
+    photoCount: 0,
+    videoCount: 0,
+    attachments: '',
   });
   assert.deepEqual(JSON.parse(JSON.stringify(rows[2])), {
     page: 2,
@@ -77,6 +85,10 @@ test('buildExportRows creates Excel-ready rows with scaled flags', async () => {
     groupTotal: 0,
     groupUnit: 'ft',
     visible: 'Y',
+    note: '',
+    photoCount: 0,
+    videoCount: 0,
+    attachments: '',
   });
 });
 
@@ -132,10 +144,44 @@ test('generateCsv emits compact title-cased columns and blank unscaled length', 
   const csv = utils.generateCsv(utils.buildExportRows(measurements, { unit: 'ft' }));
 
   assert.equal(csv, [
-    'Page,Name,Type,Length,Unit,Scaled,Path,Category,Group Run Count,Group Total,Group Unit,Visible',
-    '1,Main corridor,line,42.35,ft,Y,Legacy measurements,Legacy measurements,2,60.45,ft,Y',
-    '1,Lobby return,freehand,18.10,ft,Y,Legacy measurements,Legacy measurements,2,60.45,ft,Y',
-    '2,Future camera path,line,,ft,N,Legacy measurements,Legacy measurements,1,0.00,ft,Y',
+    'Page,Name,Type,Length,Unit,Scaled,Path,Category,Group Run Count,Group Total,Group Unit,Visible,Note,Photo Count,Video Count,Attachments',
+    '1,Main corridor,line,42.35,ft,Y,Legacy measurements,Legacy measurements,2,60.45,ft,Y,,0,0,',
+    '1,Lobby return,freehand,18.10,ft,Y,Legacy measurements,Legacy measurements,2,60.45,ft,Y,,0,0,',
+    '2,Future camera path,line,,ft,N,Legacy measurements,Legacy measurements,1,0.00,ft,Y,,0,0,',
+  ].join('\r\n'));
+});
+
+test('exports run detail notes and media counts with CSV escaping', async () => {
+  const utils = await loadUtils();
+  const rows = utils.buildExportRows([
+    {
+      page: 1,
+      name: 'Panel "A"',
+      type: 'line',
+      lengthInches: 24,
+      runDetails: {
+        text: 'Needs review, quoted "note"\nand newline',
+        photos: [{ id: 'photo-1' }, { id: 'photo-2' }],
+        videos: [{ id: 'video-1' }],
+      },
+    },
+  ], { unit: 'ft' });
+
+  assert.deepEqual(plain(rows.map(row => ({
+    note: row.note,
+    photoCount: row.photoCount,
+    videoCount: row.videoCount,
+    attachments: row.attachments,
+  }))), [{
+    note: 'Needs review, quoted "note"\nand newline',
+    photoCount: 2,
+    videoCount: 1,
+    attachments: '2 photos; 1 video',
+  }]);
+
+  assert.equal(utils.generateCsv(rows), [
+    'Page,Name,Type,Length,Unit,Scaled,Path,Category,Group Run Count,Group Total,Group Unit,Visible,Note,Photo Count,Video Count,Attachments',
+    '1,"Panel ""A""",line,2.00,ft,Y,Legacy measurements,Legacy measurements,1,2.00,ft,Y,"Needs review, quoted ""note""\nand newline",2,1,2 photos; 1 video',
   ].join('\r\n'));
 });
 
@@ -146,6 +192,23 @@ test('generateSummary groups by page and grouped Path/category breakdowns', asyn
   assert.match(summary, /Page 1\nPath: Legacy measurements \| Category: Legacy measurements \| Runs: 2 \| Total: 60\.45 ft\n- Main corridor: 42\.35 ft\n- Lobby return: 18\.10 ft\nPage total: 60\.45 ft/);
   assert.match(summary, /Page 2\nPath: Legacy measurements \| Category: Legacy measurements \| Runs: 1 \| Total: 0\.00 ft\n- Future camera path: Unscaled\nPage total: 0\.00 ft/);
   assert.match(summary, /Grand total: 60\.45 ft\nUnscaled measurements: 1/);
+});
+
+test('generateSummary includes compact note and media details', async () => {
+  const utils = await loadUtils();
+  const summary = utils.generateSummary(utils.buildExportRows([{
+    page: 1,
+    name: 'Detailed run',
+    type: 'line',
+    lengthInches: 12,
+    runDetails: {
+      text: 'First line\nSecond, line',
+      photos: [{ id: 'photo-1' }],
+      videos: [{ id: 'video-1' }, { id: 'video-2' }],
+    },
+  }], { unit: 'ft' }));
+
+  assert.match(summary, /- Detailed run: 1\.00 ft \| Note: First line Second, line \| Media: 1 photo; 2 videos/);
 });
 
 test('buildExportRows includes Path/category group breakdowns while retaining hidden measurements', async () => {
@@ -219,6 +282,10 @@ test('buildExportRows includes Path/category group breakdowns while retaining hi
     groupTotal: row.groupTotal,
     groupUnit: row.groupUnit,
     visible: row.visible,
+    note: row.note,
+    photoCount: row.photoCount,
+    videoCount: row.videoCount,
+    attachments: row.attachments,
   }))), [
     {
       page: 1,
@@ -231,6 +298,10 @@ test('buildExportRows includes Path/category group breakdowns while retaining hi
       groupTotal: 15,
       groupUnit: 'ft',
       visible: 'N',
+      note: '',
+      photoCount: 0,
+      videoCount: 0,
+      attachments: '',
     },
     {
       page: 1,
@@ -243,6 +314,10 @@ test('buildExportRows includes Path/category group breakdowns while retaining hi
       groupTotal: 15,
       groupUnit: 'ft',
       visible: 'N',
+      note: '',
+      photoCount: 0,
+      videoCount: 0,
+      attachments: '',
     },
     {
       page: 1,
@@ -255,6 +330,10 @@ test('buildExportRows includes Path/category group breakdowns while retaining hi
       groupTotal: 2,
       groupUnit: 'ft',
       visible: 'Y',
+      note: '',
+      photoCount: 0,
+      videoCount: 0,
+      attachments: '',
     },
     {
       page: 1,
@@ -267,6 +346,10 @@ test('buildExportRows includes Path/category group breakdowns while retaining hi
       groupTotal: 0,
       groupUnit: 'ft',
       visible: 'Y',
+      note: '',
+      photoCount: 0,
+      videoCount: 0,
+      attachments: '',
     },
     {
       page: 2,
@@ -279,6 +362,10 @@ test('buildExportRows includes Path/category group breakdowns while retaining hi
       groupTotal: 3,
       groupUnit: 'ft',
       visible: 'N',
+      note: '',
+      photoCount: 0,
+      videoCount: 0,
+      attachments: '',
     },
   ]);
 });
@@ -374,13 +461,39 @@ test('generateXlsxPackage includes Excel table and conditional formatting metada
   assert.match(text, /<dxf><fill><patternFill patternType="solid"><bgColor rgb="FFCEEED0"\/><\/patternFill><\/fill><\/dxf>/);
   assert.match(text, /<dxf><fill><patternFill patternType="solid"><bgColor rgb="FFF6C9CE"\/><\/patternFill><\/fill><\/dxf>/);
   assert.match(text, /<tableParts count="1">/);
-  assert.match(text, /<dimension ref="A1:L4"\/>/);
-  assert.match(text, /<tableColumns count="12">/);
+  assert.match(text, /<dimension ref="A1:P4"\/>/);
+  assert.match(text, /<tableColumns count="16">/);
   assert.match(text, /<tableColumn id="7" name="Path"\/>/);
   assert.match(text, /<tableColumn id="12" name="Visible"\/>/);
+  assert.match(text, /<tableColumn id="13" name="Note"\/>/);
+  assert.match(text, /<tableColumn id="14" name="Photo Count"\/>/);
+  assert.match(text, /<tableColumn id="15" name="Video Count"\/>/);
+  assert.match(text, /<tableColumn id="16" name="Attachments"\/>/);
   assert.match(text, /<fonts count="1">/);
   assert.match(text, /<fills count="2">/);
   assert.doesNotMatch(text, /FF4472C4/);
   assert.match(text, /<c r="F2" t="inlineStr" s="1"><is><t>Y<\/t><\/is><\/c>/);
   assert.match(text, /<c r="F4" t="inlineStr" s="1"><is><t>N<\/t><\/is><\/c>/);
+});
+
+test('generateXlsxPackage includes run detail headers, dimensions, and escaped note text', async () => {
+  const utils = await loadUtils();
+  const xlsx = utils.generateXlsxPackage(utils.buildExportRows([{
+    page: 1,
+    name: 'Media run',
+    lengthInches: 12,
+    runDetails: {
+      text: 'A&B <quoted> "note"',
+      photos: [{ id: 'photo-1' }],
+      videos: [{ id: 'video-1' }],
+    },
+  }], { unit: 'ft' }));
+
+  const text = new TextDecoder().decode(xlsx);
+  assert.match(text, /<dimension ref="A1:P2"\/>/);
+  assert.match(text, /<table xmlns="http:\/\/schemas.openxmlformats.org\/spreadsheetml\/2006\/main" id="1" name="Table1" displayName="Table1" ref="A1:P2" totalsRowShown="0">/);
+  assert.match(text, /<c r="M2" t="inlineStr" s="2"><is><t>A&amp;B &lt;quoted&gt; &quot;note&quot;<\/t><\/is><\/c>/);
+  assert.match(text, /<c r="N2" s="1"><v>1<\/v><\/c>/);
+  assert.match(text, /<c r="O2" s="1"><v>1<\/v><\/c>/);
+  assert.match(text, /<c r="P2" t="inlineStr" s="2"><is><t>1 photo; 1 video<\/t><\/is><\/c>/);
 });
