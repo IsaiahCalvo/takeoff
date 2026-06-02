@@ -23,10 +23,12 @@ async function loadLengthEditController() {
 function createFakeInput(events) {
   const attrs = {};
   const classes = new Set();
+  const listenersByType = {};
   return {
     value: '',
     dataset: {},
     readOnly: true,
+    style: {},
     attrs,
     classes,
     listeners: {},
@@ -45,11 +47,30 @@ function createFakeInput(events) {
     select() { events.push('select'); },
     blur() { events.push('blur'); },
     setSelectionRange(start, end) { events.push(`selection:${start}:${end}`); },
-    addEventListener(type, handler) { this.listeners[type] = handler; },
+    addEventListener(type, handler) {
+      listenersByType[type] ||= [];
+      listenersByType[type].push(handler);
+      this.listeners[type] = event => {
+        for (const listener of listenersByType[type]) listener(event);
+      };
+    },
     classList: {
       add(name) { classes.add(name); },
       remove(name) { classes.delete(name); },
       contains(name) { return classes.has(name); },
+    },
+  };
+}
+
+function createFakeStyle() {
+  const props = {};
+  return {
+    props,
+    setProperty(name, value) {
+      props[name] = value;
+    },
+    getPropertyValue(name) {
+      return props[name] || '';
     },
   };
 }
@@ -200,6 +221,74 @@ test('canvas Length editor keeps the active unit visible while editing', async (
   });
 
   assert.ok(calls.includes('parse:2.00'));
+});
+
+test('canvas Length editor mirrors the floating tag color and value width', async () => {
+  const { sidebar, lengthEdit } = await loadLengthEditController();
+  const events = [];
+  const input = createFakeInput(events);
+  const pillClasses = new Set();
+  const errorEl = { hidden: true, textContent: '', id: 'canvas-length-error' };
+  const unitEl = { textContent: '', hidden: true };
+  const pillStyle = createFakeStyle();
+  const pill = {
+    style: pillStyle,
+    classList: {
+      add(name) { pillClasses.add(name); },
+      remove(name) { pillClasses.delete(name); },
+      contains(name) { return pillClasses.has(name); },
+    },
+    querySelector(selector) {
+      if (selector === '.length-edit-error') return errorEl;
+      if (selector === '.length-edit-unit') return unitEl;
+      return null;
+    },
+  };
+  const state = {
+    selectedId: null,
+    rotateModeId: null,
+    measurements: [{
+      id: 9,
+      page: 1,
+      color: '#ff73a6',
+      lengthInches: 24,
+      points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    }],
+  };
+  const controller = lengthEdit.createLengthEditController({
+    state,
+    input,
+    pill,
+    stage: { getBoundingClientRect: () => ({ left: 10, top: 20 }) },
+    sidebarController: sidebar,
+    scaleForPage: () => 10,
+    formatLength: inches => `${inches / 12}.00`,
+    unitLabel: () => 'ft',
+    parseLengthInUnit: () => 12,
+    resizeMeasurementToLength: () => true,
+    createHistorySnapshot: () => ({}),
+    recordHistory: () => {},
+    renderList: () => {},
+    redraw: () => {},
+    showStatus: () => {},
+    syncSidebarSelection: () => {},
+    finishPointerDrag: () => {},
+    clearActiveFitMode: () => {},
+    setSelectionMode: () => {},
+    imageToScreen: () => ({ x: 100, y: 120 }),
+    endRotateMode: () => {},
+  });
+
+  assert.equal(controller.openCanvasLengthEdit({ measurementId: 9, x: 20, y: 30, width: 60, height: 20 }), true);
+
+  assert.equal(pillStyle.getPropertyValue('--length-edit-color'), '#ff73a6');
+  assert.equal(input.style.width, '4ch');
+  assert.equal(input.value, '2.00');
+
+  input.value = '123.45';
+  input.listeners.input();
+
+  assert.equal(input.style.width, '6ch');
 });
 
 test('canvas Length editor sanitizes typed and pasted decimal input', async () => {

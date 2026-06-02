@@ -64,6 +64,7 @@
     currentValue,
     commit,
     cancel,
+    afterInput,
     errorEl = null,
     validationMessage = 'Enter a positive Length.',
   } = {}) {
@@ -105,6 +106,7 @@
       input.value = value;
       clearValidation();
       input.removeAttribute('readonly');
+      if (afterInput) afterInput(input.value);
       input.focus();
       if (input.select) input.select();
     }
@@ -119,6 +121,7 @@
         if (input.setSelectionRange) input.setSelectionRange(cursor, cursor);
       }
       clearValidation();
+      if (afterInput) afterInput(input.value);
     }
 
     function commitValue() {
