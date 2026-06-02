@@ -1,4 +1,8 @@
 (function () {
+  function defaultHasRunDetails(details) {
+    return window.TakeoffRunDetails?.hasRunDetails?.(details) || false;
+  }
+
   function applyScopeChrome({ scopeTabs, totalHeading, entireTotal, tabs, model }) {
     scopeTabs.hidden = !model.showScopeTabs;
     totalHeading.textContent = model.totalHeadingText;
@@ -27,7 +31,7 @@
     const onOtherPage = measurement.page !== currentPage;
     const lengthValue = isUnscaled ? 'unscaled' : formatLength(measurement.lengthInches);
     const lengthUnit = isUnscaled ? '' : unitLabel(unit);
-    const detailsPresent = hasRunDetails ? hasRunDetails(measurement.runDetails) : false;
+    const detailsPresent = (hasRunDetails || defaultHasRunDetails)(measurement.runDetails);
     return {
       color: measurement.color,
       name,

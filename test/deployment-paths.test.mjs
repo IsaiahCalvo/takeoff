@@ -626,12 +626,14 @@ test('Path group rows nest full-width child runs with existing row controls', as
 
 test('Run Details modal stays bounded and previews media without overflow', async () => {
   const { main, styles } = await readIndexAndSidebarView();
+  const modalSource = await readFile(new URL('../src/app/run-detail-modal.js', import.meta.url), 'utf8');
   const modalRule = styles.match(/\.run-details-modal\s*\{[^}]+\}/)?.[0] || '';
   const mediaItemRule = styles.match(/\.run-details-media-item\s*\{[^}]+\}/)?.[0] || '';
   const mediaNameRule = styles.match(/\.run-details-media-name\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(main, /import '\.\/app\/run-detail-modal\.js';/);
-  assert.match(main, /saveMeasurementRunDetails/);
+  assert.match(main, /bindRunDetailModal/);
+  assert.match(modalSource, /saveMeasurementRunDetails/);
   assert.match(modalRule, /max-height:\s*calc\(100vh - 32px\)/);
   assert.match(modalRule, /overflow:\s*auto/);
   assert.match(mediaItemRule, /grid-template-columns:\s*58px minmax\(0,\s*1fr\) auto/);

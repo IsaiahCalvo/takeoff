@@ -58,7 +58,7 @@ const pageState = window.TakeoffPageState;
 const continuousScroll = window.TakeoffContinuousScroll;
 const continuousRenderer = window.TakeoffContinuousRenderer;
 const continuousMeasurements = window.TakeoffContinuousMeasurements;
-const unitModel = window.TakeoffUnits, runDetailsModel = window.TakeoffRunDetails, runDetailModalModel = window.TakeoffRunDetailModal;
+const unitModel = window.TakeoffUnits, runDetailModalModel = window.TakeoffRunDetailModal;
 const tooltipController = window.TakeoffTooltipController;
 const pdfEngine = window.TakeoffPdfEngine;
 const performanceLogger = window.TakeoffPerformanceLogger.createPerformanceLogger();
@@ -1477,7 +1477,6 @@ window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') e.preventDefault();
     return;
   }
-  if (runDetailsModal?.isOpen()) { if (e.key === 'Escape') runDetailsModal.close(); e.stopPropagation(); if (e.key === 'Escape') e.preventDefault(); return; }
   const inputAction = inputController.describeKeyDown(e, currentInputState(e.target));
   if (!inputAction) return;
   if (inputAction.action === 'undo') {
@@ -2084,12 +2083,14 @@ const pathSettingsModal = pathSettings.createPathSettingsModal({
   setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }),
   syncSelectionWithPathCategoryVisibility, renderList, redraw, showStatus,
 });
-const runDetailsModal = runDetailModalModel.createRunDetailModal({ root: document, normalizeRunDetails: runDetailsModel.normalizeRunDetails, onSave: saveRunDetailsForMeasurement });
+runDetailModalModel.bindRunDetailModal({
+  root: document, sidebarRoot: measList, sidebarController, state, stateStore, measurementCommands, measurementById,
+  createHistorySnapshot, recordHistory, renderList, redraw, showStatus,
+});
 const unmergePathModal = window.TakeoffUnmergePathModal.createUnmergePathModal({ getElement: $, state, measurementCommands, scaleForPage, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus, setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }) });
 
 function openPathSettingsForGroup(pathGroupId, triggerElement) { pathSettingsModal.open(sidebarPathGroupsById.get(pathGroupId), triggerElement); }
-function openRunDetailsForMeasurement(measurementId, triggerElement) { const measurement = measurementById(measurementId); if (measurement) runDetailsModal.open(measurement, triggerElement); }
-function saveRunDetailsForMeasurement(measurementId, details) { const historyBefore = createHistorySnapshot(); const result = measurementCommands.saveMeasurementRunDetails(state.measurements, measurementId, details); if (!result.updated) return false; stateStore.setMeasurements(state, result.measurements, { selectedId: result.measurement.id }); recordHistory(historyBefore, 'run details'); renderList(); redraw(); showStatus('Run details saved.'); return true; }
+
 // Sidebar tab switching
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2117,7 +2118,6 @@ sidebarController.bindPathGroupSettingsControls({
   root: measList,
   openSettings: openPathSettingsForGroup,
 });
-sidebarController.bindRunDetailsControls({ root: measList, openDetails: openRunDetailsForMeasurement });
 
 // ------- Unit + clear -------
 function setUnit(value) {
@@ -2421,7 +2421,6 @@ function buildMeasItem(m) {
     formatLength: formatLen,
     unitLabel: unitModel.unitLabel,
     measurementItemClass: sidebarView.measurementItemClass,
-    hasRunDetails: runDetailsModel.hasRunDetails,
   });
   const onOtherPage = itemModel.onOtherPage;
   m.name = itemModel.name;

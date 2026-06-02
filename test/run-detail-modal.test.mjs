@@ -17,6 +17,7 @@ function plain(value) {
 
 test('attachmentRecordFromFile stores serializable upload metadata and preview data', async () => {
   const modal = await loadRunDetailModal();
+  assert.equal(typeof modal.bindRunDetailModal, 'function');
   const file = {
     name: 'Panel A.jpg',
     type: 'image/jpeg',

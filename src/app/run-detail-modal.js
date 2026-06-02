@@ -222,11 +222,68 @@
     };
   }
 
+  function bindRunDetailModal({
+    root = document,
+    sidebarRoot,
+    sidebarController,
+    state,
+    stateStore,
+    measurementCommands,
+    measurementById,
+    createHistorySnapshot,
+    recordHistory,
+    renderList,
+    redraw,
+    showStatus,
+    view = window,
+  } = {}) {
+    function saveRunDetailsForMeasurement(measurementId, details) {
+      const historyBefore = createHistorySnapshot();
+      const result = measurementCommands.saveMeasurementRunDetails(state.measurements, measurementId, details);
+      if (!result.updated) return false;
+      stateStore.setMeasurements(state, result.measurements, { selectedId: result.measurement.id });
+      recordHistory(historyBefore, 'run details');
+      renderList();
+      redraw();
+      showStatus('Run details saved.');
+      return true;
+    }
+
+    const modal = createRunDetailModal({
+      root,
+      normalizeRunDetails: window.TakeoffRunDetails?.normalizeRunDetails,
+      onSave: saveRunDetailsForMeasurement,
+    });
+
+    function openRunDetailsForMeasurement(measurementId, triggerElement) {
+      const measurement = measurementById(measurementId);
+      if (measurement) modal.open(measurement, triggerElement);
+    }
+
+    function handleKeyDown(event) {
+      if (!modal.isOpen()) return;
+      if (event.key === 'Escape') modal.close();
+      event.stopPropagation();
+      if (event.key === 'Escape') event.preventDefault();
+    }
+
+    sidebarController.bindRunDetailsControls({ root: sidebarRoot, openDetails: openRunDetailsForMeasurement });
+    view.addEventListener('keydown', handleKeyDown);
+
+    return {
+      ...modal,
+      destroy() {
+        view.removeEventListener('keydown', handleKeyDown);
+      },
+    };
+  }
+
   window.TakeoffRunDetailModal = {
     createAttachmentId,
     attachmentRecordFromFile,
     attachmentDisplayName,
     formatBytes,
     createRunDetailModal,
+    bindRunDetailModal,
   };
 })();
