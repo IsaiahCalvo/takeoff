@@ -410,6 +410,19 @@
     return true;
   }
 
+  function updateMeasurementLabelFromPoint(measurement, point) {
+    if (!measurement || !point) return false;
+    const displayPoints = measurementModel.measurementDisplayPoints(measurement);
+    const projection = geometry.projectPointToPolyline(point, displayPoints);
+    if (!projection) return false;
+    measurement.labelT = projection.t;
+    measurement.labelOffset = {
+      x: point.x - projection.point.x,
+      y: point.y - projection.point.y,
+    };
+    return true;
+  }
+
   function shouldAskPasteMode(source, { currentPage, pxPerInch }) {
     if (!source || source.sourcePage === currentPage) return false;
     if (!pxPerInch || !source.sourceScale || source.sourceLengthInches == null) return false;
@@ -496,6 +509,7 @@
     convertFreehandMeasurementToLine,
     convertLineMeasurementToFreehand,
     finalizeMeasurementGeometry,
+    updateMeasurementLabelFromPoint,
     shouldAskPasteMode,
     createPastedMeasurement,
   };

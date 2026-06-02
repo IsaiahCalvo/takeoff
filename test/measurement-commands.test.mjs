@@ -601,3 +601,16 @@ test('finalizeMeasurementGeometry recomputes length and scale', async () => {
   assert.equal(measurement.lengthInches, 5);
   assert.equal(measurement.labelT, 0.5);
 });
+
+test('updateMeasurementLabelFromPoint stores path position and dragged offset', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    points: [{ x: 0, y: 0 }, { x: 100, y: 0 }],
+    labelT: 0.5,
+  };
+
+  assert.equal(commands.updateMeasurementLabelFromPoint(measurement, { x: 25, y: -30 }), true);
+
+  assert.equal(measurement.labelT, 0.25);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.labelOffset)), { x: 0, y: -30 });
+});
