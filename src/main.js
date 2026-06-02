@@ -1905,8 +1905,8 @@ function findLabelHit(p) { return window.TakeoffHitTesting.findLabelHit(state.la
 function isPointInBox(p, box) { return window.TakeoffHitTesting.isPointInBox(p, box); }
 function measurementById(id) { return state.measurements.find(measurement => sidebarController.measurementIdMatches(measurement.id, id)) || null; }
 function lengthLabelNavigationTarget(target) { return target?.closest?.('[data-length-label-nav="true"]') || null; }
-function revealMeasurementInSidebar(measurementId) { const row = sidebarController.revealMeasurementRow({ root: measList, measurementId }); if (row || state.sidebarTab === 'page') return row; state.sidebarTab = 'page'; renderList(); return sidebarController.revealMeasurementRow({ root: measList, measurementId }); }
-function navigateLengthLabelToSidebar(navTarget) { const measurement = measurementById(navTarget?.dataset?.measurementId); if (!measurement || !isMeasurementVisibleForPathCategories(measurement)) return false; clearActiveFitMode(); endRotateMode(); setMode('selection'); state.selectedId = measurement.id; renderList(); revealMeasurementInSidebar(measurement.id); redraw(); return true; }
+function revealMeasurementInSidebar(measurement) { const measurementId = measurement?.id ?? measurement; let row = sidebarController.revealMeasurementRow({ root: measList, measurementId }); if (row) return row; const fallbackTab = measurement?.page === currentPage() ? 'page' : 'all'; if (state.sidebarTab !== fallbackTab) { state.sidebarTab = fallbackTab; renderList(); row = sidebarController.revealMeasurementRow({ root: measList, measurementId }); } return row; }
+function navigateLengthLabelToSidebar(navTarget) { const measurement = measurementById(navTarget?.dataset?.measurementId); if (!measurement || !isMeasurementVisibleForPathCategories(measurement)) return false; clearActiveFitMode(); endRotateMode(); setMode('selection'); state.selectedId = measurement.id; renderList(); revealMeasurementInSidebar(measurement); redraw(); return true; }
 
 function beginRotateMode(id) {
   const m = state.measurements.find(x => x.id === id);

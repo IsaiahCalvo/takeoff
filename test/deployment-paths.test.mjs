@@ -528,8 +528,9 @@ test('canvas length labels expose a chevron-only navigation path to the selected
   assert.match(mousedownHandler, /lengthLabelNavigationTarget\(e\.target\)/);
   assert.match(mousedownHandler, /navigateLengthLabelToSidebar\(labelNavTarget\)[\s\S]*return;/);
   assert.match(main, /state\.selectedId = measurement\.id;/);
-  assert.match(main, /revealMeasurementInSidebar\(measurement\.id\)/);
+  assert.match(main, /revealMeasurementInSidebar\(measurement\)/);
   assert.match(main, /isMeasurementVisibleForPathCategories\(measurement\)/);
+  assert.match(main, /const fallbackTab = measurement\?\.page === currentPage\(\) \? 'page' : 'all';/);
 });
 
 test('measurement list uses a slim themed vertical scrollbar only', async () => {
