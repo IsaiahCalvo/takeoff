@@ -139,8 +139,166 @@ test('buildMeasurementItemViewModel prepares sidebar row display data', async ()
     page: 2,
     onOtherPage: true,
     isUnscaled: false,
+    lengthValue: '2',
+    lengthUnit: 'ft',
     lengthHtml: '2 <span class="unit">ft</span>',
     measurementId: 8,
     className: 'item selected',
   });
+});
+
+test('editableLengthInput handles Enter commit and Escape cancel', async () => {
+  const sidebar = await loadSidebarController();
+  const events = [];
+  const input = {
+    value: '2.00',
+    dataset: {},
+    readOnly: true,
+    selected: false,
+    blurred: false,
+    removeAttribute(name) {
+      if (name === 'readonly') this.readOnly = false;
+    },
+    setAttribute(name) {
+      if (name === 'readonly') this.readOnly = true;
+    },
+    hasAttribute(name) {
+      return name === 'readonly' && this.readOnly;
+    },
+    focus() {
+      events.push('focus');
+    },
+    select() {
+      this.selected = true;
+    },
+    blur() {
+      this.blurred = true;
+      events.push('blur');
+    },
+    setSelectionRange(start, end) {
+      events.push(`selection:${start}:${end}`);
+    },
+  };
+  const editor = sidebar.createEditableLengthInput({
+    input,
+    currentValue: () => '2.00',
+    commit: value => {
+      events.push(`commit:${value}`);
+      return true;
+    },
+    cancel: value => {
+      events.push(`cancel:${value}`);
+    },
+  });
+
+  editor.start();
+  input.value = '1.00';
+  editor.handleKeyDown({
+    key: 'Enter',
+    stopPropagation() { events.push('stop'); },
+    preventDefault() { events.push('prevent'); },
+  });
+
+  assert.equal(input.readOnly, true);
+  assert.equal(input.blurred, true);
+  assert.ok(events.includes('commit:1.00'));
+  assert.ok(events.includes('stop'));
+  assert.ok(events.includes('prevent'));
+
+  input.blurred = false;
+  editor.start();
+  input.value = 'bad';
+  editor.handleKeyDown({
+    key: 'Escape',
+    stopPropagation() { events.push('stop-escape'); },
+    preventDefault() { events.push('prevent-escape'); },
+  });
+
+  assert.equal(input.value, '2.00');
+  assert.equal(input.readOnly, true);
+  assert.equal(input.blurred, true);
+  assert.ok(events.includes('cancel:2.00'));
+  assert.ok(events.includes('stop-escape'));
+  assert.ok(events.includes('prevent-escape'));
+});
+
+test('editableLengthInput keeps focus and validation state when Enter or blur rejects Length', async () => {
+  const sidebar = await loadSidebarController();
+  const events = [];
+  const attrs = {};
+  const classes = new Set();
+  const errorEl = {
+    hidden: true,
+    textContent: '',
+    id: 'length-error-1',
+  };
+  const input = {
+    value: '2.00',
+    dataset: {},
+    readOnly: true,
+    removeAttribute(name) {
+      if (name === 'readonly') this.readOnly = false;
+      delete attrs[name];
+    },
+    setAttribute(name, value = '') {
+      if (name === 'readonly') this.readOnly = true;
+      attrs[name] = value;
+    },
+    hasAttribute(name) {
+      return name === 'readonly' ? this.readOnly : Object.hasOwn(attrs, name);
+    },
+    focus() {
+      events.push('focus');
+    },
+    select() {
+      events.push('select');
+    },
+    blur() {
+      events.push('blur');
+    },
+    setSelectionRange(start, end) {
+      events.push(`selection:${start}:${end}`);
+    },
+    classList: {
+      add(name) { classes.add(name); },
+      remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); },
+    },
+  };
+  const editor = sidebar.createEditableLengthInput({
+    input,
+    errorEl,
+    validationMessage: 'Enter a positive Length.',
+    currentValue: () => '2.00',
+    commit: value => {
+      events.push(`commit:${value}`);
+      return false;
+    },
+  });
+
+  editor.start();
+  input.value = 'bad';
+  editor.handleKeyDown({
+    key: 'Enter',
+    stopPropagation() { events.push('stop'); },
+    preventDefault() { events.push('prevent'); },
+  });
+
+  assert.equal(input.value, 'bad');
+  assert.equal(input.readOnly, false);
+  assert.equal(attrs['aria-invalid'], 'true');
+  assert.equal(attrs['aria-describedby'], 'length-error-1');
+  assert.equal(classes.has('invalid'), true);
+  assert.equal(errorEl.hidden, false);
+  assert.equal(errorEl.textContent, 'Enter a positive Length.');
+  assert.deepEqual(events.slice(-4), ['focus', 'select', 'stop', 'prevent']);
+
+  input.value = '';
+  editor.handleBlur();
+
+  assert.equal(input.value, '');
+  assert.equal(input.readOnly, false);
+  assert.equal(events.at(-2), 'focus');
+  assert.equal(events.at(-1), 'select');
+  assert.equal(errorEl.hidden, false);
 });

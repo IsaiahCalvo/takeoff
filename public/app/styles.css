@@ -838,6 +838,49 @@ main {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
 }
+.length-edit-pill {
+  position: fixed;
+  display: none;
+  min-width: 82px;
+  min-height: 30px;
+  z-index: 76;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  padding: 0 9px;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: #111619;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.42);
+}
+.length-edit-pill.show { display: flex; }
+.length-edit-pill:has(input.invalid) {
+  width: 190px;
+  min-height: 48px;
+  border-color: var(--danger);
+  align-content: center;
+}
+.length-edit-pill input {
+  width: 64px;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+.length-edit-pill input.invalid { color: var(--danger); }
+.length-edit-pill .length-edit-error {
+  color: var(--danger);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.length-edit-pill .length-edit-error[hidden] { display: none; }
 
 /* Side panel */
 aside {
@@ -1281,9 +1324,43 @@ aside {
   min-height: 20px;
   display: inline-flex;
   align-items: center;
+  gap: 3px;
 }
+.meas-item .len:has(input.length.invalid) {
+  max-width: 22ch;
+  color: var(--danger);
+}
+.meas-item input.length {
+  width: 6.5ch;
+  min-width: 0;
+  height: 20px;
+  line-height: 20px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: right;
+}
+.meas-item input.length { cursor: default; }
+.meas-item input.length:not([readonly]) { cursor: text; border-bottom-color: var(--accent); }
+.meas-item input.length.invalid { border-bottom-color: var(--danger); color: var(--danger); }
+.meas-item input.length:focus[readonly] { outline: none; }
 .meas-item .len .unit { color: var(--muted); font-size: 10px; font-weight: 500; }
+.meas-item .length-error {
+  color: var(--danger);
+  font-family: 'Sora', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+.meas-item .length-error[hidden] { display: none; }
 .meas-item.unscaled .len { color: var(--calib); max-width: none; }
+.meas-item.unscaled input.length { width: 7ch; }
 .meas-item .point-count {
   color: var(--muted);
   font-family: 'JetBrains Mono', monospace;

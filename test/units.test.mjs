@@ -19,6 +19,24 @@ test('formats scaled and unscaled lengths for the active unit', async () => {
   assert.equal(units.formatLengthInUnit(null, 'ft'), '—');
 });
 
+test('parses positive Length input in the active unit', async () => {
+  const units = await loadUnits();
+
+  assert.equal(units.parseLengthInUnit('1', 'ft'), 12);
+  assert.equal(units.parseLengthInUnit('2.5', 'yd'), 90);
+  assert.equal(units.parseLengthInUnit('18', 'in'), 18);
+  assert.equal(units.parseLengthInUnit('0.5', 'm'), 19.68503935);
+});
+
+test('parseLengthInUnit rejects empty, zero, negative, and unparseable input', async () => {
+  const units = await loadUnits();
+
+  assert.equal(units.parseLengthInUnit('', 'ft'), null);
+  assert.equal(units.parseLengthInUnit('0', 'ft'), null);
+  assert.equal(units.parseLengthInUnit('-1', 'ft'), null);
+  assert.equal(units.parseLengthInUnit('abc', 'ft'), null);
+});
+
 test('builds scale HUD text from page calibration', async () => {
   const units = await loadUnits();
 

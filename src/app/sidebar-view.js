@@ -27,16 +27,21 @@
     onOtherPage = false,
     isUnscaled = false,
     lengthHtml = '',
+    lengthValue = lengthHtml,
+    lengthUnit = '',
     measurementId,
   } = {}) {
     const pointTitle = `${pointCount} anchors${onOtherPage ? ' · page ' + page : ''}`;
     const lengthTitle = isUnscaled ? 'No page scale; excluded from totals.' : '';
+    const lengthInputTitle = isUnscaled ? lengthTitle : 'Double-click to edit Length';
+    const unitMarkup = !isUnscaled && lengthUnit ? `<span class="unit">${escapeHtml(lengthUnit)}</span>` : '';
+    const lengthErrorId = `length-error-${escapeHtml(measurementId)}`;
     return `
     <div class="row head">
       <div class="swatch" style="background:${escapeHtml(color)}; color:${escapeHtml(color)}"></div>
       <input class="name" value="${escapeHtml(name)}" readonly title="Double-click to rename" />
       <span class="point-count" title="${escapeHtml(pointTitle)}">${pointCount}</span>
-      <span class="len" title="${escapeHtml(lengthTitle)}">${lengthHtml}</span>
+      <span class="len" title="${escapeHtml(lengthTitle)}"><input class="length" value="${escapeHtml(lengthValue)}" readonly inputmode="decimal" aria-label="Length" title="${escapeHtml(lengthInputTitle)}" />${unitMarkup}<span class="length-error" id="${lengthErrorId}" role="alert" hidden></span></span>
       <button class="del" data-id="${escapeHtml(measurementId)}" title="Delete">×</button>
     </div>
   `;

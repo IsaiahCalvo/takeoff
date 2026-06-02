@@ -24,6 +24,14 @@
     return inchesToUnit(inches, unit).toFixed(2);
   }
 
+  function parseLengthInUnit(value, unit) {
+    const text = String(value ?? '').trim();
+    if (!text) return null;
+    const parsed = Number(text);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return parsed * unitToInch(unit);
+  }
+
   function scaleHudText({ pxPerInch, unit }) {
     if (!pxPerInch) return '—';
     return `1 ${unitLabel(unit)} = ${(unitToInch(unit) * pxPerInch).toFixed(2)} px`;
@@ -37,6 +45,7 @@
     pxToInches,
     inchesToUnit,
     formatLengthInUnit,
+    parseLengthInUnit,
     scaleHudText,
   };
 })();
