@@ -1752,9 +1752,23 @@ function closePasteChoice() {
 function measurementsOnCurrentPage() {
   return continuousMeasurements.measurementsForView({
     state,
-    measurements: state.measurements,
+    measurements: visibleMeasurementsForPathCategories(),
     pageMeasurements: pageState.measurementsForCurrentPage,
   });
+}
+
+function visibleMeasurementsForPathCategories(measurements = state.measurements) { return stateStore.visibleMeasurementsForPathCategories(state, measurements); }
+
+function isMeasurementVisibleForPathCategories(measurement) { return stateStore.isMeasurementVisibleForPathCategories(state, measurement); }
+
+function syncSelectionWithPathCategoryVisibility() {
+  const selected = state.measurements.find(measurement => measurement.id === state.selectedId);
+  if (selected && !isMeasurementVisibleForPathCategories(selected)) {
+    state.selectedId = null;
+    endRotateMode();
+  }
+  const hovered = state.measurements.find(measurement => measurement.id === state.hoverId);
+  if (hovered && !isMeasurementVisibleForPathCategories(hovered)) state.hoverId = null;
 }
 
 function findNearestVertex(p, tol) {
@@ -2015,6 +2029,21 @@ document.querySelectorAll('.tab').forEach(btn => {
     state.sidebarTab = btn.dataset.tab;
     renderList();
   });
+});
+
+function applyPathCategoryVisibility(keys, visible) {
+  const categoryKeys = [...new Set((keys || []).filter(Boolean))];
+  if (!categoryKeys.length) return;
+  for (const key of categoryKeys) stateStore.setPathCategoryVisibility(state, key, visible);
+  syncSelectionWithPathCategoryVisibility();
+  renderList();
+  redraw();
+  saveActiveDocument();
+}
+
+sidebarController.bindCategoryVisibilityControls({
+  root: measList,
+  setVisibility: applyPathCategoryVisibility,
 });
 
 // ------- Unit + clear -------
@@ -2383,7 +2412,11 @@ function buildPathGroupItem(group) {
   const groupEl = document.createElement('section');
   const header = document.createElement('div');
   const runs = document.createElement('div');
-  groupEl.className = `path-group${group.isLegacy ? ' legacy' : ''}`;
+  groupEl.className = [
+    'path-group',
+    group.isLegacy ? 'legacy' : '',
+    group.categoryVisible === false || group.isVisible === false ? 'hidden' : '',
+  ].filter(Boolean).join(' ');
   groupEl.dataset.pathGroupId = group.id;
   header.className = 'path-group-row';
   header.innerHTML = sidebarView.buildPathGroupMarkup(group);
@@ -2398,11 +2431,17 @@ function appendPathGroups(groups, parent = measList) {
   for (const group of groups || []) parent.appendChild(buildPathGroupItem(group));
 }
 
-function appendPathGroupCategories(sections) {
+function appendPathGroupCategories(sections, controls) {
+  const markup = sidebarView.buildCategoryVisibilityToolbarMarkup(controls);
+  if (markup) {
+    const toolbar = document.createElement('div');
+    toolbar.innerHTML = markup.trim();
+    measList.appendChild(toolbar.firstElementChild);
+  }
   for (const section of sections || []) {
     const sectionEl = document.createElement('section');
     const header = document.createElement('div');
-    sectionEl.className = 'path-category-section';
+    sectionEl.className = `path-category-section${section.categoryVisible === false ? ' category-hidden' : ''}`;
     header.className = 'path-category-header';
     header.innerHTML = sidebarView.buildCategoryHeaderMarkup(section);
     sectionEl.appendChild(header);
@@ -2423,7 +2462,7 @@ function renderList() {
     pathCategoryVisibility: stateStore.pathCategoryVisibilityForAggregation(state),
   });
   updateSidebarScopeChrome(model);
-  if (model.effectiveSidebarTab === 'categories') appendPathGroupCategories(model.categorySections);
+  if (model.effectiveSidebarTab === 'categories') appendPathGroupCategories(model.categorySections, model.categoryVisibilityControls);
   else appendPathGroups(model.pathGroups);
 
   $('totalLen').textContent = model.totalLenText;

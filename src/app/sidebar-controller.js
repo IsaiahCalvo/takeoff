@@ -157,9 +157,32 @@
     };
   }
 
+  function categoryVisibilityKeys(root) {
+    return [...new Set([...root.querySelectorAll('.path-category-visibility-toggle[data-path-category-key]')]
+      .map(button => button.dataset.pathCategoryKey)
+      .filter(Boolean))];
+  }
+
+  function bindCategoryVisibilityControls({ root, setVisibility }) {
+    root.addEventListener('click', (event) => {
+      const bulkButton = event.target.closest('[data-category-visibility-action]');
+      if (bulkButton && root.contains(bulkButton)) {
+        event.stopPropagation();
+        setVisibility(categoryVisibilityKeys(root), bulkButton.dataset.categoryVisibilityAction === 'show-all');
+        return;
+      }
+      const visibilityButton = event.target.closest('[data-path-category-key]');
+      if (!visibilityButton || !root.contains(visibilityButton)) return;
+      event.stopPropagation();
+      setVisibility([visibilityButton.dataset.pathCategoryKey], visibilityButton.dataset.nextVisible !== 'false');
+    });
+  }
+
   window.TakeoffSidebarController = {
     applyScopeChrome,
     buildMeasurementItemViewModel,
     createEditableLengthInput,
+    categoryVisibilityKeys,
+    bindCategoryVisibilityControls,
   };
 })();

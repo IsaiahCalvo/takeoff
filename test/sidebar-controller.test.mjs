@@ -80,6 +80,74 @@ test('buildMeasurementItemViewModel prepares sidebar row display data', async ()
   });
 });
 
+test('category visibility controls collect keys and dispatch sidebar actions', async () => {
+  const sidebar = await loadSidebarController();
+  const listeners = {};
+  const calls = [];
+  const keyButtons = [
+    { dataset: { pathCategoryKey: 'category:low-voltage' } },
+    { dataset: { pathCategoryKey: 'category:power' } },
+    { dataset: { pathCategoryKey: 'category:power' } },
+  ];
+  const root = {
+    querySelectorAll(selector) {
+      return selector === '.path-category-visibility-toggle[data-path-category-key]' ? keyButtons : [];
+    },
+    contains(target) {
+      return target?.insideRoot === true;
+    },
+    addEventListener(type, handler) {
+      listeners[type] = handler;
+    },
+  };
+
+  assert.deepEqual(plain(sidebar.categoryVisibilityKeys(root)), ['category:low-voltage', 'category:power']);
+
+  sidebar.bindCategoryVisibilityControls({
+    root,
+    setVisibility(keys, visible) {
+      calls.push({ keys, visible });
+    },
+  });
+
+  const bulkButton = {
+    insideRoot: true,
+    dataset: { categoryVisibilityAction: 'show-all' },
+  };
+  listeners.click({
+    target: {
+      closest(selector) {
+        return selector === '[data-category-visibility-action]' ? bulkButton : null;
+      },
+    },
+    stopPropagation() {
+      calls.push({ stopped: true });
+    },
+  });
+
+  const toggleButton = {
+    insideRoot: true,
+    dataset: { pathCategoryKey: 'category:power', nextVisible: 'false' },
+  };
+  listeners.click({
+    target: {
+      closest(selector) {
+        return selector === '[data-path-category-key]' ? toggleButton : null;
+      },
+    },
+    stopPropagation() {
+      calls.push({ stopped: true });
+    },
+  });
+
+  assert.deepEqual(plain(calls), [
+    { stopped: true },
+    { keys: ['category:low-voltage', 'category:power'], visible: true },
+    { stopped: true },
+    { keys: ['category:power'], visible: false },
+  ]);
+});
+
 test('editableLengthInput handles Enter commit and Escape cancel', async () => {
   const sidebar = await loadSidebarController();
   const events = [];

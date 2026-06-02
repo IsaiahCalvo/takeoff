@@ -76,7 +76,7 @@
     if (!aggregation?.buildPathRunGroups) {
       throw new Error('TakeoffPathAggregation.buildPathRunGroups is required for sidebar Path groups.');
     }
-    const options = { units: [unit], pathCategoryVisibility };
+    const options = { units: [unit], pathCategoryVisibility, totalsScope: 'visible' };
     if (effectiveSidebarTab === 'page') {
       options.scope = 'page';
       options.page = currentPage;
@@ -102,6 +102,11 @@
   function formatPathRunCount(group) {
     const count = Number(group?.runCount || 0);
     return `${count} run${count === 1 ? '' : 's'}`;
+  }
+
+  function formatHiddenRunCount(group) {
+    const count = Number(group?.hiddenRunCount || 0);
+    return count ? `${count} hidden` : '';
   }
 
   function formatAggregationRunCount(aggregation) {
@@ -138,6 +143,7 @@
       isVisible: group.isVisible !== false,
       visibleRunCount: group.visibleRunCount || 0,
       hiddenRunCount: group.hiddenRunCount || 0,
+      hiddenText: formatHiddenRunCount(group),
       displayName: group.displayName || 'Path',
       categorySubtitle: categorySubtitle(group),
       color: group.color || '#7d8a91',
@@ -156,11 +162,16 @@
   function categorySectionViewModel(category, pathGroupsByKey, unit) {
     const pathGroups = (category.pathKeys || []).map(key => pathGroupsByKey.get(key)).filter(Boolean);
     const pathCount = pathGroups.length || Number(category.pathKeys?.length || 0);
+    const hiddenRunCount = Number(category.hiddenRunCount || 0);
+    const visibleRunCount = Number(category.visibleRunCount || 0);
     return {
       key: category.key,
       name: category.displayName || category.name || 'Uncategorized',
       categoryVisible: category.categoryVisible !== false,
       isVisible: category.isVisible !== false,
+      visibleRunCount,
+      hiddenRunCount,
+      hiddenText: formatHiddenRunCount(category),
       pathGroups,
       pathCount,
       runCount: category.runCount || 0,
@@ -179,6 +190,18 @@
       aggregation,
       pathGroups,
       categorySections: (aggregation.categories || []).map(category => categorySectionViewModel(category, pathGroupsByKey, unit)),
+    };
+  }
+
+  function categoryVisibilityControls(categorySections) {
+    const totalCount = categorySections.length;
+    const hiddenCount = categorySections.filter(section => section.categoryVisible === false).length;
+    return {
+      totalCount,
+      hiddenCount,
+      visibleCount: totalCount - hiddenCount,
+      canShowAll: hiddenCount > 0,
+      canHideAll: hiddenCount < totalCount,
     };
   }
 
@@ -214,6 +237,7 @@
       pathRunAggregation,
       pathGroups,
       categorySections: effectiveSidebarTab === 'categories' ? categorySections : [],
+      categoryVisibilityControls: categoryVisibilityControls(categorySections),
     };
   }
 

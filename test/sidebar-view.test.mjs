@@ -71,10 +71,50 @@ test('buildPathGroupMarkup renders Path summary, category, coverage, and total s
 test('buildCategoryHeaderMarkup renders category label and summary safely', async () => {
   const view = await loadSidebarView();
   const markup = view.buildCategoryHeaderMarkup({
+    key: 'category:power',
     name: 'Power <Branch>',
     summaryText: '2 paths · 4 runs',
+    totalText: '18.25',
+    totalUnitText: 'ft',
   });
 
   assert.match(markup, /class="path-category-title">Power &lt;Branch&gt;<\/div>/);
   assert.match(markup, /class="path-category-summary">2 paths · 4 runs<\/span>/);
+  assert.match(markup, /class="path-category-total"><strong>18\.25<\/strong><span>ft<\/span>/);
+  assert.match(markup, /data-path-category-key="category:power"/);
+  assert.match(markup, /data-next-visible="false"/);
+  assert.match(markup, /aria-label="Hide Power &lt;Branch&gt; category"/);
+});
+
+test('buildCategoryHeaderMarkup renders understated hidden category controls', async () => {
+  const view = await loadSidebarView();
+  const markup = view.buildCategoryHeaderMarkup({
+    key: 'category:low-voltage',
+    name: 'Low Voltage',
+    summaryText: '1 path · 1 run',
+    categoryVisible: false,
+    hiddenText: '1 hidden',
+    totalText: '0.00',
+    totalUnitText: 'ft',
+  });
+
+  assert.match(markup, /class="path-category-hidden">1 hidden<\/span>/);
+  assert.match(markup, /data-next-visible="true"/);
+  assert.match(markup, /aria-pressed="false"/);
+  assert.match(markup, /aria-label="Show Low Voltage category"/);
+});
+
+test('buildCategoryVisibilityToolbarMarkup renders bulk category visibility controls', async () => {
+  const view = await loadSidebarView();
+  const markup = view.buildCategoryVisibilityToolbarMarkup({
+    totalCount: 2,
+    hiddenCount: 1,
+    canShowAll: true,
+    canHideAll: true,
+  });
+
+  assert.match(markup, /class="path-category-visibility-status">1 hidden<\/span>/);
+  assert.match(markup, /data-category-visibility-action="show-all"/);
+  assert.match(markup, /data-category-visibility-action="hide-all"/);
+  assert.doesNotMatch(markup, /disabled/);
 });

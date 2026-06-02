@@ -1361,20 +1361,84 @@ aside {
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); background: transparent; }
 .tabs[hidden] { display: none !important; }
 
+.path-category-visibility-toolbar {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding: 6px 7px;
+  border: 1px solid rgba(125,138,145,0.16);
+  border-radius: 6px;
+  background: rgba(255,255,255,0.018);
+}
+.path-category-visibility-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+.path-category-visibility-actions {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.path-category-bulk-action,
+.path-category-visibility-toggle {
+  width: 25px;
+  min-width: 25px;
+  min-height: 24px;
+  padding: 0;
+  justify-content: center;
+  border-color: rgba(125,138,145,0.18);
+  background: transparent;
+  color: var(--muted);
+}
+.path-category-bulk-action:hover:not(:disabled),
+.path-category-visibility-toggle:hover {
+  color: var(--text);
+  border-color: rgba(125,138,145,0.34);
+  background: rgba(255,255,255,0.035);
+}
+.path-category-bulk-action:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+.path-category-bulk-action svg,
+.path-category-visibility-toggle svg {
+  width: 14px;
+  height: 14px;
+}
+
 .path-category-section {
   min-width: 0;
   display: grid;
   gap: 6px;
   margin-bottom: 10px;
 }
+.path-category-section.category-hidden {
+  opacity: 0.74;
+}
 .path-category-header {
   min-width: 0;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 2px 2px 4px;
+  padding: 2px 2px 5px;
   border-bottom: 1px solid rgba(125,138,145,0.16);
+}
+.path-category-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
 }
 .path-category-title {
   min-width: 0;
@@ -1387,14 +1451,61 @@ aside {
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+.path-category-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 7px;
+}
 .path-category-summary {
-  max-width: 44%;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
   font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
+}
+.path-category-hidden {
+  color: #8f9aa0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+}
+.path-category-controls {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.path-category-total {
+  max-width: 68px;
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 3px;
+  color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1;
+}
+.path-category-total strong {
+  max-width: 8ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 700;
+}
+.path-category-total span {
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 600;
+}
+.category-hidden .path-category-title,
+.category-hidden .path-category-total {
+  color: #8f9aa0;
 }
 .path-group {
   min-width: 0;
@@ -1404,6 +1515,21 @@ aside {
   border-radius: 6px;
   background: rgba(255,255,255,0.018);
   overflow: hidden;
+}
+.path-group.hidden {
+  border-color: rgba(125,138,145,0.16);
+  background: rgba(255,255,255,0.012);
+}
+.path-group.hidden .path-group-row {
+  background: #13191c;
+}
+.path-group.hidden .path-group-marker {
+  box-shadow: none;
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+.path-group.hidden :is(.path-group-title, .path-group-total) {
+  color: #8f9aa0;
 }
 .path-category-section .path-group { margin-bottom: 0; }
 .path-group-row {
@@ -1515,6 +1641,10 @@ aside {
 .path-group-chip-warn {
   color: var(--calib);
   border-color: rgba(255,177,60,0.3);
+}
+.path-group-chip-muted {
+  color: #8f9aa0;
+  border-color: rgba(125,138,145,0.2);
 }
 .path-group-runs {
   min-width: 0;
