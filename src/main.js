@@ -34,12 +34,9 @@ import './app/svg-renderer.js';
 import './app/history.js';
 import './app/units.js';
 import './app/tooltip-controller.js';
-
 const pdfjsLib = window.pdfjsLib;
 if (!pdfjsLib) throw new Error('PDF.js failed to load.');
-
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
 // ------- State -------
 const ONBOARDING_STATUS_KEY = 'cableRunStatusSeen';
 const stateStore = window.TakeoffState;
@@ -66,7 +63,6 @@ const performanceLogger = window.TakeoffPerformanceLogger.createPerformanceLogge
 const state = stateStore.createInitialState({ pathTemplateState: pathTemplateStore.load() });
 pathTemplateStore.save(state);
 performanceLogger.startFrameSampling(); window.TakeoffPerformanceLog = performanceLogger;
-
 const {
   parsePageRange,
   computePxPerInch,
