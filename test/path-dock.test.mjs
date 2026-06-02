@@ -237,3 +237,79 @@ test('creates an unmounted DOM fragment when a document adapter is supplied', as
 
   assert.deepEqual(fragment, { marker: 'fragment' });
 });
+
+test('controller mounts visible dock, commits Path selection, and closes menus', async () => {
+  const { pathTemplates, renderer, pathDock } = await loadPathDock();
+  const listeners = { document: {}, window: {} };
+  const windowAdapter = {
+    addEventListener(type, handler) { listeners.window[type] = handler; },
+    removeEventListener() {},
+  };
+  const documentAdapter = {
+    defaultView: windowAdapter,
+    addEventListener(type, handler) { listeners.document[type] = handler; },
+    removeEventListener() {},
+  };
+  const root = {
+    hidden: true,
+    innerHTML: '',
+    ownerDocument: documentAdapter,
+    addEventListener() {},
+    removeEventListener() {},
+    replaceChildren() { this.innerHTML = ''; },
+    contains(target) { return target?.insideRoot === true; },
+  };
+  const state = pathTemplates.normalizePathTemplateState({
+    pathTemplates: sampleTemplates(),
+    activePathTemplateId: 'rough-in',
+    activePathId: 'power',
+  });
+  state.baseW = 100;
+  state.mode = 'measure';
+  let saveCount = 0;
+  let homeRenderCount = 0;
+
+  const controller = pathDock.createPathDockController({
+    root,
+    state,
+    pathTemplates,
+    renderer,
+    document: documentAdapter,
+    window: windowAdapter,
+    maxVisiblePathCount: 1,
+    visible: () => !!(state.baseW && state.mode === 'measure'),
+    save: () => { saveCount += 1; },
+    renderTemplateHome: () => { homeRenderCount += 1; },
+  });
+
+  controller.render();
+  assert.equal(root.hidden, false);
+  assert.match(root.innerHTML, /data-path-dock-active-path-id="power"/);
+  assert.match(root.innerHTML, /data-action="path-dock-open-overflow"/);
+
+  controller.handleAction({ dataset: { action: 'path-dock-select-path', pathDockTemplateId: 'rough-in', pathDockPathId: 'data' } });
+  assert.equal(state.activePathId, 'data');
+  assert.equal(saveCount, 1);
+  assert.equal(homeRenderCount, 1);
+  assert.match(root.innerHTML, /data-path-dock-active-path-id="data"/);
+
+  controller.handleAction({ dataset: { action: 'path-dock-open-template-dropup' } });
+  assert.match(root.innerHTML, /data-path-dock-template-dropup-open="true"/);
+  listeners.document.click({ target: { insideRoot: false } });
+  assert.match(root.innerHTML, /data-path-dock-template-dropup-open="false"/);
+
+  controller.handleAction({ dataset: { action: 'path-dock-open-overflow' } });
+  let stopped = false;
+  listeners.window.keydown({
+    key: 'Escape',
+    preventDefault() {},
+    stopImmediatePropagation() { stopped = true; },
+  });
+  assert.equal(stopped, true);
+  assert.match(root.innerHTML, /data-path-dock-overflow-open="false"/);
+
+  state.mode = 'pan';
+  controller.render();
+  assert.equal(root.hidden, true);
+  assert.equal(root.innerHTML, '');
+});

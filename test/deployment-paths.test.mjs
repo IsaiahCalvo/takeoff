@@ -238,6 +238,27 @@ test('bottom-left HUD exposes the Snap to paths toggle beside cursor status', as
   assert.match(styles, /\.snap-toggle\s*\{/);
 });
 
+test('Measure mode mounts a bottom-center Path Dock with upward menus', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const dock = await readFile(new URL('../src/app/path-dock.js', import.meta.url), 'utf8');
+
+  assert.match(html, /id="pathDockRoot" class="path-dock-root" hidden/);
+  assert.match(main, /import '\.\/app\/path-dock\.js';/);
+  assert.match(main, /state\.mode === 'measure'/);
+  assert.match(main, /createPathDockController/);
+  assert.match(main, /pathDock\.render\(\)/);
+  assert.match(dock, /path-dock-select-template/);
+  assert.match(dock, /path-dock-select-path/);
+  assert.match(dock, /closeMenus/);
+  assert.match(main, /activePathForNewRun\(state\.inProgress\)/);
+  assert.match(main, /activePath:\s*activePathForNewRun\(\)/);
+  assert.match(styles, /\.path-dock-root\s*\{[\s\S]*bottom:\s*16px;/);
+  assert.match(styles, /\.path-dock-template-menu,\s*\n\.path-dock-overflow-menu\s*\{[\s\S]*bottom:\s*calc\(100% \+ 8px\)/);
+  assert.doesNotMatch(html, /\bnode\b/i);
+});
+
 test('freehand completion keeps the app in measure mode', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const finishFreehand = main.match(/function finishFreehandMeasurement\(\) \{[\s\S]*?\n\}/)?.[0] || '';

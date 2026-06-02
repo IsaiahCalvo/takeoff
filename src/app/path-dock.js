@@ -316,8 +316,141 @@
     return host.content;
   }
 
+  function createPathDockController(options = {}) {
+    const root = options.root;
+    const state = options.state || {};
+    const pathTemplates = options.pathTemplates || rootObject().TakeoffPathTemplates;
+    const renderer = options.renderer || rootObject().TakeoffPathStyleRenderer;
+    const doc = options.document || root?.ownerDocument || rootObject().document;
+    const view = options.window || doc?.defaultView || rootObject();
+    const ui = { templateDropupOpen: false, overflowOpen: false };
+    const visible = options.visible || (() => !!(state.baseW && state.mode === 'measure'));
+    const applyTemplateState = options.applyTemplateState || ((target, nextState) => {
+      target.pathTemplates = nextState.pathTemplates;
+      target.activePathTemplateId = nextState.activePathTemplateId;
+      target.activePathId = nextState.activePathId;
+    });
+
+    function clearRoot() {
+      if (!root) return;
+      if (root.replaceChildren) root.replaceChildren();
+      else root.innerHTML = '';
+    }
+
+    function closeMenus({ render: shouldRender = true } = {}) {
+      const wasOpen = ui.templateDropupOpen || ui.overflowOpen;
+      ui.templateDropupOpen = false;
+      ui.overflowOpen = false;
+      if (wasOpen && shouldRender) render();
+      return wasOpen;
+    }
+
+    function render() {
+      if (!root) return;
+      const shouldShow = !!visible(state);
+      root.hidden = !shouldShow;
+      if (!shouldShow) {
+        closeMenus({ render: false });
+        clearRoot();
+        return;
+      }
+      root.innerHTML = renderPathDockHtml({
+        pathTemplates: state.pathTemplates,
+        activePathTemplateId: state.activePathTemplateId,
+        activePathId: state.activePathId,
+        maxVisiblePathCount: options.maxVisiblePathCount,
+        templateDropupOpen: ui.templateDropupOpen,
+        overflowOpen: ui.overflowOpen,
+      }, { renderer });
+    }
+
+    function commitTemplateState(nextState) {
+      applyTemplateState(state, nextState);
+      if (options.save) options.save(state);
+      if (options.renderTemplateHome) options.renderTemplateHome();
+      render();
+    }
+
+    function handleAction(target) {
+      const action = target?.dataset?.action;
+      if (action === 'path-dock-open-template-dropup' || action === 'path-dock-close-template-dropup') {
+        ui.templateDropupOpen = action === 'path-dock-open-template-dropup';
+        ui.overflowOpen = false;
+        render();
+        return true;
+      }
+      if (action === 'path-dock-open-overflow' || action === 'path-dock-close-overflow') {
+        ui.overflowOpen = action === 'path-dock-open-overflow';
+        ui.templateDropupOpen = false;
+        render();
+        return true;
+      }
+      if (action === 'path-dock-select-template') {
+        ui.templateDropupOpen = false;
+        ui.overflowOpen = false;
+        commitTemplateState(pathTemplates.selectPathTemplate(state, target.dataset.pathDockTemplateId));
+        return true;
+      }
+      if (action === 'path-dock-select-path') {
+        ui.templateDropupOpen = false;
+        ui.overflowOpen = false;
+        commitTemplateState(pathTemplates.selectPath(state, target.dataset.pathDockTemplateId, target.dataset.pathDockPathId));
+        return true;
+      }
+      return false;
+    }
+
+    function stopStageEvent(event) {
+      event.stopPropagation();
+    }
+
+    function handleClick(event) {
+      event.preventDefault();
+      event.stopPropagation();
+      const target = event.target?.closest?.('[data-action]');
+      if (target && root.contains(target)) handleAction(target);
+    }
+
+    function handleDocumentClick(event) {
+      if (root && !root.hidden && !root.contains(event.target)) closeMenus();
+    }
+
+    function handleKeyDown(event) {
+      if (event.key !== 'Escape' || root?.hidden) return;
+      if (!closeMenus()) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+
+    if (root) {
+      root.addEventListener('mousedown', stopStageEvent);
+      root.addEventListener('contextmenu', stopStageEvent);
+      root.addEventListener('wheel', stopStageEvent, { passive: true });
+      root.addEventListener('click', handleClick);
+    }
+    doc?.addEventListener?.('click', handleDocumentClick);
+    view?.addEventListener?.('keydown', handleKeyDown);
+
+    return {
+      render,
+      closeMenus,
+      handleAction,
+      destroy() {
+        if (root) {
+          root.removeEventListener('mousedown', stopStageEvent);
+          root.removeEventListener('contextmenu', stopStageEvent);
+          root.removeEventListener('wheel', stopStageEvent);
+          root.removeEventListener('click', handleClick);
+        }
+        doc?.removeEventListener?.('click', handleDocumentClick);
+        view?.removeEventListener?.('keydown', handleKeyDown);
+      },
+    };
+  }
+
   rootObject().TakeoffPathDock = {
     DEFAULT_VISIBLE_PATH_COUNT,
+    createPathDockController,
     createPathDockViewModel,
     maxVisiblePathCount,
     renderPathDockHtml,

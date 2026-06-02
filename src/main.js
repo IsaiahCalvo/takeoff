@@ -5,7 +5,7 @@ import './app/sidebar.js';
 import './app/sidebar-view.js';
 import './app/sidebar-controller.js';
 import './app/length-edit-controller.js';
-import './app/path-templates.js'; import './app/path-style-renderer.js'; import './app/path-settings.js';
+import './app/path-templates.js'; import './app/path-style-renderer.js'; import './app/path-dock.js'; import './app/path-settings.js';
 import './app/path-template-store.js'; import './app/path-template-view.js';
 import './app/state.js';
 import './app/geometry.js';
@@ -177,9 +177,8 @@ const baseCtx = baseCanvas.getContext('2d');
 const drawCtx = drawCanvas.getContext('2d');
 const empty = $('empty');
 const statusEl = $('status');
-const measList = $('measList');
-const toolTip = $('toolTip');
-const contextMenu = $('contextMenu');
+const measList = $('measList'), pathDockRoot = $('pathDockRoot');
+const toolTip = $('toolTip'), contextMenu = $('contextMenu');
 const rotationPill = $('rotationPill'), rotationInput = $('rotationInput');
 const undoButton = $('undoButton');
 const redoButton = $('redoButton');
@@ -189,9 +188,9 @@ const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
 const VIEWPORT_BOUND_MARGIN = 96;
 const SNAP_ANCHOR_SCREEN_TOLERANCE = 12, SNAP_CENTERLINE_SCREEN_TOLERANCE = 8;
-const copySummaryButton = $('copySummary');
-const snapToggle = $('snapToPaths');
+const copySummaryButton = $('copySummary'), snapToggle = $('snapToPaths');
 const pathTemplateHome = window.TakeoffPathTemplateView.createPathTemplateHome({ root: $('pathTemplatesHome'), state, pathTemplates: window.TakeoffPathTemplates, store: pathTemplateStore, renderer: window.TakeoffPathStyleRenderer }); let sidebarPathGroupsById = new Map();
+const pathDock = window.TakeoffPathDock.createPathDockController({ root: pathDockRoot, state, pathTemplates: window.TakeoffPathTemplates, renderer: window.TakeoffPathStyleRenderer, maxVisiblePathCount: 4, visible: () => !!(state.baseW && state.mode === 'measure'), applyTemplateState: window.TakeoffPathTemplateView.applyTemplateState, save: () => pathTemplateStore.save(state), renderTemplateHome: () => pathTemplateHome.render() });
 
 const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
   state, stage, viewport, detailCanvas: pdfDetailCanvas, logger: performanceLogger, desiredPdfRenderScale, desiredPdfDetailTileScale,
@@ -344,7 +343,7 @@ function setMode(m, opts = {}) {
   }
   if (m !== 'selection') state.selectedId = null;
   if (m !== 'selection') endRotateMode();
-  redrawActivePreview();
+  redrawActivePreview(); pathDock.render();
   updateStatus();
 }
 
@@ -375,6 +374,7 @@ function showStatus(text, ms = 1800, opts = {}) {
 }
 
 function closeContextMenu() { contextMenu.classList.remove('show'); state.contextTarget = null; }
+function activePathForNewRun(draft = null) { return draft?.activePath || window.TakeoffPathTemplates.activePathForState(state); }
 
 function openContextMenu(clientX, clientY, measurementId = null, target = null) {
   if (measurementId != null) state.selectedId = measurementId;
@@ -717,7 +717,7 @@ function resetDocState() {
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === 'page'));
   $('totalHeading').textContent = 'This Page Total';
   updateScaleLabel();
-  updatePageLabel();
+  updatePageLabel(); pathDock.render();
 }
 
 function cacheGet(p, minRenderScale = 0) {
@@ -874,7 +874,7 @@ function onPageReady({ fit = true, resetInteraction = true } = {}) {
   }
   redrawActivePreview();
   updatePerformanceLogContext();
-  updateStatus();
+  updateStatus(); pathDock.render();
 }
 async function goToPage(n) {
   if (!state.pdf || n < 1 || n > state.pdfPages || n === state.pdfPage) return;
@@ -1226,7 +1226,7 @@ stage.addEventListener('mousedown', (e) => {
         return;
       }
       state.inProgress = null;
-      state.freehandDraft = { page: drawInfo.page, rawPoints: [drawInfo.point], previewSegments: [], snapConnections: {} };
+      state.freehandDraft = { page: drawInfo.page, rawPoints: [drawInfo.point], previewSegments: [], snapConnections: {}, activePath: activePathForNewRun() };
       recordDraftEndpointSnap(state.freehandDraft, 'start', drawInfo.snap);
       redraw();
       e.preventDefault();
@@ -1237,7 +1237,7 @@ stage.addEventListener('mousedown', (e) => {
     const drawInfo = placementPointInfo(p, { page: state.inProgress?.page || null, previous, shiftKey: e.shiftKey, excludeMeasurementIds });
     if (!drawInfo) return;
     if (!state.inProgress) {
-      state.inProgress = { type: 'measure', page: drawInfo.page, points: [drawInfo.point], snapConnections: {} };
+      state.inProgress = { type: 'measure', page: drawInfo.page, points: [drawInfo.point], snapConnections: {}, activePath: activePathForNewRun() };
       recordDraftEndpointSnap(state.inProgress, 'start', drawInfo.snap);
     } else {
       state.inProgress = pointerWorkflow.appendPointToDraft({
@@ -1624,7 +1624,7 @@ function finishMeasurement() {
     existingMeasurements: state.measurements,
     palette: PALETTE,
     page,
-    pxPerInch: scaleForPage(page), activePath: window.TakeoffPathTemplates.activePathForState(state),
+    pxPerInch: scaleForPage(page), activePath: activePathForNewRun(state.inProgress),
   });
   applyDraftSnapConnections(measurement, state.inProgress);
   const result = measurementWorkflows.appendMeasurementResult({
@@ -1658,7 +1658,7 @@ function finishFreehandMeasurement() {
     existingMeasurements: state.measurements,
     palette: PALETTE,
     page,
-    pxPerInch: scaleForPage(page), activePath: window.TakeoffPathTemplates.activePathForState(state),
+    pxPerInch: scaleForPage(page), activePath: activePathForNewRun(draft),
     constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, page),
   });
   if (contextMenuController.finishFreehandContinuation({ state, draft, measurement, page, historyBefore, measurementCommands, scaleForPage, recordHistory, renderList, redraw, showStatus })) return;

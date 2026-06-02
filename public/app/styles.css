@@ -1112,6 +1112,278 @@ main {
   }
 }
 
+/* Path Dock */
+.path-dock-root[hidden],
+body.no-document .path-dock-root {
+  display: none;
+}
+.path-dock-root {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: min(560px, calc(100% - 28px));
+  pointer-events: none;
+}
+.path-dock-root:not([hidden]) + .status {
+  bottom: 82px;
+}
+.path-dock-root:not([hidden]) ~ .hud {
+  bottom: 82px;
+}
+.path-dock {
+  position: relative;
+  min-width: 0;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(73, 86, 94, 0.92);
+  border-radius: 8px;
+  background: rgba(17, 22, 25, 0.94);
+  box-shadow: 0 18px 42px rgba(0,0,0,0.46), inset 0 1px 0 rgba(255,255,255,0.04);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+.path-dock-fallback {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  max-width: min(360px, calc(100vw - 32px));
+  display: grid;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #111619;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.42);
+  font-size: 11px;
+  line-height: 1.25;
+}
+.path-dock-fallback span:first-child {
+  color: var(--text);
+  font-weight: 600;
+}
+.path-dock-fallback span:last-child {
+  color: var(--muted);
+}
+.path-dock-template,
+.path-dock-overflow {
+  position: relative;
+  flex: 0 0 auto;
+}
+.path-dock-template-toggle,
+.path-dock-overflow-toggle,
+.path-dock-path-tile,
+.path-dock-template-item {
+  border-color: transparent;
+  background: transparent;
+}
+.path-dock-template-toggle {
+  position: relative;
+  width: 142px;
+  min-height: 42px;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 3px;
+  padding: 5px 24px 5px 9px;
+  text-align: left;
+}
+.path-dock-template-toggle::after,
+.path-dock-overflow-toggle::after {
+  content: "";
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-bottom: 5px solid currentColor;
+  transform: translateY(-50%);
+  opacity: 0.72;
+}
+.path-dock-template-label {
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.path-dock-template-active {
+  max-width: 100%;
+  min-width: 0;
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.15;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.path-dock-paths {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.path-dock-path-tile {
+  width: 64px;
+  height: 42px;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  text-align: left;
+}
+.path-dock-path-tile:hover,
+.path-dock-template-toggle:hover,
+.path-dock-overflow-toggle:hover,
+.path-dock-template-item:hover {
+  border-color: #38434a;
+  background: #1b2226;
+}
+.path-dock-path-tile.active,
+.path-dock-path-tile.active:hover {
+  border-color: var(--accent);
+  background: rgba(182,255,60,0.12);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px rgba(182,255,60,0.16);
+}
+.path-dock-path-preview {
+  width: 28px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  overflow: visible;
+}
+.path-dock-path-preview svg {
+  width: 30px !important;
+  height: 30px !important;
+  overflow: visible;
+}
+.path-dock-path-name {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+  font-size: 10px;
+  line-height: 1.12;
+}
+.path-dock-overflow-toggle {
+  position: relative;
+  width: 96px;
+  min-height: 42px;
+  justify-content: flex-start;
+  padding: 5px 22px 5px 9px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.path-dock-overflow-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.path-dock-overflow-toggle:disabled {
+  display: none;
+}
+.path-dock-template-menu,
+.path-dock-overflow-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  display: grid;
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #111619;
+  box-shadow: 0 18px 42px rgba(0,0,0,0.48);
+  z-index: 7;
+  max-height: min(330px, calc(100vh - 150px));
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(125, 138, 145, 0.34) transparent;
+}
+.path-dock-template-menu {
+  left: 0;
+  width: 210px;
+}
+.path-dock-overflow-menu {
+  right: 0;
+  width: 178px;
+}
+.path-dock-template-menu::-webkit-scrollbar,
+.path-dock-overflow-menu::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.path-dock-template-menu::-webkit-scrollbar-track,
+.path-dock-overflow-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.path-dock-template-menu::-webkit-scrollbar-thumb,
+.path-dock-overflow-menu::-webkit-scrollbar-thumb {
+  background: rgba(125, 138, 145, 0.34);
+  border-radius: 999px;
+}
+.path-dock-template-item {
+  width: 100%;
+  min-height: 38px;
+  display: grid;
+  justify-items: start;
+  gap: 3px;
+  padding: 7px 9px;
+  text-align: left;
+}
+.path-dock-template-item.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.path-dock-template-title,
+.path-dock-template-count {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.path-dock-template-title {
+  color: var(--text);
+  font-size: 11px;
+}
+.path-dock-template-count {
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+}
+.path-dock-overflow-menu .path-dock-path-tile {
+  width: 100%;
+}
+
+@media (max-width: 820px) {
+  .path-dock-root {
+    width: min(420px, calc(100% - 20px));
+  }
+  .path-dock {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .path-dock::-webkit-scrollbar {
+    display: none;
+  }
+  .path-dock-template-toggle {
+    width: 128px;
+  }
+  .path-dock-path-tile {
+    width: 60px;
+  }
+}
+
 /* HUD overlay */
 .hud {
   position: absolute;
