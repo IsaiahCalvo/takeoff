@@ -233,6 +233,150 @@ test('passes category metadata through runs and path groups', async () => {
   ]);
 });
 
+test('applies path category visibility while retaining all measurements and totals', async () => {
+  const aggregation = await loadPathAggregation();
+  const measurements = [
+    pathMeasurement({
+      id: 'low-voltage-run',
+      pathId: 'path-cat6',
+      pathName: 'Cat 6',
+      pathCategoryId: 'low-voltage',
+      pathCategoryName: 'Low Voltage',
+      lengthInches: 120,
+    }),
+    pathMeasurement({
+      id: 'power-run',
+      pathId: 'path-feeder',
+      pathName: 'Feeder',
+      pathCategoryId: 'power',
+      pathCategoryName: 'Power',
+      lengthInches: 60,
+    }),
+  ];
+  const before = plain(measurements);
+
+  const result = aggregation.buildPathRunGroups(measurements, {
+    units: ['ft'],
+    pathCategoryVisibility: { 'category:low-voltage': false },
+  });
+
+  assert.deepEqual(plain(measurements), before);
+  assert.equal(result.runCount, 2);
+  assert.equal(result.visibleRunCount, 1);
+  assert.equal(result.hiddenRunCount, 1);
+  assert.equal(result.hasHiddenRuns, true);
+  assert.deepEqual(plain(result.allTotalsByUnit), { ft: 15 });
+  assert.deepEqual(plain(result.visibleTotalsByUnit), { ft: 5 });
+  assert.deepEqual(plain(result.hiddenTotalsByUnit), { ft: 10 });
+  assert.deepEqual(plain(result.totalsByUnit), { ft: 15 });
+  assert.deepEqual(plain(result.categories.map(category => ({
+    key: category.key,
+    displayName: category.displayName,
+    visibleRunCount: category.visibleRunCount,
+    hiddenRunCount: category.hiddenRunCount,
+    isVisible: category.isVisible,
+    allTotalsByUnit: category.allTotalsByUnit,
+    visibleTotalsByUnit: category.visibleTotalsByUnit,
+  }))), [
+    {
+      key: 'category:low-voltage',
+      displayName: 'Low Voltage',
+      visibleRunCount: 0,
+      hiddenRunCount: 1,
+      isVisible: false,
+      allTotalsByUnit: { ft: 10 },
+      visibleTotalsByUnit: {},
+    },
+    {
+      key: 'category:power',
+      displayName: 'Power',
+      visibleRunCount: 1,
+      hiddenRunCount: 0,
+      isVisible: true,
+      allTotalsByUnit: { ft: 5 },
+      visibleTotalsByUnit: { ft: 5 },
+    },
+  ]);
+
+  const lowVoltageGroup = result.groups.find(group => group.pathId === 'path-cat6');
+  assert.equal(lowVoltageGroup.pathCategoryVisibilityKey, 'category:low-voltage');
+  assert.equal(lowVoltageGroup.visibleRunCount, 0);
+  assert.equal(lowVoltageGroup.hiddenRunCount, 1);
+  assert.equal(lowVoltageGroup.isVisible, false);
+  assert.deepEqual(plain(lowVoltageGroup.allTotalsByUnit), { ft: 10 });
+  assert.deepEqual(plain(lowVoltageGroup.visibleTotalsByUnit), {});
+  assert.equal(lowVoltageGroup.runs[0].isVisible, false);
+  assert.deepEqual(plain(lowVoltageGroup.runs[0].effectiveVisibility), {
+    visible: false,
+    hidden: true,
+    categoryVisible: false,
+    categoryHidden: true,
+    pathCategoryVisibilityKey: 'category:low-voltage',
+  });
+
+  const visibleTotalsResult = aggregation.buildPathRunGroups(measurements, {
+    units: ['ft'],
+    pathCategoryVisibility: { 'category:low-voltage': false },
+    totalsScope: 'visible',
+  });
+  assert.deepEqual(plain(visibleTotalsResult.totalsByUnit), { ft: 5 });
+  assert.deepEqual(plain(visibleTotalsResult.allTotalsByUnit), { ft: 15 });
+  assert.deepEqual(plain(visibleTotalsResult.visibleTotalsByUnit), { ft: 5 });
+});
+
+test('derives stable category visibility keys from category or path identity', async () => {
+  const aggregation = await loadPathAggregation();
+  const categorized = pathMeasurement({
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
+  });
+  const uncategorized = pathMeasurement({
+    id: 'uncategorized-run',
+    pathId: 'path-cat6',
+    pathName: 'Cat 6',
+    pathCategoryId: null,
+    pathCategoryName: null,
+  });
+  const legacy = { id: 'legacy', lengthInches: 24 };
+
+  assert.equal(
+    aggregation.pathCategoryVisibilityKeyForMeasurement(categorized),
+    'category:low-voltage',
+  );
+  assert.equal(
+    aggregation.pathCategoryVisibilityKeyForMeasurement(uncategorized),
+    'category-path:path%3Atemplate-security%3Apath-cat6',
+  );
+  assert.equal(
+    aggregation.pathCategoryVisibilityKeyForMeasurement(legacy),
+    'category-path:legacy%3Apath',
+  );
+
+  const result = aggregation.buildPathRunGroups([uncategorized, legacy], {
+    units: ['ft'],
+    pathCategoryVisibility: {
+      'category-path:path%3Atemplate-security%3Apath-cat6': false,
+    },
+  });
+
+  assert.deepEqual(plain(result.groups.map(group => ({
+    key: group.key,
+    pathCategoryVisibilityKey: group.pathCategoryVisibilityKey,
+    isVisible: group.isVisible,
+  }))), [
+    {
+      key: 'path:template-security:path-cat6',
+      pathCategoryVisibilityKey: 'category-path:path%3Atemplate-security%3Apath-cat6',
+      isVisible: false,
+    },
+    {
+      key: 'legacy:path',
+      pathCategoryVisibilityKey: 'category-path:legacy%3Apath',
+      isVisible: true,
+    },
+  ]);
+});
+
 test('builds sorted page coverage ranges from numeric pages', async () => {
   const aggregation = await loadPathAggregation();
 

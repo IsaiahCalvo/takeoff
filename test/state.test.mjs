@@ -35,6 +35,7 @@ test('createInitialState returns fresh mutable collections and current defaults'
   assert.equal(b.undoStack.length, 0);
   assert.deepEqual(plain(b.collapsedPageGroups), {});
   assert.deepEqual(plain(b.continuousScrollPreferences), {});
+  assert.deepEqual(plain(b.pathCategoryVisibility), {});
   assert.equal(b.mode, 'pan');
   assert.equal(b.drawMode, 'line');
   assert.equal(b.unit, 'ft');
@@ -99,6 +100,7 @@ test('resetDocumentState clears active document data while preserving app-level 
   state.sidebarTab = 'all';
   state.collapsedPageGroups = { 1: true };
   state.continuousScrollPreferences = { '1,2,3': true };
+  state.pathCategoryVisibility = { 'category:low-voltage': false };
   state.pathTemplates = [{
     id: 'template-2',
     title: 'Rough-in',
@@ -138,6 +140,7 @@ test('resetDocumentState clears active document data while preserving app-level 
   assert.equal(state.sidebarTab, 'page');
   assert.deepEqual(plain(state.collapsedPageGroups), {});
   assert.deepEqual(plain(state.continuousScrollPreferences), {});
+  assert.deepEqual(plain(state.pathCategoryVisibility), {});
   assert.deepEqual(plain(state.pathTemplates), [{
     id: 'template-2',
     title: 'Rough-in',
@@ -189,6 +192,11 @@ test('restoreDocumentState applies saved document fields and clears transient ed
     sidebarTab: 'all',
     collapsedPageGroups: { 1: true },
     continuousScrollPreferences: { '1,2,3': true },
+    pathCategoryVisibility: {
+      ' category:low-voltage ': { visible: false },
+      'category:path-fallback': { hidden: false },
+      'category:ignored': 'bad value',
+    },
     pageCache: [[3, { page: 3 }]],
     pathTemplates: [{
       id: 'doc-template',
@@ -228,6 +236,10 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.sidebarTab, 'all');
   assert.deepEqual(plain(state.collapsedPageGroups), { 1: true });
   assert.deepEqual(plain(state.continuousScrollPreferences), { '1,2,3': true });
+  assert.deepEqual(plain(state.pathCategoryVisibility), {
+    'category:low-voltage': false,
+    'category:path-fallback': true,
+  });
   assert.equal(state.pageCache.get(3).page, 3);
   assert.deepEqual(plain(state.undoStack), []);
   assert.deepEqual(plain(state.redoStack), []);
@@ -243,6 +255,32 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.activePathTemplateId, 'template-2');
   assert.equal(state.activePathId, 'path-2');
   assert.equal(state.navToken, 8);
+});
+
+test('path category visibility helpers default visible and toggle durable keys', async () => {
+  const store = await loadStateStore();
+  const state = store.createInitialState();
+  const lowVoltageKey = 'category:low-voltage';
+  const pathFallbackKey = 'category-path:path%3Atemplate-security%3Apath-cat6';
+
+  assert.equal(store.isPathCategoryVisible(state, lowVoltageKey), true);
+
+  assert.deepEqual(plain(store.setPathCategoryVisibility(state, lowVoltageKey, false)), {
+    [lowVoltageKey]: false,
+  });
+  assert.equal(store.isPathCategoryVisible(state, lowVoltageKey), false);
+  assert.deepEqual(plain(store.pathCategoryVisibilityForAggregation(state)), {
+    [lowVoltageKey]: false,
+  });
+
+  assert.equal(store.togglePathCategoryVisibility(state, lowVoltageKey), true);
+  assert.equal(store.isPathCategoryVisible(state, lowVoltageKey), true);
+
+  assert.equal(store.togglePathCategoryVisibility(state, pathFallbackKey), false);
+  assert.deepEqual(plain(state.pathCategoryVisibility), {
+    [lowVoltageKey]: true,
+    [pathFallbackKey]: false,
+  });
 });
 
 test('measurement state helpers replace and clear measurements with selection ownership', async () => {

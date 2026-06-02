@@ -35,6 +35,8 @@ test('createDocumentSnapshot captures persisted document state only when a docum
     pageScales: { 2: 4 },
     measurements: [{
       id: 1,
+      pathCategoryId: 'low-voltage',
+      lengthInches: 120,
       shape: {
         active: 'line',
         previousFreehand: {
@@ -45,11 +47,14 @@ test('createDocumentSnapshot captures persisted document state only when a docum
     sidebarTab: 'all',
     collapsedPageGroups: { 2: true },
     continuousScrollPreferences: { '1,2,3': true },
+    pathCategoryVisibility: { 'category:low-voltage': false },
     pageCache: new Map([[2, { page: 2 }]]),
   };
 
   const snapshot = store.createDocumentSnapshot(state);
   state.measurements[0].shape.previousFreehand.points[0].x = 99;
+  state.measurements[0].lengthInches = 0;
+  state.pathCategoryVisibility['category:low-voltage'] = true;
 
   assert.equal(snapshot.id, 'doc-1');
   assert.equal(snapshot.name, 'Drawing.pdf');
@@ -57,6 +62,9 @@ test('createDocumentSnapshot captures persisted document state only when a docum
   assert.deepEqual(plain(snapshot.continuousScrollPreferences), { '1,2,3': true });
   assert.deepEqual(plain(snapshot.pageScales), { 2: 4 });
   assert.equal(snapshot.measurements[0].shape.previousFreehand.points[0].x, 0);
+  assert.equal(snapshot.measurements[0].pathCategoryId, 'low-voltage');
+  assert.equal(snapshot.measurements[0].lengthInches, 120);
+  assert.deepEqual(plain(snapshot.pathCategoryVisibility), { 'category:low-voltage': false });
   assert.equal(snapshot.pageCache.get(2).page, 2);
   assert.equal(store.createDocumentSnapshot({ activeDocId: 'doc-2', pdf: null, imageBitmap: null }), null);
 });
@@ -74,12 +82,14 @@ test('saveDocumentSnapshot upserts the active document without duplicating tabs'
     measurements: [],
     collapsedPageGroups: {},
     continuousScrollPreferences: {},
+    pathCategoryVisibility: { 'category:low-voltage': false },
     pageCache: new Map(),
   };
 
   const saved = store.saveDocumentSnapshot(state, 'New Name.pdf');
 
   assert.equal(saved.name, 'New Name.pdf');
+  assert.deepEqual(plain(saved.pathCategoryVisibility), { 'category:low-voltage': false });
   assert.equal(state.documents.length, 1);
   assert.equal(state.documents[0].name, 'New Name.pdf');
 });
