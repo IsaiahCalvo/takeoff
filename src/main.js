@@ -79,12 +79,7 @@ function totalPages() { return pageState.totalPages(state); }
 function documentPageCount() { return pageState.documentPageCount(state); }
 
 function updateSidebarScopeChrome(model) {
-  sidebarController.applyScopeChrome({
-    scopeTabs: $('scopeTabs'),
-    totalHeading: $('totalHeading'),
-    tabs: document.querySelectorAll('.tab'),
-    model,
-  });
+  sidebarController.applyScopeChrome({ scopeTabs: $('scopeTabs'), totalHeading: $('totalHeading'), entireTotal: $('entireTotal'), tabs: document.querySelectorAll('.tab'), model });
 }
 
 function scaleHudText() { return unitModel.scaleHudText({ pxPerInch: state.pxPerInch, unit: state.unit }); }

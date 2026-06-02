@@ -207,6 +207,7 @@ test('buildExportRows includes Path/category group breakdowns while retaining hi
   });
 
   assert.equal(rows.length, 5);
+  assert.equal(rows.filter(row => row.category === 'Low Voltage').reduce((sum, row) => sum + row.groupTotal, 0), 33);
   assert.deepEqual(plain(rows.map(row => ({
     page: row.page,
     name: row.name,
