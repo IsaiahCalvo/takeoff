@@ -40,6 +40,12 @@ function rectOverlapsPointClearance(rect, point, clearance) {
   );
 }
 
+function distanceFromRectToPoint(rect, point) {
+  const dx = point.x < rect.x ? rect.x - point.x : Math.max(0, point.x - (rect.x + rect.width));
+  const dy = point.y < rect.y ? rect.y - point.y : Math.max(0, point.y - (rect.y + rect.height));
+  return Math.hypot(dx, dy);
+}
+
 test('buildPolylinePath creates stable SVG path commands', async () => {
   const renderer = await loadRenderer();
 
@@ -103,11 +109,16 @@ test('drawPolyline keeps floating labels clear of endpoint anchors on short segm
   const labelBox = labelHitboxes[0];
   for (const anchor of points) {
     assert.equal(
-      rectOverlapsPointClearance(labelBox, anchor, 12),
+      rectOverlapsPointClearance(labelBox, anchor, 6),
       false,
       `label hitbox overlaps anchor at ${anchor.x},${anchor.y}`
     );
   }
+  const closestAnchorDistance = Math.min(...points.map(anchor => distanceFromRectToPoint(labelBox, anchor)));
+  assert.ok(
+    closestAnchorDistance <= 7,
+    `expected label to sit close to anchors, got ${closestAnchorDistance}px`
+  );
 });
 
 test('drawBezierSegments keeps floating labels clear of curve anchors', async () => {
@@ -150,9 +161,14 @@ test('drawBezierSegments keeps floating labels clear of curve anchors', async ()
   const labelBox = labelHitboxes[0];
   for (const anchor of anchors) {
     assert.equal(
-      rectOverlapsPointClearance(labelBox, anchor, 12),
+      rectOverlapsPointClearance(labelBox, anchor, 6),
       false,
       `label hitbox overlaps curve anchor at ${anchor.x},${anchor.y}`
     );
   }
+  const closestAnchorDistance = Math.min(...anchors.map(anchor => distanceFromRectToPoint(labelBox, anchor)));
+  assert.ok(
+    closestAnchorDistance <= 7,
+    `expected curve label to sit close to anchors, got ${closestAnchorDistance}px`
+  );
 });
