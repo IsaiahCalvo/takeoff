@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 async function loadRenderer() {
   const geometrySource = await readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8');
   const measurementsSource = await readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8');
+  const pathStyleRendererSource = await readFile(new URL('../src/app/path-style-renderer.js', import.meta.url), 'utf8');
   const source = await readFile(new URL('../src/app/svg-renderer.js', import.meta.url), 'utf8');
   const createElement = tag => ({
     tag,
@@ -28,6 +29,7 @@ async function loadRenderer() {
   vm.createContext(sandbox);
   vm.runInContext(geometrySource, sandbox, { filename: 'geometry.js' });
   vm.runInContext(measurementsSource, sandbox, { filename: 'measurements.js' });
+  vm.runInContext(pathStyleRendererSource, sandbox, { filename: 'path-style-renderer.js' });
   vm.runInContext(source, sandbox, { filename: 'svg-renderer.js' });
   return sandbox.window.TakeoffSvgRenderer;
 }
@@ -288,6 +290,140 @@ test('drawPolyline keeps legacy measurement attributes unchanged without path st
         r: '4',
         fill: '#0b0d0e',
         stroke: '#b6ff3c',
+        'stroke-width': '2',
+      },
+    },
+  ]);
+});
+
+test('drawPolyline applies stored path style snapshot attributes', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawPolyline([{ x: 0, y: 0 }, { x: 10, y: 5 }], {
+    color: '#b6ff3c',
+    dots: true,
+    width: 2,
+    pathStyle: {
+      stroke: { color: '#ff4d7d', style: 'dashed' },
+      anchors: { fill: '#101820', border: '#36d399', borderMatchesStroke: false },
+    },
+  });
+
+  assert.equal(drawSvg.children.length, 1);
+  assert.deepEqual(drawSvg.children[0].children.map(child => ({ tag: child.tag, attrs: child.attrs })), [
+    {
+      tag: 'path',
+      attrs: {
+        d: 'M 0 0 L 10 5',
+        fill: 'none',
+        stroke: '#ff4d7d',
+        'stroke-width': '2',
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-dasharray': '18 13',
+      },
+    },
+    {
+      tag: 'circle',
+      attrs: {
+        cx: '0',
+        cy: '0',
+        r: '4',
+        fill: '#101820',
+        stroke: '#36d399',
+        'stroke-width': '2',
+      },
+    },
+    {
+      tag: 'circle',
+      attrs: {
+        cx: '10',
+        cy: '5',
+        r: '4',
+        fill: '#101820',
+        stroke: '#36d399',
+        'stroke-width': '2',
+      },
+    },
+  ]);
+});
+
+test('drawBezierSegments applies stored path style snapshot attributes', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawBezierSegments([{
+    type: 'cubic',
+    from: { x: 0, y: 0 },
+    c1: { x: 5, y: 0 },
+    c2: { x: 5, y: 10 },
+    to: { x: 10, y: 10 },
+  }], {
+    color: '#b6ff3c',
+    dots: true,
+    width: 2,
+    pathStyle: {
+      stroke: { color: '#36d399', style: 'dotted' },
+      anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: true },
+    },
+  });
+
+  assert.equal(drawSvg.children.length, 1);
+  assert.deepEqual(drawSvg.children[0].children.map(child => ({ tag: child.tag, attrs: child.attrs })), [
+    {
+      tag: 'path',
+      attrs: {
+        d: 'M 0 0 C 5 0 5 10 10 10',
+        fill: 'none',
+        stroke: '#36d399',
+        'stroke-width': '2',
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-dasharray': '1 16',
+      },
+    },
+    {
+      tag: 'circle',
+      attrs: {
+        cx: '0',
+        cy: '0',
+        r: '4',
+        fill: '#f7fbfc',
+        stroke: '#36d399',
+        'stroke-width': '2',
+      },
+    },
+    {
+      tag: 'circle',
+      attrs: {
+        cx: '10',
+        cy: '10',
+        r: '4',
+        fill: '#f7fbfc',
+        stroke: '#36d399',
         'stroke-width': '2',
       },
     },

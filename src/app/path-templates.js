@@ -274,6 +274,12 @@
     });
   }
 
+  function activePathForState(state) {
+    const current = normalizePathTemplateState(state);
+    const template = current.pathTemplates.find(candidate => candidate.id === current.activePathTemplateId) || current.pathTemplates[0];
+    return template?.paths.find(path => path.id === current.activePathId) || template?.paths[0] || null;
+  }
+
   window.TakeoffPathTemplates = {
     DEFAULT_TEMPLATE_ID,
     DEFAULT_PATH_ID,
@@ -294,6 +300,7 @@
     deletePath,
     selectPathTemplate,
     selectPath,
+    activePathForState,
     cloneValue,
   };
 })();

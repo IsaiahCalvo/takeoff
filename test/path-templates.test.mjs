@@ -127,7 +127,26 @@ test('selects active templates and paths through normalized helpers', async () =
   assert.equal(selected.activePathId, 'path-2');
   assert.equal(selected.pathTemplates[1].paths[0].templateId, 'template-2');
   assert.equal(selected.pathTemplates[1].paths[0].geometry, 'freehand');
+  assert.equal(pathTemplates.activePathForState(selected).id, 'path-2');
   assert.deepEqual(plain(initial.pathTemplates), plain(pathTemplates.createInitialPathTemplateState().pathTemplates));
+});
+
+test('activePathForState falls back to the first path in the active template', async () => {
+  const pathTemplates = await loadPathTemplates();
+  const state = pathTemplates.normalizePathTemplateState({
+    pathTemplates: [{
+      id: 'template-1',
+      title: 'Security',
+      paths: [
+        { id: 'path-1', templateId: 'template-1', name: 'Cat 6', order: 0 },
+        { id: 'path-2', templateId: 'template-1', name: 'Fiber', order: 1 },
+      ],
+    }],
+    activePathTemplateId: 'template-1',
+    activePathId: 'missing-path',
+  });
+
+  assert.equal(pathTemplates.activePathForState(state).id, 'path-1');
 });
 
 test('renames, deletes, and updates path styling without mutating the source state', async () => {
