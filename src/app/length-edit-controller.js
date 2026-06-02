@@ -7,6 +7,7 @@
     sidebarController,
     scaleForPage,
     formatLength,
+    unitLabel,
     parseLengthInUnit,
     resizeMeasurementToLength,
     createHistorySnapshot,
@@ -23,6 +24,7 @@
   } = {}) {
     let activeCanvasLengthEditId = null;
     let canvasLengthEditor = null;
+    const canvasLengthUnit = pill?.querySelector?.('.length-edit-unit') || null;
 
     function measurementLengthValue(measurement) {
       return measurement && measurement.lengthInches != null ? formatLength(measurement.lengthInches) : 'unscaled';
@@ -63,6 +65,7 @@
       activeCanvasLengthEditId = null;
       canvasLengthEditor = null;
       input.setAttribute('readonly', '');
+      if (canvasLengthUnit) canvasLengthUnit.hidden = true;
       pill.classList.remove('show');
     }
 
@@ -87,6 +90,10 @@
       const top = Math.max(4, Math.min(window.innerHeight - pillHeight - 4, rect.top + screen.y - pillHeight / 2));
       pill.style.left = `${left}px`;
       pill.style.top = `${top}px`;
+      if (canvasLengthUnit) {
+        canvasLengthUnit.textContent = unitLabel ? unitLabel() : '';
+        canvasLengthUnit.hidden = false;
+      }
       pill.classList.add('show');
       canvasLengthEditor = sidebarController.createEditableLengthInput({
         input,

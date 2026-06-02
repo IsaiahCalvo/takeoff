@@ -873,8 +873,16 @@ main {
   line-height: 13px;
   text-align: right;
 }
+.length-edit-pill .length-edit-unit {
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 13px;
+}
 .length-edit-pill input.invalid { color: var(--danger); }
 .length-edit-pill .length-edit-error {
+  flex-basis: 100%;
   color: var(--danger);
   font-size: 10px;
   font-weight: 700;
