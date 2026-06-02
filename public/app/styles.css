@@ -1134,6 +1134,8 @@ body.no-document .path-dock-root {
 }
 .path-dock {
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
   min-width: 0;
   min-height: 54px;
   display: flex;
@@ -1230,6 +1232,7 @@ body.no-document .path-dock-root {
   gap: 5px;
 }
 .path-dock-path-tile {
+  flex: 0 0 auto;
   width: 64px;
   height: 42px;
   min-height: 42px;
@@ -1295,6 +1298,7 @@ body.no-document .path-dock-root {
 .path-dock-template-menu,
 .path-dock-overflow-menu {
   position: absolute;
+  grid-column: 1 / -1;
   bottom: calc(100% + 8px);
   display: grid;
   gap: 3px;
@@ -1366,18 +1370,37 @@ body.no-document .path-dock-root {
 
 @media (max-width: 820px) {
   .path-dock-root {
-    width: min(420px, calc(100% - 20px));
+    left: 10px;
+    right: 10px;
+    width: auto;
+    transform: none;
   }
   .path-dock {
+    display: grid;
+    grid-template-columns: 128px minmax(0, 1fr) 88px;
     justify-content: flex-start;
+    overflow: visible;
+  }
+  .path-dock-paths {
+    flex: 1 1 0;
+    max-width: 100%;
     overflow-x: auto;
     scrollbar-width: none;
   }
-  .path-dock::-webkit-scrollbar {
+  .path-dock-paths::-webkit-scrollbar {
     display: none;
   }
   .path-dock-template-toggle {
     width: 128px;
+  }
+  .path-dock-overflow-toggle {
+    width: 88px;
+  }
+  .path-dock-overflow-menu {
+    position: fixed;
+    right: 10px;
+    bottom: 78px;
+    max-width: calc(100vw - 20px);
   }
   .path-dock-path-tile {
     width: 60px;

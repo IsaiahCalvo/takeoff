@@ -255,7 +255,14 @@ test('Measure mode mounts a bottom-center Path Dock with upward menus', async ()
   assert.match(main, /activePathForNewRun\(state\.inProgress\)/);
   assert.match(main, /activePath:\s*activePathForNewRun\(\)/);
   assert.match(styles, /\.path-dock-root\s*\{[\s\S]*bottom:\s*16px;/);
+  assert.match(styles, /\.path-dock\s*\{[^}]*width:\s*100%;[^}]*box-sizing:\s*border-box;/);
   assert.match(styles, /\.path-dock-template-menu,\s*\n\.path-dock-overflow-menu\s*\{[\s\S]*bottom:\s*calc\(100% \+ 8px\)/);
+  assert.match(styles, /\.path-dock-template-menu,\s*\n\.path-dock-overflow-menu\s*\{[\s\S]*grid-column:\s*1 \/ -1;/);
+  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-root\s*\{[^}]*left:\s*10px;[^}]*right:\s*10px;[^}]*width:\s*auto;[^}]*transform:\s*none;/);
+  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*128px minmax\(0, 1fr\) 88px;[^}]*overflow:\s*visible;/);
+  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-paths\s*\{[^}]*flex:\s*1 1 0;[^}]*overflow-x:\s*auto;/);
+  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-overflow-menu\s*\{[^}]*position:\s*fixed;[^}]*right:\s*10px;[^}]*bottom:\s*78px;/);
+  assert.doesNotMatch(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock\s*\{[^}]*overflow-x:\s*auto;/);
   assert.doesNotMatch(html, /\bnode\b/i);
 });
 

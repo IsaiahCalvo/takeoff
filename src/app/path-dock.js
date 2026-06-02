@@ -284,8 +284,8 @@
         <button class="path-dock-overflow-toggle" type="button"${disabled} aria-haspopup="menu" aria-expanded="${model.overflow.open ? 'true' : 'false'}" ${dataAttributes(model.overflow.data)}>
           <span class="path-dock-overflow-label">${model.overflowCount} more Path${model.overflowCount === 1 ? '' : 's'}</span>
         </button>
-        ${model.overflow.open ? `<div class="path-dock-overflow-menu" role="menu" aria-label="Overflow Paths">${items}</div>` : ''}
       </div>
+      ${model.overflow.open ? `<div class="path-dock-overflow-menu" role="menu" aria-label="Overflow Paths">${items}</div>` : ''}
     `;
   }
 
