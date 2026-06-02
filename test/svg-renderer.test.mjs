@@ -180,6 +180,68 @@ test('drawBezierSegments keeps floating labels clear of curve anchors', async ()
   );
 });
 
+test('drawPolyline keeps legacy measurement attributes unchanged without path style', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawPolyline([{ x: 0, y: 0 }, { x: 10, y: 5 }], {
+    color: '#b6ff3c',
+    dashed: true,
+    dots: true,
+    width: 2,
+    pathStyle: undefined,
+  });
+
+  assert.equal(drawSvg.children.length, 1);
+  assert.deepEqual(drawSvg.children[0].children.map(child => ({ tag: child.tag, attrs: child.attrs })), [
+    {
+      tag: 'path',
+      attrs: {
+        d: 'M 0 0 L 10 5',
+        fill: 'none',
+        stroke: '#b6ff3c',
+        'stroke-width': '2',
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-dasharray': '8 6',
+      },
+    },
+    {
+      tag: 'circle',
+      attrs: {
+        cx: '0',
+        cy: '0',
+        r: '4',
+        fill: '#0b0d0e',
+        stroke: '#b6ff3c',
+        'stroke-width': '2',
+      },
+    },
+    {
+      tag: 'circle',
+      attrs: {
+        cx: '10',
+        cy: '5',
+        r: '4',
+        fill: '#0b0d0e',
+        stroke: '#b6ff3c',
+        'stroke-width': '2',
+      },
+    },
+  ]);
+});
+
 test('label layout respects the dragged side of the path', async () => {
   const renderer = await loadRenderer();
 
