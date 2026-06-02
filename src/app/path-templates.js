@@ -226,6 +226,7 @@
         if (path.id !== pathId) return path;
         return normalizePath({
           ...path,
+          geometry: patch.geometry || path.geometry,
           stroke: { ...path.stroke, ...sourceObject(patch.stroke) },
           anchors: { ...path.anchors, ...sourceObject(patch.anchors) },
         }, { templateId: template.id, order: path.order });

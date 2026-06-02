@@ -139,17 +139,22 @@
       <svg id="drawSvg" aria-hidden="true"></svg>
     </div>
     <div class="empty" id="empty">
-      <h2>Drop in a floor plan to begin.</h2>
-      <p>Upload a PDF or image, calibrate the scale against a known dimension, then trace your takeoff measurements.</p>
-      <ol>
-        <li>Click <span class="key">Upload Image/PDF</span> and pick a file.</li>
-        <li>Click <span class="key">Calibrate</span>, draw a line on a known dimension, enter its real length.</li>
-        <li>Click <span class="key">Measure</span>, click point-to-point to trace a path. Double-click to finish.</li>
-      </ol>
-      <button id="emptyUploadButton" class="empty-upload" type="button">
-        <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-        Upload Image/PDF
-      </button>
+      <div class="home-shell">
+        <section class="home-upload-panel" aria-label="Open a floor plan">
+          <h2>Drop in a floor plan to begin.</h2>
+          <p>Upload a PDF or image, calibrate the scale against a known dimension, then trace your takeoff measurements.</p>
+          <ol>
+            <li>Click <span class="key">Upload Image/PDF</span> and pick a file.</li>
+            <li>Click <span class="key">Calibrate</span>, draw a line on a known dimension, enter its real length.</li>
+            <li>Click <span class="key">Measure</span>, click point-to-point to trace a path. Double-click to finish.</li>
+          </ol>
+          <button id="emptyUploadButton" class="empty-upload" type="button">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
+            Upload Image/PDF
+          </button>
+        </section>
+        <section id="pathTemplatesHome" class="path-template-home" aria-label="Path templates"></section>
+      </div>
     </div>
     <div class="status" id="status"></div>
     <div class="hud">

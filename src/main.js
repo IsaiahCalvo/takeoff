@@ -5,7 +5,7 @@ import './app/sidebar-view.js';
 import './app/sidebar-controller.js';
 import './app/length-edit-controller.js';
 import './app/path-templates.js'; import './app/path-style-renderer.js';
-import './app/path-template-store.js';
+import './app/path-template-store.js'; import './app/path-template-view.js';
 import './app/state.js';
 import './app/geometry.js';
 import './app/measurements.js';
@@ -190,8 +190,8 @@ const exportWrap = $('exportWrap');
 const exportButton = $('exportButton');
 const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
-const VIEWPORT_BOUND_MARGIN = 96;
-const copySummaryButton = $('copySummary');
+const VIEWPORT_BOUND_MARGIN = 96; const copySummaryButton = $('copySummary');
+window.TakeoffPathTemplateView.createPathTemplateHome({ root: $('pathTemplatesHome'), state, pathTemplates: window.TakeoffPathTemplates, store: pathTemplateStore, renderer: window.TakeoffPathStyleRenderer });
 
 const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
   state, stage, viewport, detailCanvas: pdfDetailCanvas, logger: performanceLogger, desiredPdfRenderScale, desiredPdfDetailTileScale,
