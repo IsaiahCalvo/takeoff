@@ -1,5 +1,5 @@
 import './export-utils.js';
-import './calibration-utils.js';
+import './calibration-utils.js'; import './app/decimal-input.js';
 import './app/sidebar.js';
 import './app/sidebar-view.js';
 import './app/sidebar-controller.js';

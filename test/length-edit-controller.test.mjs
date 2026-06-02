@@ -4,12 +4,14 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadLengthEditController() {
-  const [sidebarSource, lengthSource] = await Promise.all([
+  const [decimalSource, sidebarSource, lengthSource] = await Promise.all([
+    readFile(new URL('../src/app/decimal-input.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/sidebar-controller.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/length-edit-controller.js', import.meta.url), 'utf8'),
   ]);
   const sandbox = { window: { innerWidth: 1200, innerHeight: 800 } };
   vm.createContext(sandbox);
+  vm.runInContext(decimalSource, sandbox, { filename: 'decimal-input.js' });
   vm.runInContext(sidebarSource, sandbox, { filename: 'sidebar-controller.js' });
   vm.runInContext(lengthSource, sandbox, { filename: 'length-edit-controller.js' });
   return {
@@ -262,10 +264,17 @@ test('canvas Length editor sanitizes typed and pasted decimal input', async () =
   assert.equal(unitEl.textContent, 'ft');
   assert.equal(unitEl.hidden, false);
 
+  input.value = '00';
+  input.listeners.input();
+
+  assert.equal(input.value, '0.0');
+  assert.equal(unitEl.textContent, 'ft');
+  assert.equal(unitEl.hidden, false);
+
   input.value = '000';
   input.listeners.input();
 
-  assert.equal(input.value, '0');
+  assert.equal(input.value, '0.00');
   assert.equal(unitEl.textContent, 'ft');
   assert.equal(unitEl.hidden, false);
 
@@ -282,7 +291,7 @@ test('canvas Length editor sanitizes typed and pasted decimal input', async () =
   input.value = '000.05';
   input.listeners.input();
 
-  assert.equal(input.value, '0.05');
+  assert.equal(input.value, '0.0005');
 
   input.value = '01.2';
   input.listeners.input();

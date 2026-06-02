@@ -68,27 +68,7 @@
     validationMessage = 'Enter a positive Length.',
   } = {}) {
     function sanitizeDecimalInput(value) {
-      let sanitized = '';
-      let hasDecimal = false;
-      for (const char of String(value || '')) {
-        if (char >= '0' && char <= '9') {
-          sanitized += char;
-        } else if (char === '.' && !hasDecimal) {
-          sanitized += char;
-          hasDecimal = true;
-        }
-      }
-      return normalizeLeadingZero(sanitized);
-    }
-
-    function normalizeLeadingZero(value) {
-      if (!value.startsWith('0') || value.length <= 1) return value;
-      if (value[1] === '.') return value;
-
-      const rest = value.slice(1).replace(/^0+/, '');
-      if (!rest) return '0';
-      if (rest[0] === '.') return `0${rest}`;
-      return `0.${rest.replace('.', '')}`;
+      return window.TakeoffDecimalInput.sanitizePositiveDecimalInput(value);
     }
 
     function setErrorVisible(visible) {

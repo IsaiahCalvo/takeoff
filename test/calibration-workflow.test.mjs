@@ -4,9 +4,13 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadCalibrationWorkflow() {
-  const source = await readFile(new URL('../src/app/calibration-workflow.js', import.meta.url), 'utf8');
+  const [decimalSource, source] = await Promise.all([
+    readFile(new URL('../src/app/decimal-input.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/calibration-workflow.js', import.meta.url), 'utf8'),
+  ]);
   const sandbox = { window: {} };
   vm.createContext(sandbox);
+  vm.runInContext(decimalSource, sandbox, { filename: 'decimal-input.js' });
   vm.runInContext(source, sandbox, { filename: 'calibration-workflow.js' });
   return sandbox.window.TakeoffCalibrationWorkflow;
 }
@@ -39,9 +43,14 @@ test('sanitizes and validates positive calibration values', async () => {
   const workflow = await loadCalibrationWorkflow();
 
   assert.equal(workflow.sanitizeCalibrationValueInput('12a.3.4ft'), '12.34');
-  assert.equal(workflow.sanitizeCalibrationValueInput('000'), '');
+  assert.equal(workflow.sanitizeCalibrationValueInput('00'), '0.0');
+  assert.equal(workflow.sanitizeCalibrationValueInput('000'), '0.00');
+  assert.equal(workflow.sanitizeCalibrationValueInput('05'), '0.5');
+  assert.equal(workflow.sanitizeCalibrationValueInput('000.05'), '0.0005');
   assert.equal(workflow.isPositiveCalibrationValue('0'), false);
+  assert.equal(workflow.isPositiveCalibrationValue('0.00'), false);
   assert.equal(workflow.isPositiveCalibrationValue('0.25'), true);
+  assert.equal(workflow.isPositiveCalibrationValue('0.5'), true);
   assert.equal(workflow.isPositiveCalibrationValue('abc'), false);
 });
 
