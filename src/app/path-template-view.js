@@ -123,13 +123,15 @@
     }).join('');
   }
 
-  function renderPathGrid(model) {
+  function renderPathGrid(model, renderer) {
     const activePathId = model.activePath?.id;
     return model.activeTemplate.paths.map((path) => {
       const active = path.id === activePathId;
       return `
         <button class="path-template-path-card${active ? ' active' : ''}" type="button" data-action="select-path" data-path-id="${escapeAttribute(path.id)}" aria-pressed="${active ? 'true' : 'false'}">
-          <span class="path-template-path-swatch" style="--path-color:${safeColor(path.stroke.color)}"></span>
+          <span class="path-template-path-preview">
+            ${renderPathPreviewHtml(path, renderer)}
+          </span>
           <span class="path-template-path-name">${escapeText(path.name)}</span>
           <span class="path-template-path-meta">${geometryLabel(path.geometry)} / ${strokeStyleLabel(path.stroke.style)}</span>
         </button>
@@ -216,7 +218,7 @@
             <button type="button" data-action="add-path">Add path</button>
           </div>
           <div class="path-template-path-grid">
-            ${renderPathGrid(model)}
+            ${renderPathGrid(model, renderer)}
           </div>
           ${renderStyleEditor(model, renderer)}
         </div>
