@@ -20,12 +20,14 @@
     formatLength,
     unitLabel,
     measurementItemClass,
+    hasRunDetails,
   }) {
     const name = cleanMeasurementName(measurement.name, measurement);
     const isUnscaled = measurement.lengthInches == null;
     const onOtherPage = measurement.page !== currentPage;
     const lengthValue = isUnscaled ? 'unscaled' : formatLength(measurement.lengthInches);
     const lengthUnit = isUnscaled ? '' : unitLabel(unit);
+    const detailsPresent = hasRunDetails ? hasRunDetails(measurement.runDetails) : false;
     return {
       color: measurement.color,
       name,
@@ -37,6 +39,7 @@
       lengthUnit,
       lengthHtml: isUnscaled ? 'unscaled' : `${lengthValue} <span class="unit">${lengthUnit}</span>`,
       measurementId: measurement.id,
+      detailsPresent,
       className: measurementItemClass({
         selected: selectedId === measurement.id,
         isUnscaled,
@@ -193,6 +196,16 @@
     });
   }
 
+  function bindRunDetailsControls({ root, openDetails }) {
+    root.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-run-details-action="open"]');
+      if (!button || !root.contains(button)) return;
+      event.stopPropagation();
+      event.preventDefault();
+      if (openDetails) openDetails(button.dataset.measurementId || null, button);
+    });
+  }
+
   function measurementIdMatches(left, right) {
     return left != null && right != null && String(left) === String(right);
   }
@@ -233,6 +246,7 @@
     categoryVisibilityKeys,
     bindCategoryVisibilityControls,
     bindPathGroupSettingsControls,
+    bindRunDetailsControls,
     measurementIdMatches,
     findMeasurementRow,
     expandContainingPathGroup,

@@ -267,6 +267,7 @@
   function shouldSelectMeasurementFromSidebarClick(target) {
     if (!target) return true;
     if (target.closest?.('.path-group-settings') || target.classList?.contains('path-group-settings')) return false;
+    if (target.closest?.('.run-details-action') || target.classList?.contains('run-details-action')) return false;
     if (target.closest?.('.del') || target.classList?.contains('del')) return false;
     if (target.tagName === 'INPUT') return target.hasAttribute?.('readonly') === true;
     return true;

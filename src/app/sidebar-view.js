@@ -26,18 +26,24 @@
     lengthValue = lengthHtml,
     lengthUnit = '',
     measurementId,
+    detailsPresent = false,
   } = {}) {
     const pointTitle = `${pointCount} anchors${onOtherPage ? ' · page ' + page : ''}`;
     const lengthTitle = isUnscaled ? 'No page scale; excluded from totals.' : '';
     const lengthInputTitle = isUnscaled ? lengthTitle : 'Double-click to edit Length';
     const unitMarkup = !isUnscaled && lengthUnit ? `<span class="unit">${escapeHtml(lengthUnit)}</span>` : '';
     const lengthErrorId = `length-error-${escapeHtml(measurementId)}`;
+    const detailsClass = detailsPresent ? 'run-details-action has-details' : 'run-details-action';
+    const detailsLabel = detailsPresent ? 'Edit Run Details. Details saved.' : 'Add Run Details';
     return `
     <div class="row head">
       <div class="swatch" style="background:${escapeHtml(color)}; color:${escapeHtml(color)}"></div>
       <input class="name" value="${escapeHtml(name)}" readonly title="Double-click to rename" />
       <span class="point-count" title="${escapeHtml(pointTitle)}">${pointCount}</span>
       <span class="len" title="${escapeHtml(lengthTitle)}"><input class="length" value="${escapeHtml(lengthValue)}" readonly inputmode="decimal" aria-label="Length" title="${escapeHtml(lengthInputTitle)}" />${unitMarkup}<span class="length-error" id="${lengthErrorId}" role="alert" hidden></span></span>
+      <button class="${detailsClass}" type="button" data-run-details-action="open" data-measurement-id="${escapeHtml(measurementId)}" aria-label="${escapeHtml(detailsLabel)}" title="${escapeHtml(detailsLabel)}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="m16.5 3.5 4 4L8 20l-5 1 1-5Z"/></svg>
+      </button>
       <button class="del" data-id="${escapeHtml(measurementId)}" title="Delete">×</button>
     </div>
   `;
