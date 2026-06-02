@@ -529,7 +529,7 @@ test('Path group rows nest full-width child runs with existing row controls', as
   const deleteRule = styles.match(/\n\s*\.meas-item \.del\s*\{[^}]+\}/)?.[0] || '';
   const selectedUnscaledRule = styles.match(/\.meas-item\.selected\.unscaled\s*\{[^}]+\}/)?.[0] || '';
 
-  assert.match(source, /groupEl\.className = `path-group\$\{group\.isLegacy \? ' legacy' : ''\}`;/);
+  assert.match(source, /group\.categoryVisible === false \|\| group\.isVisible === false \? 'hidden' : ''/);
   assert.match(source, /header\.className = 'path-group-row';/);
   assert.match(source, /runs\.className = 'path-group-runs';/);
   assert.match(source, /groupEl\.appendChild\(header\);/);
@@ -559,19 +559,26 @@ test('Path group rows nest full-width child runs with existing row controls', as
 
 test('category tab renders aggregation category sections around Path groups', async () => {
   const { styles, source } = await readIndexAndSidebarView();
+  const toolbarRule = styles.match(/\.path-category-visibility-toolbar\s*\{[^}]+\}/)?.[0] || '';
   const sectionRule = styles.match(/\.path-category-section\s*\{[^}]+\}/)?.[0] || '';
   const headerRule = styles.match(/\.path-category-header\s*\{[^}]+\}/)?.[0] || '';
   const titleRule = styles.match(/\.path-category-title\s*\{[^}]+\}/)?.[0] || '';
   const summaryRule = styles.match(/\.path-category-summary\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(source, /function categorySectionViewModel\(category, pathGroupsByKey, unit\)/);
+  assert.match(source, /totalsScope:\s*'visible'/);
   assert.match(source, /pathCategoryVisibility:\s*stateStore\.pathCategoryVisibilityForAggregation\(state\)/);
   assert.match(source, /effectiveSidebarTab === 'categories' \? categorySections : \[\]/);
-  assert.match(source, /function appendPathGroupCategories\(sections\)/);
+  assert.match(source, /function appendPathGroupCategories\(sections, controls\)/);
+  assert.match(source, /buildCategoryVisibilityToolbarMarkup/);
+  assert.match(source, /bindCategoryVisibilityControls/);
+  assert.match(source, /data-path-category-key/);
+  assert.match(source, /data-category-visibility-action="show-all"/);
   assert.match(source, /class="path-category-title"/);
   assert.match(source, /class="path-category-summary"/);
+  assert.match(toolbarRule, /justify-content:\s*space-between/);
   assert.match(sectionRule, /display:\s*grid/);
   assert.match(headerRule, /justify-content:\s*space-between/);
   assert.match(titleRule, /text-overflow:\s*ellipsis/);
-  assert.match(summaryRule, /max-width:\s*44%/);
+  assert.match(summaryRule, /max-width:\s*100%/);
 });

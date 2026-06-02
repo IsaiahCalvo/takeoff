@@ -49,6 +49,7 @@
     categorySubtitle = '',
     runCountText = '0 runs',
     unscaledText = '',
+    hiddenText = '',
     pageCoverageText = 'No page',
     totalText = '0.00',
     totalUnitText = '',
@@ -58,6 +59,9 @@
       : '';
     const unscaledMarkup = unscaledText
       ? `<span class="path-group-chip path-group-chip-warn">${escapeHtml(unscaledText)}</span>`
+      : '';
+    const hiddenMarkup = hiddenText
+      ? `<span class="path-group-chip path-group-chip-muted">${escapeHtml(hiddenText)}</span>`
       : '';
     return `
       <div class="path-group-summary">
@@ -74,17 +78,72 @@
         <span class="path-group-chip">${escapeHtml(runCountText)}</span>
         <span class="path-group-chip">${escapeHtml(pageCoverageText)}</span>
         ${unscaledMarkup}
+        ${hiddenMarkup}
       </div>
     `;
   }
 
-  function buildCategoryHeaderMarkup({ name = 'Uncategorized', summaryText = '' } = {}) {
+  function visibilityIconMarkup(visible) {
+    if (visible) {
+      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6c1.5 0 2.8.3 4 .8"/><path d="M21.5 12s-3.5 6-9.5 6c-1.5 0-2.8-.3-4-.8"/><path d="m4 4 16 16"/><path d="M9.8 9.8a2.5 2.5 0 0 0 3.4 3.4"/></svg>';
+  }
+
+  function buildCategoryHeaderMarkup({
+    key = '',
+    name = 'Uncategorized',
+    summaryText = '',
+    categoryVisible = true,
+    hiddenText = '',
+    totalText = '0.00',
+    totalUnitText = '',
+  } = {}) {
+    const isVisible = categoryVisible !== false;
     const summaryMarkup = summaryText
       ? `<span class="path-category-summary">${escapeHtml(summaryText)}</span>`
       : '';
+    const hiddenMarkup = hiddenText
+      ? `<span class="path-category-hidden">${escapeHtml(hiddenText)}</span>`
+      : '';
+    const actionText = isVisible ? 'Hide' : 'Show';
     return `
-      <div class="path-category-title">${escapeHtml(name)}</div>
-      ${summaryMarkup}
+      <div class="path-category-copy">
+        <div class="path-category-title">${escapeHtml(name)}</div>
+        <div class="path-category-meta">
+          ${summaryMarkup}
+          ${hiddenMarkup}
+        </div>
+      </div>
+      <div class="path-category-controls">
+        <span class="path-category-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
+        <button class="path-category-visibility-toggle" type="button" data-path-category-key="${escapeHtml(key)}" data-next-visible="${isVisible ? 'false' : 'true'}" aria-pressed="${isVisible ? 'true' : 'false'}" aria-label="${actionText} ${escapeHtml(name)} category" title="${actionText} category">
+          ${visibilityIconMarkup(isVisible)}
+        </button>
+      </div>
+    `;
+  }
+
+  function buildCategoryVisibilityToolbarMarkup({
+    totalCount = 0,
+    hiddenCount = 0,
+    canShowAll = false,
+    canHideAll = false,
+  } = {}) {
+    if (!totalCount) return '';
+    const status = hiddenCount ? `${hiddenCount} hidden` : 'All visible';
+    return `
+      <div class="path-category-visibility-toolbar" aria-label="Category visibility controls">
+        <span class="path-category-visibility-status">${escapeHtml(status)}</span>
+        <div class="path-category-visibility-actions">
+          <button class="path-category-bulk-action" type="button" data-category-visibility-action="show-all" aria-label="Show all categories" title="Show all categories"${canShowAll ? '' : ' disabled'}>
+            ${visibilityIconMarkup(true)}
+          </button>
+          <button class="path-category-bulk-action" type="button" data-category-visibility-action="hide-all" aria-label="Hide all categories" title="Hide all categories"${canHideAll ? '' : ' disabled'}>
+            ${visibilityIconMarkup(false)}
+          </button>
+        </div>
+      </div>
     `;
   }
 
@@ -94,5 +153,6 @@
     buildMeasurementItemMarkup,
     buildPathGroupMarkup,
     buildCategoryHeaderMarkup,
+    buildCategoryVisibilityToolbarMarkup,
   };
 })();

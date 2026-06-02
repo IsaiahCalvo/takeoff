@@ -65,6 +65,23 @@
     return nextVisible;
   }
 
+  function pathCategoryVisibilityKeyForMeasurement(measurement) {
+    const aggregation = window.TakeoffPathAggregation;
+    if (!aggregation?.pathCategoryVisibilityKeyForMeasurement) return null;
+    return aggregation.pathCategoryVisibilityKeyForMeasurement(measurement);
+  }
+
+  function isMeasurementVisibleForPathCategories(stateOrVisibility, measurement) {
+    const key = pathCategoryVisibilityKeyForMeasurement(measurement);
+    return isPathCategoryVisible(stateOrVisibility, key);
+  }
+
+  function visibleMeasurementsForPathCategories(stateOrVisibility, measurements) {
+    return (measurements || []).filter(measurement => (
+      isMeasurementVisibleForPathCategories(stateOrVisibility, measurement)
+    ));
+  }
+
   function createInitialPathTemplateState(pathTemplateState) {
     const pathTemplates = window.TakeoffPathTemplates;
     if (pathTemplates?.normalizePathTemplateState) {
@@ -250,6 +267,9 @@
     isPathCategoryVisible,
     setPathCategoryVisibility,
     togglePathCategoryVisibility,
+    pathCategoryVisibilityKeyForMeasurement,
+    isMeasurementVisibleForPathCategories,
+    visibleMeasurementsForPathCategories,
     createInitialState,
     clearHistoryState,
     resetDocumentState,

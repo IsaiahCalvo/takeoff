@@ -6,8 +6,12 @@ import { readFile } from 'node:fs/promises';
 async function loadStateStore() {
   const sandbox = { window: {} };
   vm.createContext(sandbox);
-  const pathTemplateSource = await readFile(new URL('../src/app/path-templates.js', import.meta.url), 'utf8');
+  const [pathTemplateSource, pathAggregationSource] = await Promise.all([
+    readFile(new URL('../src/app/path-templates.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/path-aggregation.js', import.meta.url), 'utf8'),
+  ]);
   vm.runInContext(pathTemplateSource, sandbox, { filename: 'path-templates.js' });
+  vm.runInContext(pathAggregationSource, sandbox, { filename: 'path-aggregation.js' });
   const stateSource = await readFile(new URL('../src/app/state.js', import.meta.url), 'utf8');
   vm.runInContext(stateSource, sandbox, { filename: 'state.js' });
   return sandbox.window.TakeoffState;
@@ -280,6 +284,40 @@ test('path category visibility helpers default visible and toggle durable keys',
   assert.deepEqual(plain(state.pathCategoryVisibility), {
     [lowVoltageKey]: true,
     [pathFallbackKey]: false,
+  });
+});
+
+test('path category visibility filter hides canvas candidates without mutating measurement state', async () => {
+  const store = await loadStateStore();
+  const state = store.createInitialState();
+  state.measurements = [
+    {
+      id: 'low-voltage-run',
+      pathTemplateId: 'template-security',
+      pathId: 'path-cat6',
+      pathCategoryId: 'low-voltage',
+      pathCategoryName: 'Low Voltage',
+      lengthInches: 120,
+    },
+    {
+      id: 'power-run',
+      pathTemplateId: 'template-power',
+      pathId: 'path-feeder',
+      pathCategoryId: 'power',
+      pathCategoryName: 'Power',
+      lengthInches: 60,
+    },
+  ];
+  const before = plain(state.measurements);
+
+  store.setPathCategoryVisibility(state, 'category:low-voltage', false);
+  const visible = store.visibleMeasurementsForPathCategories(state, state.measurements);
+
+  assert.deepEqual(plain(visible.map(measurement => measurement.id)), ['power-run']);
+  assert.deepEqual(plain(state.measurements), before);
+  assert.equal(state.measurements.length, 2);
+  assert.deepEqual(plain(store.pathCategoryVisibilityForAggregation(state)), {
+    'category:low-voltage': false,
   });
 });
 

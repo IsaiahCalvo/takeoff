@@ -167,6 +167,82 @@ test('buildSidebarModel renders category sections from Path groups', async () =>
   ]);
 });
 
+test('buildSidebarModel uses visible category totals while retaining hidden category counts', async () => {
+  const sidebar = await loadSidebar();
+  const model = sidebar.buildSidebarModel({
+    measurements: [
+      {
+        id: 'cat6-a',
+        page: 1,
+        lengthInches: 120,
+        pathTemplateId: 'low-voltage',
+        pathId: 'cat6',
+        pathName: 'Cat 6',
+        pathCategoryId: 'low-voltage',
+        pathCategoryName: 'Low Voltage',
+      },
+      {
+        id: 'feeder-a',
+        page: 1,
+        lengthInches: 60,
+        pathTemplateId: 'power',
+        pathId: 'feeder',
+        pathName: 'Feeder',
+        pathCategoryId: 'power',
+        pathCategoryName: 'Power',
+      },
+    ],
+    currentPage: 1,
+    sidebarTab: 'categories',
+    pageCount: 2,
+    unit: 'ft',
+    pathCategoryVisibility: { 'category:low-voltage': false },
+  });
+
+  assert.equal(model.totalLenText, '5.00');
+  assert.deepEqual(plain(model.categoryVisibilityControls), {
+    totalCount: 2,
+    hiddenCount: 1,
+    visibleCount: 1,
+    canShowAll: true,
+    canHideAll: true,
+  });
+  assert.deepEqual(plain(model.categorySections.map(section => ({
+    key: section.key,
+    name: section.name,
+    categoryVisible: section.categoryVisible,
+    isVisible: section.isVisible,
+    runCount: section.runCount,
+    hiddenRunCount: section.hiddenRunCount,
+    hiddenText: section.hiddenText,
+    totalText: section.totalText,
+    pathGroupTotals: section.pathGroups.map(group => group.totalText),
+  }))), [
+    {
+      key: 'category:low-voltage',
+      name: 'Low Voltage',
+      categoryVisible: false,
+      isVisible: false,
+      runCount: 1,
+      hiddenRunCount: 1,
+      hiddenText: '1 hidden',
+      totalText: '0.00',
+      pathGroupTotals: ['0.00'],
+    },
+    {
+      key: 'category:power',
+      name: 'Power',
+      categoryVisible: true,
+      isVisible: true,
+      runCount: 1,
+      hiddenRunCount: 0,
+      hiddenText: '',
+      totalText: '5.00',
+      pathGroupTotals: ['5.00'],
+    },
+  ]);
+});
+
 test('shouldSelectMeasurementFromSidebarClick allows readonly title clicks to select rows', async () => {
   const sidebar = await loadSidebar();
 
