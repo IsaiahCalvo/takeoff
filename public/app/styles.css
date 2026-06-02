@@ -868,8 +868,9 @@ main {
   background: transparent;
   color: var(--text);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
+  line-height: 13px;
   text-align: right;
 }
 .length-edit-pill input.invalid { color: var(--danger); }

@@ -345,6 +345,22 @@ test('upload controls avoid native browser title tooltips', async () => {
   assert.match(uploadButton, /aria-label="Upload Image\/PDF"/);
 });
 
+test('canvas Length edit pill matches floating tag typography', async () => {
+  const [styles, renderer] = await Promise.all([
+    readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/svg-renderer.js', import.meta.url), 'utf8'),
+  ]);
+  const editInputRule = styles.match(/\.length-edit-pill input\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(renderer, /const fontSize = overlayPageSize\(13\);/);
+  assert.match(renderer, /'font-family': "'JetBrains Mono', monospace"/);
+  assert.match(renderer, /'font-weight': 700/);
+  assert.match(editInputRule, /font-family:\s*'JetBrains Mono', monospace/);
+  assert.match(editInputRule, /font-size:\s*13px/);
+  assert.match(editInputRule, /font-weight:\s*700/);
+  assert.match(editInputRule, /line-height:\s*13px/);
+});
+
 test('continuous zoom sharpening caps render scale by page bounds', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const desiredScale = main.match(/function desiredPdfRenderScale[\s\S]*?\n\}/)?.[0] || '';
