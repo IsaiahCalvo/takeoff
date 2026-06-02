@@ -4,19 +4,40 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadRenderer() {
+  const geometrySource = await readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8');
+  const measurementsSource = await readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8');
   const source = await readFile(new URL('../src/app/svg-renderer.js', import.meta.url), 'utf8');
+  const createElement = tag => ({
+    tag,
+    attrs: {},
+    children: [],
+    textContent: '',
+    setAttribute(key, value) { this.attrs[key] = String(value); },
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  });
   const sandbox = {
     window: {},
     document: {
-      createElementNS: () => ({
-        setAttribute() {},
-        appendChild() {},
-      }),
+      createElementNS: (namespace, tag) => createElement(tag),
     },
   };
   vm.createContext(sandbox);
+  vm.runInContext(geometrySource, sandbox, { filename: 'geometry.js' });
+  vm.runInContext(measurementsSource, sandbox, { filename: 'measurements.js' });
   vm.runInContext(source, sandbox, { filename: 'svg-renderer.js' });
   return sandbox.window.TakeoffSvgRenderer;
+}
+
+function rectOverlapsPointClearance(rect, point, clearance) {
+  return !(
+    rect.x + rect.width <= point.x - clearance ||
+    rect.x >= point.x + clearance ||
+    rect.y + rect.height <= point.y - clearance ||
+    rect.y >= point.y + clearance
+  );
 }
 
 test('buildPolylinePath creates stable SVG path commands', async () => {
@@ -46,4 +67,92 @@ test('buildBezierPath creates stable SVG cubic path commands', async () => {
       to: { x: 20, y: 0 },
     },
   ]), 'M 0 0 C 5 0 5 10 10 10 L 10 10 C 15 10 15 0 20 0');
+});
+
+test('drawPolyline keeps floating labels clear of endpoint anchors on short segments', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const labelHitboxes = [];
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: {
+      font: '',
+      measureText: () => ({ width: 72 }),
+    },
+    overlayPageSize: value => value,
+  });
+  const points = [{ x: 0, y: 0 }, { x: 24, y: 0 }];
+
+  measurementRenderer.drawPolyline(points, {
+    color: '#b6ff3c',
+    labelColor: '#b6ff3c',
+    label: '24 ft',
+    labelT: 0.5,
+    dots: true,
+    measurementId: 'short-line',
+    labelHitboxes,
+  });
+
+  assert.equal(labelHitboxes.length, 1);
+  const labelBox = labelHitboxes[0];
+  for (const anchor of points) {
+    assert.equal(
+      rectOverlapsPointClearance(labelBox, anchor, 12),
+      false,
+      `label hitbox overlaps anchor at ${anchor.x},${anchor.y}`
+    );
+  }
+});
+
+test('drawBezierSegments keeps floating labels clear of curve anchors', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const labelHitboxes = [];
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: {
+      font: '',
+      measureText: () => ({ width: 72 }),
+    },
+    overlayPageSize: value => value,
+  });
+  const anchors = [{ x: 0, y: 0 }, { x: 24, y: 0 }];
+
+  measurementRenderer.drawBezierSegments([{
+    type: 'cubic',
+    from: anchors[0],
+    c1: { x: 8, y: 0 },
+    c2: { x: 16, y: 0 },
+    to: anchors[1],
+  }], {
+    color: '#b6ff3c',
+    labelColor: '#b6ff3c',
+    label: '24 ft',
+    labelT: 0.5,
+    dots: true,
+    measurementId: 'short-curve',
+    labelHitboxes,
+  });
+
+  assert.equal(labelHitboxes.length, 1);
+  const labelBox = labelHitboxes[0];
+  for (const anchor of anchors) {
+    assert.equal(
+      rectOverlapsPointClearance(labelBox, anchor, 12),
+      false,
+      `label hitbox overlaps curve anchor at ${anchor.x},${anchor.y}`
+    );
+  }
 });

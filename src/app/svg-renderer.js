@@ -18,6 +18,128 @@
     }).join(' ');
   }
 
+  function rectOverlapsPointClearance(rect, point, clearance) {
+    return !(
+      rect.x + rect.width <= point.x - clearance ||
+      rect.x >= point.x + clearance ||
+      rect.y + rect.height <= point.y - clearance ||
+      rect.y >= point.y + clearance
+    );
+  }
+
+  function labelLayoutFromCenter(lx, ly, metrics, overlayPageSize) {
+    const { textWidth, fontSize, padX, padY, accentW } = metrics;
+    const bx = lx - textWidth / 2 - padX - accentW / 2;
+    const by = ly - fontSize / 2 - padY;
+    const bw = textWidth + padX * 2 + accentW;
+    const bh = fontSize + padY * 2;
+    return {
+      lx,
+      ly,
+      bx,
+      by,
+      bw,
+      bh,
+      hitbox: {
+        x: bx - overlayPageSize(3),
+        y: by - overlayPageSize(3),
+        width: bw + overlayPageSize(6),
+        height: bh + overlayPageSize(6),
+      },
+    };
+  }
+
+  function resolvePathLabelLayout({ labelPosition, label, anchors = [], drawCtx, overlayPageSize }) {
+    const { point, angle } = labelPosition;
+    const fontSize = overlayPageSize(13);
+    drawCtx.font = `${700} ${fontSize}px 'JetBrains Mono', monospace`;
+    const metrics = {
+      textWidth: drawCtx.measureText(label).width,
+      fontSize,
+      padX: overlayPageSize(8),
+      padY: overlayPageSize(4),
+      accentW: overlayPageSize(3),
+    };
+    const tangent = { x: Math.cos(angle), y: Math.sin(angle) };
+    const normal = { x: -Math.sin(angle), y: Math.cos(angle) };
+    const baseOffset = overlayPageSize(18);
+    const baseCenter = {
+      x: point.x + normal.x * baseOffset,
+      y: point.y + normal.y * baseOffset,
+    };
+    const clearance = overlayPageSize(12);
+    const activeAnchors = (anchors || []).filter(Boolean);
+
+    function isClear(layout) {
+      return activeAnchors.every(anchor => !rectOverlapsPointClearance(layout.hitbox, anchor, clearance));
+    }
+
+    const baseLayout = labelLayoutFromCenter(baseCenter.x, baseCenter.y, metrics, overlayPageSize);
+    if (!activeAnchors.length || isClear(baseLayout)) return { ...baseLayout, ...metrics };
+
+    const halfWidth = baseLayout.hitbox.width / 2;
+    const halfHeight = baseLayout.hitbox.height / 2;
+    const normalDistances = [
+      baseOffset,
+      halfHeight + clearance,
+      halfHeight + clearance + overlayPageSize(12),
+      halfHeight + clearance + overlayPageSize(28),
+      halfHeight + clearance + overlayPageSize(52),
+      halfHeight + clearance + overlayPageSize(84),
+    ];
+    const alongDistances = [
+      0,
+      halfWidth / 2 + clearance,
+      -(halfWidth / 2 + clearance),
+      halfWidth + clearance,
+      -(halfWidth + clearance),
+    ];
+    const candidates = [baseLayout];
+    for (const normalSign of [1, -1]) {
+      for (const normalDistance of normalDistances) {
+        for (const alongDistance of alongDistances) {
+          const lx = point.x + normal.x * normalSign * normalDistance + tangent.x * alongDistance;
+          const ly = point.y + normal.y * normalSign * normalDistance + tangent.y * alongDistance;
+          candidates.push(labelLayoutFromCenter(lx, ly, metrics, overlayPageSize));
+        }
+      }
+    }
+
+    const clearCandidates = candidates.filter(isClear);
+    if (clearCandidates.length) {
+      clearCandidates.sort((a, b) => {
+        const aScore = (a.lx - baseCenter.x) ** 2 + (a.ly - baseCenter.y) ** 2;
+        const bScore = (b.lx - baseCenter.x) ** 2 + (b.ly - baseCenter.y) ** 2;
+        return aScore - bScore;
+      });
+      return { ...clearCandidates[0], ...metrics };
+    }
+
+    for (let radius = halfWidth + halfHeight + clearance; radius <= overlayPageSize(420); radius += overlayPageSize(28)) {
+      const radialCandidates = [];
+      for (let step = 0; step < 16; step++) {
+        const theta = step * Math.PI / 8;
+        radialCandidates.push(labelLayoutFromCenter(
+          point.x + Math.cos(theta) * radius,
+          point.y + Math.sin(theta) * radius,
+          metrics,
+          overlayPageSize
+        ));
+      }
+      const clearRadial = radialCandidates.filter(isClear);
+      if (clearRadial.length) {
+        clearRadial.sort((a, b) => {
+          const aScore = (a.lx - baseCenter.x) ** 2 + (a.ly - baseCenter.y) ** 2;
+          const bScore = (b.lx - baseCenter.x) ** 2 + (b.ly - baseCenter.y) ** 2;
+          return aScore - bScore;
+        });
+        return { ...clearRadial[0], ...metrics };
+      }
+    }
+
+    return { ...baseLayout, ...metrics };
+  }
+
   function createMeasurementRenderer({ drawSvg, drawCtx, overlayPageSize }) {
     const geometry = window.TakeoffGeometry;
     const measurements = window.TakeoffMeasurements;
@@ -25,26 +147,18 @@
     function drawPathLabel(group, points, opts) {
       const labelPosition = geometry.pointAtPolylineT(points, opts.labelT);
       if (!labelPosition) return;
-      const { point, angle } = labelPosition;
-      const lx = point.x - Math.sin(angle) * overlayPageSize(18);
-      const ly = point.y + Math.cos(angle) * overlayPageSize(18);
-      const fontSize = overlayPageSize(13);
-      drawCtx.font = `${700} ${fontSize}px 'JetBrains Mono', monospace`;
-      const tw = drawCtx.measureText(opts.label).width;
-      const padX = overlayPageSize(8);
-      const padY = overlayPageSize(4);
-      const accentW = overlayPageSize(3);
-      const bx = lx - tw / 2 - padX - accentW / 2;
-      const by = ly - fontSize / 2 - padY;
-      const bw = tw + padX * 2 + accentW;
-      const bh = fontSize + padY * 2;
+      const layout = resolvePathLabelLayout({
+        labelPosition,
+        label: opts.label,
+        anchors: opts.anchors,
+        drawCtx,
+        overlayPageSize,
+      });
+      const { lx, ly, bx, by, bw, bh, fontSize, accentW } = layout;
       if (opts.measurementId != null && opts.labelHitboxes) {
         opts.labelHitboxes.push({
           measurementId: opts.measurementId,
-          x: bx - overlayPageSize(3),
-          y: by - overlayPageSize(3),
-          width: bw + overlayPageSize(6),
-          height: bh + overlayPageSize(6),
+          ...layout.hitbox,
         });
       }
       group.appendChild(svgNode('rect', {
@@ -163,7 +277,7 @@
 
       const labelPoints = opts.labelPoints || geometry.flattenSegments(segments, 18);
       if (opts.label && labelPoints.length >= 2) {
-        drawPathLabel(group, labelPoints, opts);
+        drawPathLabel(group, labelPoints, { ...opts, anchors });
       }
     }
 
@@ -241,7 +355,7 @@
       }
 
       if (opts.label && points.length >= 2) {
-        drawPathLabel(group, points, opts);
+        drawPathLabel(group, points, { ...opts, anchors: points });
       }
     }
 
@@ -256,6 +370,7 @@
     svgNode,
     buildPolylinePath,
     buildBezierPath,
+    resolvePathLabelLayout,
     createMeasurementRenderer,
   };
 })();
