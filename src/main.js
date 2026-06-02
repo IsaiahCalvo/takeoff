@@ -4,7 +4,7 @@ import './app/sidebar.js';
 import './app/sidebar-view.js';
 import './app/sidebar-controller.js';
 import './app/length-edit-controller.js';
-import './app/path-templates.js';
+import './app/path-templates.js'; import './app/path-style-renderer.js';
 import './app/path-template-store.js';
 import './app/state.js';
 import './app/geometry.js';
