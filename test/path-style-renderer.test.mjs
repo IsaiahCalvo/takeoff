@@ -24,6 +24,9 @@ test('renders the Iteration 2A two-anchor squiggle preview', async () => {
   });
 
   assert.equal(attrs.svg.viewBox, '-3 -42 170 170');
+  assert.equal(attrs.svg.width, 170);
+  assert.equal(attrs.svg.height, 170);
+  assert.equal(attrs.svg.style, 'width:170px;height:170px;display:block;overflow:visible');
   assert.equal(attrs.path.d, 'M132 46 C114 46 109 34 88 34 C65 34 64 56 41 56 C30 56 24 51 19 48');
   assert.deepEqual(plain(attrs.anchors.map(anchor => ({ cx: anchor.cx, cy: anchor.cy, r: anchor.r }))), [
     { cx: 19, cy: 48, r: 13 },
@@ -122,6 +125,6 @@ test('renders deterministic inline SVG markup', async () => {
       stroke: { color: '#36D399', style: 'dashed' },
       anchors: { fill: '#0B0F11', borderMatchesStroke: true },
     }),
-    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -42 170 170" aria-hidden="true"><path d="M132 46 C114 46 109 34 88 34 C65 34 64 56 41 56 C30 56 24 51 19 48" fill="none" stroke="#36d399" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="18 13"/><circle cx="19" cy="48" r="13" fill="#0b0f11" stroke="#36d399" stroke-width="5"/><circle cx="146" cy="46" r="13" fill="#0b0f11" stroke="#36d399" stroke-width="5"/></svg>'
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-3 -42 170 170" width="170" height="170" style="width:170px;height:170px;display:block;overflow:visible" aria-hidden="true"><path d="M132 46 C114 46 109 34 88 34 C65 34 64 56 41 56 C30 56 24 51 19 48" fill="none" stroke="#36d399" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="18 13"/><circle cx="19" cy="48" r="13" fill="#0b0f11" stroke="#36d399" stroke-width="5"/><circle cx="146" cy="46" r="13" fill="#0b0f11" stroke="#36d399" stroke-width="5"/></svg>'
   );
 });
