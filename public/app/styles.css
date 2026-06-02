@@ -707,6 +707,44 @@ main {
   overflow: visible;
   pointer-events: none;
 }
+.canvas-length-tag-hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: none;
+}
+.canvas-length-tag-body,
+.canvas-length-tag-accent,
+.canvas-length-tag text {
+  pointer-events: none;
+}
+.canvas-length-tag-nav {
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  transition: opacity .12s ease, color .12s ease;
+}
+.canvas-length-tag:hover .canvas-length-tag-nav,
+.canvas-length-tag-nav.visible,
+.canvas-length-tag-nav:focus {
+  opacity: 1;
+}
+.canvas-length-tag-nav-shell {
+  fill: rgba(11,13,14,0.96);
+  stroke: rgba(182,255,60,0.55);
+  stroke-width: 1;
+  transition: fill .12s ease, stroke .12s ease;
+}
+.canvas-length-tag-nav:hover,
+.canvas-length-tag-nav:focus {
+  color: var(--text);
+  outline: none;
+}
+.canvas-length-tag-nav:hover .canvas-length-tag-nav-shell,
+.canvas-length-tag-nav:focus .canvas-length-tag-nav-shell {
+  fill: rgba(182,255,60,0.035);
+  stroke: var(--accent);
+}
 
 .empty {
   position: absolute; inset: 0;

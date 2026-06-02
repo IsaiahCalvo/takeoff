@@ -1093,6 +1093,7 @@ stage.addEventListener('mousedown', (e) => {
   if (!state.baseW) return;
   if (e.button !== 2) closeContextMenu();
   if (e.button !== 0 && e.button !== 1) return;
+  const labelNavTarget = e.button === 0 ? lengthLabelNavigationTarget(e.target) : null; if (labelNavTarget) { navigateLengthLabelToSidebar(labelNavTarget); e.preventDefault(); e.stopPropagation(); return; }
   const p = screenToImage(e.clientX, e.clientY);
   state.cursorImg = p;
   state.shiftHeld = e.shiftKey;
@@ -1353,6 +1354,7 @@ stage.addEventListener('mousemove', (e) => {
   if (state.dragLabel) {
     const m = state.measurements.find(x => x.id === state.dragLabel.measurementId);
     if (m) {
+      state.hoverLabelId = null;
       if (measurementCommands.updateMeasurementLabelFromPoint(m, localPointForMeasurement(m))) {
         redraw();
       }
@@ -1361,6 +1363,8 @@ stage.addEventListener('mousemove', (e) => {
   }
 
   state.shiftHeld = e.shiftKey;
+  const labelHoverId = findLabelHit(state.cursorImg)?.measurementId ?? null;
+  if (labelHoverId !== state.hoverLabelId) { state.hoverLabelId = labelHoverId; redraw(state.inProgress ? getEffectiveCursor() : undefined); }
 
   if (state.inProgress) {
     // live preview (snapped to 45° when Shift is held)
@@ -1451,6 +1455,7 @@ window.addEventListener('pointerup', finishPointerDrag);
 window.addEventListener('blur', finishPointerDrag);
 
 stage.addEventListener('dblclick', (e) => {
+  if (lengthLabelNavigationTarget(e.target)) { e.preventDefault(); e.stopPropagation(); return; }
   if (state.baseW) {
     const labelHit = findLabelHit(screenToImage(e.clientX, e.clientY));
     if (labelHit) { e.preventDefault(); e.stopPropagation(); lengthEditController.openCanvasLengthEdit(labelHit); return; }
@@ -1894,14 +1899,14 @@ function finalizeMeasurementGeometry(m, preservedLabelPoint = null) {
 }
 
 function currentMeasurementLabelPoint(m) { return measurementCommands.measurementLabelPoint(m); }
-
 function findNearestPathPoint(p, tol) { return window.TakeoffHitTesting.findNearestPathPoint(measurementsOnCurrentPage(), p, tol); }
-
 function findNearestMeasurement(p, tol) { return window.TakeoffHitTesting.findNearestMeasurement(measurementsOnCurrentPage(), p, tol); }
-
 function findLabelHit(p) { return window.TakeoffHitTesting.findLabelHit(state.labelHitboxes, p, overlayPageSize(6)); }
-
 function isPointInBox(p, box) { return window.TakeoffHitTesting.isPointInBox(p, box); }
+function measurementById(id) { return state.measurements.find(measurement => sidebarController.measurementIdMatches(measurement.id, id)) || null; }
+function lengthLabelNavigationTarget(target) { return target?.closest?.('[data-length-label-nav="true"]') || null; }
+function revealMeasurementInSidebar(measurement) { const measurementId = measurement?.id ?? measurement; let row = sidebarController.revealMeasurementRow({ root: measList, measurementId }); if (row) return row; const fallbackTab = measurement?.page === currentPage() ? 'page' : 'all'; if (state.sidebarTab !== fallbackTab) { state.sidebarTab = fallbackTab; renderList(); row = sidebarController.revealMeasurementRow({ root: measList, measurementId }); } return row; }
+function navigateLengthLabelToSidebar(navTarget) { const measurement = measurementById(navTarget?.dataset?.measurementId); if (!measurement || !isMeasurementVisibleForPathCategories(measurement)) return false; clearActiveFitMode(); endRotateMode(); setMode('selection'); state.selectedId = measurement.id; renderList(); revealMeasurementInSidebar(measurement); redraw(); return true; }
 
 function beginRotateMode(id) {
   const m = state.measurements.find(x => x.id === id);
@@ -2315,7 +2320,7 @@ function redraw(previewTo) {
       label: m.lengthInches != null ? `${formatLen(m.lengthInches)} ${unitModel.unitLabel(state.unit)}` : 'no scale',
       labelColor: color,
       measurementId: m.id, labelT: m.labelT,
-      labelOffset: m.labelOffset,
+      labelOffset: m.labelOffset, labelNavVisible: state.hoverLabelId === m.id,
       labelEdit: lengthEditController.canvasLengthEditStateForMeasurement(m),
     });
   }
@@ -2403,7 +2408,7 @@ function svgNode(tag, attrs = {}) { return window.TakeoffSvgRenderer.svgNode(tag
 // ------- Sidebar list -------
 function syncSidebarSelection() {
   measList.querySelectorAll('.meas-item').forEach(item => {
-    item.classList.toggle('selected', Number(item.dataset.measId) === state.selectedId);
+    item.classList.toggle('selected', sidebarController.measurementIdMatches(item.dataset.measId, state.selectedId));
   });
 }
 
