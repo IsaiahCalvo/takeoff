@@ -3,6 +3,68 @@
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
 
+  function sourceObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  }
+
+  function cleanKey(value) {
+    const text = String(value ?? '').trim();
+    return text || null;
+  }
+
+  function visibilityBoolean(value) {
+    if (typeof value === 'boolean') return value;
+    const source = sourceObject(value);
+    if (typeof source.visible === 'boolean') return source.visible;
+    if (typeof source.hidden === 'boolean') return !source.hidden;
+    return null;
+  }
+
+  function normalizePathCategoryVisibility(input = {}) {
+    const source = sourceObject(input);
+    const visibility = {};
+    for (const [rawKey, rawValue] of Object.entries(source)) {
+      const key = cleanKey(rawKey);
+      const visible = visibilityBoolean(rawValue);
+      if (!key || visible == null) continue;
+      visibility[key] = visible;
+    }
+    return visibility;
+  }
+
+  function pathCategoryVisibilitySource(stateOrVisibility = {}) {
+    const source = sourceObject(stateOrVisibility);
+    return Object.prototype.hasOwnProperty.call(source, 'pathCategoryVisibility')
+      ? sourceObject(source.pathCategoryVisibility)
+      : stateOrVisibility;
+  }
+
+  function pathCategoryVisibilityForAggregation(stateOrVisibility = {}) {
+    return normalizePathCategoryVisibility(pathCategoryVisibilitySource(stateOrVisibility));
+  }
+
+  function isPathCategoryVisible(stateOrVisibility, key) {
+    const cleanVisibilityKey = cleanKey(key);
+    if (!cleanVisibilityKey) return true;
+    const visibility = pathCategoryVisibilityForAggregation(stateOrVisibility);
+    return visibility[cleanVisibilityKey] !== false;
+  }
+
+  function setPathCategoryVisibility(state, key, visible = true) {
+    if (!state) return {};
+    const cleanVisibilityKey = cleanKey(key);
+    state.pathCategoryVisibility = normalizePathCategoryVisibility(state.pathCategoryVisibility);
+    if (!cleanVisibilityKey) return state.pathCategoryVisibility;
+    state.pathCategoryVisibility[cleanVisibilityKey] = visible !== false;
+    return state.pathCategoryVisibility;
+  }
+
+  function togglePathCategoryVisibility(state, key) {
+    const nextVisible = !isPathCategoryVisible(state, key);
+    setPathCategoryVisibility(state, key, nextVisible);
+    return nextVisible;
+  }
+
   function createInitialPathTemplateState(pathTemplateState) {
     const pathTemplates = window.TakeoffPathTemplates;
     if (pathTemplates?.normalizePathTemplateState) {
@@ -35,6 +97,7 @@
       continuousScrollPreferences: {},
       continuousPageLayout: null,
       cachedContinuousPageLayout: null,
+      pathCategoryVisibility: {},
       imageBitmap: null,
       minPdfRenderScale: 2,
       maxPdfRenderScale: 12,
@@ -102,6 +165,7 @@
     state.continuousScrollPreferences = {};
     state.continuousPageLayout = null;
     state.cachedContinuousPageLayout = null;
+    state.pathCategoryVisibility = {};
     state.imageBitmap = null;
     state.baseW = 0;
     state.baseH = 0;
@@ -134,6 +198,7 @@
     state.continuousScrollPreferences = { ...(doc.continuousScrollPreferences || {}) };
     state.continuousPageLayout = null;
     state.cachedContinuousPageLayout = null;
+    state.pathCategoryVisibility = normalizePathCategoryVisibility(doc.pathCategoryVisibility);
     state.imageBitmap = doc.imageBitmap || null;
     state.baseW = doc.baseW || 0;
     state.baseH = doc.baseH || 0;
@@ -180,6 +245,11 @@
 
   window.TakeoffState = {
     cloneValue,
+    normalizePathCategoryVisibility,
+    pathCategoryVisibilityForAggregation,
+    isPathCategoryVisible,
+    setPathCategoryVisibility,
+    togglePathCategoryVisibility,
     createInitialState,
     clearHistoryState,
     resetDocumentState,

@@ -3,6 +3,35 @@
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
 
+  function sourceObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  }
+
+  function cleanKey(value) {
+    const text = String(value ?? '').trim();
+    return text || null;
+  }
+
+  function visibilityBoolean(value) {
+    if (typeof value === 'boolean') return value;
+    const source = sourceObject(value);
+    if (typeof source.visible === 'boolean') return source.visible;
+    if (typeof source.hidden === 'boolean') return !source.hidden;
+    return null;
+  }
+
+  function normalizePathCategoryVisibility(input = {}) {
+    const source = sourceObject(input);
+    const visibility = {};
+    for (const [rawKey, rawValue] of Object.entries(source)) {
+      const key = cleanKey(rawKey);
+      const visible = visibilityBoolean(rawValue);
+      if (!key || visible == null) continue;
+      visibility[key] = visible;
+    }
+    return visibility;
+  }
+
   function activeDocument(state) {
     return (state.documents || []).find(doc => doc.id === state.activeDocId) || null;
   }
@@ -32,6 +61,7 @@
       pdfPages: state.pdfPages,
       continuousScrollMode: !!state.continuousScrollMode,
       continuousScrollPreferences: { ...(state.continuousScrollPreferences || {}) },
+      pathCategoryVisibility: normalizePathCategoryVisibility(state.pathCategoryVisibility),
       imageBitmap: state.imageBitmap,
       baseW: state.baseW,
       baseH: state.baseH,
@@ -61,6 +91,7 @@
     activeDocument,
     activeDocumentName,
     exportBaseName,
+    normalizePathCategoryVisibility,
     createDocumentSnapshot,
     saveDocumentSnapshot,
   };

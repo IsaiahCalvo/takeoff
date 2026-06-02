@@ -3,6 +3,7 @@
   const DEFAULT_UNITS = ['in', 'ft', 'yd', 'cm', 'm'];
   const LEGACY_PATH_GROUP_ID = 'legacy:path';
   const LEGACY_PATH_DISPLAY_NAME = 'Legacy measurements';
+  const UNCATEGORIZED_PATH_CATEGORY_PREFIX = 'category-path:';
   const VISIBILITY_FIELDS = ['visible', 'hidden', 'categoryHidden', 'pathHidden', 'templateHidden'];
 
   function cloneValue(value) {
@@ -15,12 +16,44 @@
     return text || null;
   }
 
+  function cleanKey(value) {
+    return cleanString(value);
+  }
+
   function cleanName(value, fallback) {
     return cleanString(value) || fallback;
   }
 
   function sourceObject(value) {
     return value && typeof value === 'object' ? value : {};
+  }
+
+  function visibilityBoolean(value) {
+    if (typeof value === 'boolean') return value;
+    const source = sourceObject(value);
+    if (typeof source.visible === 'boolean') return source.visible;
+    if (typeof source.hidden === 'boolean') return !source.hidden;
+    return null;
+  }
+
+  function normalizePathCategoryVisibility(input = {}) {
+    const source = sourceObject(input);
+    const visibility = {};
+    for (const [rawKey, rawValue] of Object.entries(source)) {
+      const key = cleanKey(rawKey);
+      const visible = visibilityBoolean(rawValue);
+      if (!key || visible == null) continue;
+      visibility[key] = visible;
+    }
+    return visibility;
+  }
+
+  function normalizeTotalsScope(value) {
+    return value === 'visible' ? 'visible' : 'all';
+  }
+
+  function scopedTotals({ allTotalsByUnit, visibleTotalsByUnit }, totalsScope) {
+    return { ...(totalsScope === 'visible' ? visibleTotalsByUnit : allTotalsByUnit) };
   }
 
   function unitToInch(unit) {
@@ -132,6 +165,26 @@
     return visibility.templateHidden === true;
   }
 
+  function pathCategoryVisibilityKey({ categoryKey, pathKey } = {}) {
+    const cleanCategoryKey = cleanKey(categoryKey);
+    if (cleanCategoryKey) return cleanCategoryKey;
+    const cleanPathKey = cleanKey(pathKey) || LEGACY_PATH_GROUP_ID;
+    return `${UNCATEGORIZED_PATH_CATEGORY_PREFIX}${encodeURIComponent(cleanPathKey)}`;
+  }
+
+  function effectiveVisibilityForRun(visibility, { categoryVisible, pathCategoryVisibilityKey: visibilityKey }) {
+    const effective = { ...visibility };
+    const isCategoryVisible = categoryVisible !== false;
+    if (!isCategoryVisible) effective.categoryHidden = true;
+    else if (effective.categoryHidden === undefined) effective.categoryHidden = false;
+    effective.categoryVisible = isCategoryVisible;
+    effective.pathCategoryVisibilityKey = visibilityKey;
+    const hidden = isVisibilityHidden(effective);
+    effective.visible = !hidden;
+    effective.hidden = hidden;
+    return effective;
+  }
+
   function styleColor(pathStyle) {
     return pathStyle?.stroke?.color || null;
   }
@@ -165,12 +218,30 @@
     };
   }
 
-  function createRunRecord({ measurement, identity, sourceIndex, page, units }) {
+  function pathCategoryVisibilityKeyForMeasurement(measurement) {
+    const identity = pathIdentityForMeasurement(measurement);
+    const category = categoryForMeasurement(measurement);
+    return pathCategoryVisibilityKey({
+      categoryKey: category.categoryKey,
+      pathKey: identity.key,
+    });
+  }
+
+  function createRunRecord({ measurement, identity, sourceIndex, page, units, pathCategoryVisibility }) {
     const pathStyle = cloneValue(measurement?.pathStyle) || null;
     const lengthInches = scaledLengthInches(measurement);
     const totalsByUnit = totalsForLength(lengthInches, units);
     const visibility = visibilityForMeasurement(measurement);
     const category = categoryForMeasurement(measurement);
+    const visibilityKey = pathCategoryVisibilityKey({
+      categoryKey: category.categoryKey,
+      pathKey: identity.key,
+    });
+    const categoryVisible = pathCategoryVisibility[visibilityKey] !== false;
+    const effectiveVisibility = effectiveVisibilityForRun(visibility, {
+      categoryVisible,
+      pathCategoryVisibilityKey: visibilityKey,
+    });
     const run = {
       id: measurement?.id ?? `run-${sourceIndex + 1}`,
       measurementId: measurement?.id ?? null,
@@ -185,6 +256,9 @@
       categoryId: category.categoryId,
       categoryName: category.categoryName,
       categoryKey: category.categoryKey,
+      pathCategoryVisibilityKey: visibilityKey,
+      categoryVisible,
+      isVisible: !effectiveVisibility.hidden,
       displayName: cleanName(measurement?.name, `Run ${sourceIndex + 1}`),
       measurementType: measurementType(measurement),
       page,
@@ -195,6 +269,7 @@
       totalsByUnit,
       scaled: lengthInches != null,
       visibility,
+      effectiveVisibility,
       pointCount: Array.isArray(measurement?.points) ? measurement.points.length : 0,
     };
     for (const [field, value] of Object.entries(visibility)) run[field] = value;
@@ -215,8 +290,11 @@
       categoryId: run.categoryId,
       categoryName: run.categoryName,
       categoryKey: run.categoryKey,
+      pathCategoryVisibilityKey: run.pathCategoryVisibilityKey,
       categories: [],
       hasMixedCategories: false,
+      categoryVisible: run.categoryVisible,
+      isVisible: false,
       color: run.color,
       pathStyle: cloneValue(run.pathStyle) || null,
       runCount: 0,
@@ -226,6 +304,9 @@
       hiddenRunCount: 0,
       hasHiddenRuns: false,
       totalsByUnit: {},
+      allTotalsByUnit: {},
+      visibleTotalsByUnit: {},
+      hiddenTotalsByUnit: {},
       pages: [],
       pageCoverage: { pages: [], ranges: [], label: '' },
       runs: [],
@@ -240,6 +321,9 @@
       group.pathName = run.pathName;
       group.displayName = run.pathName;
     }
+    if (!group.pathCategoryVisibilityKey && run.pathCategoryVisibilityKey) {
+      group.pathCategoryVisibilityKey = run.pathCategoryVisibilityKey;
+    }
   }
 
   function addRunToGroup(group, run) {
@@ -248,10 +332,16 @@
     group.runCount += 1;
     if (run.scaled) group.scaledRunCount += 1;
     else group.unscaledRunCount += 1;
-    if (isVisibilityHidden(run.visibility)) group.hiddenRunCount += 1;
-    else group.visibleRunCount += 1;
+    if (run.isVisible) {
+      group.visibleRunCount += 1;
+      addTotals(group.visibleTotalsByUnit, run.totalsByUnit);
+    } else {
+      group.hiddenRunCount += 1;
+      addTotals(group.hiddenTotalsByUnit, run.totalsByUnit);
+    }
     group.hasHiddenRuns = group.hiddenRunCount > 0;
-    addTotals(group.totalsByUnit, run.totalsByUnit);
+    group.isVisible = group.visibleRunCount > 0;
+    addTotals(group.allTotalsByUnit, run.totalsByUnit);
     group._pageSet.add(run.page);
     if (run.categoryKey && !group.categories.some(category => category.key === run.categoryKey)) {
       group.categories.push({
@@ -266,6 +356,73 @@
       group.categoryKey = run.categoryKey;
     }
     group.hasMixedCategories = group.categories.length > 1;
+  }
+
+  function categoryDisplayName(run) {
+    return cleanName(run.categoryName, run.isLegacy ? LEGACY_PATH_DISPLAY_NAME : 'Uncategorized');
+  }
+
+  function createCategorySummary(run) {
+    return {
+      key: run.pathCategoryVisibilityKey,
+      id: run.categoryId,
+      name: run.categoryName,
+      displayName: categoryDisplayName(run),
+      categoryId: run.categoryId,
+      categoryName: run.categoryName,
+      categoryKey: run.categoryKey,
+      pathCategoryVisibilityKey: run.pathCategoryVisibilityKey,
+      categoryVisible: run.categoryVisible,
+      isVisible: false,
+      runCount: 0,
+      scaledRunCount: 0,
+      unscaledRunCount: 0,
+      visibleRunCount: 0,
+      hiddenRunCount: 0,
+      hasHiddenRuns: false,
+      totalsByUnit: {},
+      allTotalsByUnit: {},
+      visibleTotalsByUnit: {},
+      hiddenTotalsByUnit: {},
+      pathKeys: [],
+      pathIds: [],
+      pathTemplateIds: [],
+      pages: [],
+      pageCoverage: { pages: [], ranges: [], label: '' },
+      _pathKeySet: new Set(),
+      _pathIdSet: new Set(),
+      _pathTemplateIdSet: new Set(),
+      _pageSet: new Set(),
+    };
+  }
+
+  function addRunToCategory(category, run) {
+    category.runCount += 1;
+    if (run.scaled) category.scaledRunCount += 1;
+    else category.unscaledRunCount += 1;
+    if (run.isVisible) {
+      category.visibleRunCount += 1;
+      addTotals(category.visibleTotalsByUnit, run.totalsByUnit);
+    } else {
+      category.hiddenRunCount += 1;
+      addTotals(category.hiddenTotalsByUnit, run.totalsByUnit);
+    }
+    category.hasHiddenRuns = category.hiddenRunCount > 0;
+    category.isVisible = category.visibleRunCount > 0;
+    addTotals(category.allTotalsByUnit, run.totalsByUnit);
+    category._pageSet.add(run.page);
+    if (run.groupKey && !category._pathKeySet.has(run.groupKey)) {
+      category._pathKeySet.add(run.groupKey);
+      category.pathKeys.push(run.groupKey);
+    }
+    if (run.pathId && !category._pathIdSet.has(run.pathId)) {
+      category._pathIdSet.add(run.pathId);
+      category.pathIds.push(run.pathId);
+    }
+    if (run.pathTemplateId && !category._pathTemplateIdSet.has(run.pathTemplateId)) {
+      category._pathTemplateIdSet.add(run.pathTemplateId);
+      category.pathTemplateIds.push(run.pathTemplateId);
+    }
   }
 
   function pageRangeLabel(start, end) {
@@ -291,35 +448,74 @@
     };
   }
 
-  function finalizeGroup(group) {
+  function finalizeGroup(group, totalsScope) {
     const coverage = buildPageCoverage(group._pageSet);
     group.pages = coverage.pages;
     group.pageCoverage = coverage;
+    group.totalsByUnit = scopedTotals(group, totalsScope);
     group.visibility = {
       visibleRunCount: group.visibleRunCount,
       hiddenRunCount: group.hiddenRunCount,
       hasHiddenRuns: group.hasHiddenRuns,
+      isVisible: group.isVisible,
     };
     delete group._pageSet;
     return group;
   }
 
+  function finalizeCategory(category, totalsScope) {
+    const coverage = buildPageCoverage(category._pageSet);
+    category.pages = coverage.pages;
+    category.pageCoverage = coverage;
+    category.totalsByUnit = scopedTotals(category, totalsScope);
+    category.visibility = {
+      visibleRunCount: category.visibleRunCount,
+      hiddenRunCount: category.hiddenRunCount,
+      hasHiddenRuns: category.hasHiddenRuns,
+      isVisible: category.isVisible,
+    };
+    delete category._pageSet;
+    delete category._pathKeySet;
+    delete category._pathIdSet;
+    delete category._pathTemplateIdSet;
+    return category;
+  }
+
+  function pathCategoryVisibilityFromOptions(options = {}) {
+    return normalizePathCategoryVisibility(options.pathCategoryVisibility || options.categoryVisibility || {});
+  }
+
   function buildPathRunGroups(measurements, options = {}) {
     const units = normalizeUnits(options);
     const allowedPages = normalizePagesOption(options.pages);
+    const totalsScope = normalizeTotalsScope(options.totalsScope);
+    const pathCategoryVisibility = pathCategoryVisibilityFromOptions(options);
     const groups = [];
     const groupByKey = new Map();
+    const categories = [];
+    const categoryByKey = new Map();
     const aggregatePageSet = new Set();
-    const totalsByUnit = {};
+    const allTotalsByUnit = {};
+    const visibleTotalsByUnit = {};
+    const hiddenTotalsByUnit = {};
     let runCount = 0;
     let scaledRunCount = 0;
     let unscaledRunCount = 0;
+    let visibleRunCount = 0;
+    let hiddenRunCount = 0;
 
     (measurements || []).forEach((measurement, sourceIndex) => {
       const page = measurementPage(measurement);
       if (!measurementIncluded(measurement, page, options, allowedPages)) return;
       const identity = pathIdentityForMeasurement(measurement);
-      const run = createRunRecord({ measurement, identity, sourceIndex, page, units });
+      const run = createRunRecord({
+        measurement,
+        identity,
+        sourceIndex,
+        page,
+        units,
+        pathCategoryVisibility,
+      });
       let group = groupByKey.get(identity.key);
       if (!group) {
         group = createGroup(identity, run);
@@ -327,23 +523,48 @@
         groups.push(group);
       }
       addRunToGroup(group, run);
-      addTotals(totalsByUnit, run.totalsByUnit);
+      let category = categoryByKey.get(run.pathCategoryVisibilityKey);
+      if (!category) {
+        category = createCategorySummary(run);
+        categoryByKey.set(run.pathCategoryVisibilityKey, category);
+        categories.push(category);
+      }
+      addRunToCategory(category, run);
+      addTotals(allTotalsByUnit, run.totalsByUnit);
+      if (run.isVisible) {
+        visibleRunCount += 1;
+        addTotals(visibleTotalsByUnit, run.totalsByUnit);
+      } else {
+        hiddenRunCount += 1;
+        addTotals(hiddenTotalsByUnit, run.totalsByUnit);
+      }
       aggregatePageSet.add(page);
       runCount += 1;
       if (run.scaled) scaledRunCount += 1;
       else unscaledRunCount += 1;
     });
 
-    const finalizedGroups = groups.map(finalizeGroup);
+    const finalizedGroups = groups.map(group => finalizeGroup(group, totalsScope));
+    const finalizedCategories = categories.map(category => finalizeCategory(category, totalsScope));
     const pageCoverage = buildPageCoverage(aggregatePageSet);
+    const totalsByUnit = scopedTotals({ allTotalsByUnit, visibleTotalsByUnit }, totalsScope);
     return {
       groups: finalizedGroups,
+      categories: finalizedCategories,
       groupCount: finalizedGroups.length,
+      categoryCount: finalizedCategories.length,
       runCount,
       scaledRunCount,
       unscaledRunCount,
+      visibleRunCount,
+      hiddenRunCount,
+      hasHiddenRuns: hiddenRunCount > 0,
       units: units.slice(),
       totalsByUnit,
+      allTotalsByUnit,
+      visibleTotalsByUnit,
+      hiddenTotalsByUnit,
+      totalsScope,
       pages: pageCoverage.pages,
       pageCoverage,
     };
@@ -353,9 +574,13 @@
     UNIT_TO_INCH,
     DEFAULT_UNITS,
     LEGACY_PATH_GROUP_ID,
+    UNCATEGORIZED_PATH_CATEGORY_PREFIX,
     buildPathRunGroups,
     buildPageCoverage,
     categoryForMeasurement,
     pathIdentityForMeasurement,
+    pathCategoryVisibilityKey,
+    pathCategoryVisibilityKeyForMeasurement,
+    normalizePathCategoryVisibility,
   };
 })();
