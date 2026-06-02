@@ -103,6 +103,25 @@ test('run summary text is owned by the dynamic counter', async () => {
   assert.doesNotMatch(html, /<span id="runCount">[^<]*<\/span>\s+runs/);
 });
 
+test('home shell preserves upload controls and mounts Path Templates', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(html, /class="home-shell"/);
+  assert.match(html, /class="home-upload-panel"/);
+  assert.match(html, /id="pathTemplatesHome" class="path-template-home" aria-label="Path templates"/);
+  assert.match(html, /id="fileInput"/);
+  assert.match(html, /id="uploadButton"/);
+  assert.match(html, /id="emptyUploadButton"/);
+  assert.match(styles, /\.path-template-home\s*\{/);
+  assert.match(styles, /body\.no-document #status\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(styles, /\.path-template-editor::-webkit-scrollbar\s*\{/);
+  assert.match(styles, /scrollbar-color:\s*rgba\(125,\s*138,\s*145,\s*0\.34\)\s*transparent/);
+  assert.match(main, /import '\.\/app\/path-template-view\.js';/);
+  assert.match(main, /createPathTemplateHome/);
+});
+
 test('pan toolbar icon is inline so it cannot lose its mask asset path', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const panButton = html.match(/<button id="btn-pan"[\s\S]*?<\/button>/)?.[0] || '';
