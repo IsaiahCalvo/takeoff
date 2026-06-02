@@ -11,6 +11,29 @@ async function loadHistory() {
   return sandbox.window.TakeoffHistory;
 }
 
+async function loadHistoryWithCommands() {
+  const [geometry, measurements, commands, history] = await Promise.all([
+    readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/measurement-commands.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/history.js', import.meta.url), 'utf8'),
+  ]);
+  const sandbox = { window: {} };
+  vm.createContext(sandbox);
+  vm.runInContext(geometry, sandbox, { filename: 'geometry.js' });
+  vm.runInContext(measurements, sandbox, { filename: 'measurements.js' });
+  vm.runInContext(commands, sandbox, { filename: 'measurement-commands.js' });
+  vm.runInContext(history, sandbox, { filename: 'history.js' });
+  return {
+    commands: sandbox.window.TakeoffMeasurementCommands,
+    history: sandbox.window.TakeoffHistory,
+  };
+}
+
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 function baseState() {
   return {
     measurements: [{
@@ -151,6 +174,58 @@ test('applyHistorySnapshot derives the live scale from the current page', async 
   history.applyHistorySnapshot(state, snapshot, 1);
 
   assert.equal(state.pxPerInch, 2);
+});
+
+test('conversion history snapshots restore selected measurement through undo and redo', async () => {
+  const { commands, history } = await loadHistoryWithCommands();
+  const state = {
+    measurements: [{
+      id: 5,
+      page: 1,
+      drawType: 'freehand',
+      points: [{ x: 0, y: 0 }, { x: 10, y: 8 }, { x: 20, y: 0 }],
+      segments: [{
+        type: 'cubic',
+        from: { x: 0, y: 0 },
+        c1: { x: 4, y: 18 },
+        c2: { x: 16, y: 18 },
+        to: { x: 20, y: 0 },
+      }],
+      shape: { active: 'freehand' },
+      lengthPx: 30,
+      lengthInches: 15,
+    }],
+    pageScales: { 1: 2 },
+    pxPerInch: 2,
+    selectedId: 5,
+    copiedMeasurement: null,
+    rotateModeId: null,
+    undoStack: [],
+    redoStack: [],
+    historyLimit: 20,
+  };
+
+  const before = history.createHistorySnapshot(state);
+  assert.equal(commands.convertFreehandMeasurementToLine(state.measurements[0], { pxPerInch: 2 }), true);
+  assert.equal(history.recordHistory(state, before, 'run conversion'), true);
+
+  const entry = state.undoStack.pop();
+  state.redoStack.push(entry);
+  history.applyHistorySnapshot(state, entry.before, 1);
+  assert.equal(state.selectedId, 5);
+  assert.equal(state.measurements[0].shape.active, 'freehand');
+  assert.equal(state.measurements[0].segments.length, 1);
+
+  state.undoStack.push(state.redoStack.pop());
+  history.applyHistorySnapshot(state, entry.after, 1);
+  assert.equal(state.selectedId, 5);
+  assert.equal(state.measurements[0].shape.active, 'line');
+  assert.equal(state.measurements[0].segments, null);
+  assert.deepEqual(plain(state.measurements[0].shape.previousFreehand.points), [
+    { x: 0, y: 0 },
+    { x: 10, y: 8 },
+    { x: 20, y: 0 },
+  ]);
 });
 
 test('clearHistory removes undo and redo entries', async () => {

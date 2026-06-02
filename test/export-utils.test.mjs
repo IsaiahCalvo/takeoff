@@ -11,6 +11,25 @@ async function loadUtils() {
   return sandbox.window.TakeoffExportUtils;
 }
 
+async function loadConversionExportModules() {
+  const [geometry, measurements, commands, exportUtils] = await Promise.all([
+    readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/measurement-commands.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/export-utils.js', import.meta.url), 'utf8'),
+  ]);
+  const sandbox = { window: {}, Blob, TextEncoder, TextDecoder };
+  vm.createContext(sandbox);
+  vm.runInContext(geometry, sandbox, { filename: 'geometry.js' });
+  vm.runInContext(measurements, sandbox, { filename: 'measurements.js' });
+  vm.runInContext(commands, sandbox, { filename: 'measurement-commands.js' });
+  vm.runInContext(exportUtils, sandbox, { filename: 'export-utils.js' });
+  return {
+    commands: sandbox.window.TakeoffMeasurementCommands,
+    utils: sandbox.window.TakeoffExportUtils,
+  };
+}
+
 const measurements = [
   { page: 1, name: 'Main corridor', type: 'line', lengthInches: 508.2 },
   { page: 1, name: 'Lobby return', type: 'freehand', lengthInches: 217.2 },
@@ -48,6 +67,40 @@ test('buildExportRows reads app measurement shape and draw mode metadata', async
 
   assert.equal(rows[0].type, 'freehand');
   assert.equal(rows[1].type, 'line');
+});
+
+test('export rows and totals use the active converted geometry', async () => {
+  const { commands, utils } = await loadConversionExportModules();
+  const measurement = {
+    page: 1,
+    name: 'Converted path',
+    drawType: 'freehand',
+    points: [{ x: 0, y: 0 }, { x: 10, y: 8 }, { x: 20, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 4, y: 18 },
+      c2: { x: 16, y: 18 },
+      to: { x: 20, y: 0 },
+    }],
+    shape: { active: 'freehand' },
+    lengthPx: 30,
+    lengthInches: 15,
+  };
+
+  assert.equal(commands.convertFreehandMeasurementToLine(measurement, { pxPerInch: 2 }), true);
+  const lineRows = utils.buildExportRows([measurement], { unit: 'in' });
+
+  assert.equal(lineRows[0].type, 'line');
+  assert.equal(lineRows[0].length, 12.81);
+  assert.match(utils.generateSummary(lineRows), /Page total: 12\.81 in/);
+
+  assert.equal(commands.convertLineMeasurementToFreehand(measurement, { pxPerInch: 2 }), true);
+  const freehandRows = utils.buildExportRows([measurement], { unit: 'in' });
+
+  assert.equal(freehandRows[0].type, 'freehand');
+  assert.ok(freehandRows[0].length > lineRows[0].length);
+  assert.match(utils.generateSummary(freehandRows), new RegExp(`Page total: ${freehandRows[0].length.toFixed(2)} in`));
 });
 
 test('generateCsv emits compact title-cased columns and blank unscaled length', async () => {

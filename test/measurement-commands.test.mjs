@@ -243,10 +243,59 @@ test('convertLineMeasurementToFreehand generates conservative freehand segments 
   ]);
 });
 
-test('converted line to freehand clipboard keeps active freehand and reversible metadata', async () => {
+test('freehand to line to freehand restores prior freehand geometry and active lengths', async () => {
   const commands = await loadCommands();
   const measurement = {
     id: 35,
+    drawType: 'freehand',
+    points: [{ x: 0, y: 0 }, { x: 10, y: 8 }, { x: 20, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 3, y: 12 },
+      c2: { x: 7, y: 12 },
+      to: { x: 10, y: 8 },
+    }, {
+      type: 'cubic',
+      from: { x: 10, y: 8 },
+      c1: { x: 13, y: 12 },
+      c2: { x: 17, y: 12 },
+      to: { x: 20, y: 0 },
+    }],
+    shape: { active: 'freehand' },
+    lengthPx: 30,
+    lengthInches: 15,
+  };
+
+  assert.equal(commands.convertFreehandMeasurementToLine(measurement, { pxPerInch: 2 }), true);
+  assert.equal(measurement.drawType, 'line');
+  assert.equal(measurement.shape.active, 'line');
+  assert.equal(measurement.segments, null);
+  assert.equal(measurement.lengthPx, Math.hypot(10, 8) + Math.hypot(10, -8));
+  assert.equal(measurement.lengthInches, measurement.lengthPx / 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.shape.previousFreehand.points)), [
+    { x: 0, y: 0 },
+    { x: 10, y: 8 },
+    { x: 20, y: 0 },
+  ]);
+
+  assert.equal(commands.convertLineMeasurementToFreehand(measurement, { pxPerInch: 2 }), true);
+  assert.equal(measurement.drawType, 'freehand');
+  assert.equal(measurement.shape.active, 'freehand');
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 10, y: 8 },
+    { x: 20, y: 0 },
+  ]);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.segments[0].c1)), { x: 3, y: 12 });
+  assert.ok(measurement.lengthPx > measurement.shape.previousLine.lengthPx);
+  assert.equal(measurement.lengthInches, measurement.lengthPx / 2);
+});
+
+test('converted line to freehand clipboard keeps active freehand and reversible metadata', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 36,
     page: 1,
     drawType: 'line',
     points: [{ x: 0, y: 0 }, { x: 12, y: 0 }],
@@ -266,6 +315,54 @@ test('converted line to freehand clipboard keeps active freehand and reversible 
   measurement.segments[0].c1.x = 99;
   assert.equal(clipboard.shape.previousLine.points[0].x, 0);
   assert.equal(clipboard.segments[0].c1.x, 4);
+});
+
+test('converted freehand to line clipboard and paste keep reversible freehand metadata', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 37,
+    page: 1,
+    name: 'Original path',
+    drawType: 'freehand',
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 4, y: 16 },
+      c2: { x: 16, y: 16 },
+      to: { x: 20, y: 0 },
+    }],
+    shape: { active: 'freehand' },
+    lengthPx: 30,
+    lengthInches: 15,
+  };
+
+  assert.equal(commands.convertFreehandMeasurementToLine(measurement, { pxPerInch: 2 }), true);
+  const clipboard = commands.cloneMeasurementForClipboard(measurement, { 1: 2 });
+  measurement.shape.previousFreehand.points[0].x = 99;
+  measurement.shape.previousFreehand.segments[0].c1.x = 99;
+
+  assert.equal(clipboard.shape.active, 'line');
+  assert.equal(clipboard.segments, null);
+  assert.equal(clipboard.shape.previousFreehand.points[0].x, 0);
+  assert.equal(clipboard.shape.previousFreehand.segments[0].c1.x, 4);
+
+  const pasted = commands.createPastedMeasurement({
+    source: clipboard,
+    id: 38,
+    existingMeasurements: [],
+    palette: ['lime'],
+    pasteAt: { x: 100, y: 100 },
+    currentPage: 1,
+    pxPerInch: 2,
+    mode: 'visual-size',
+  });
+
+  assert.equal(pasted.shape.active, 'line');
+  assert.equal(pasted.segments, null);
+  assert.deepEqual(JSON.parse(JSON.stringify(pasted.points)), [{ x: 90, y: 100 }, { x: 110, y: 100 }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(pasted.shape.previousFreehand.points)), [{ x: 90, y: 100 }, { x: 110, y: 100 }]);
+  assert.deepEqual(JSON.parse(JSON.stringify(pasted.shape.previousFreehand.segments[0].c1)), { x: 94, y: 116 });
 });
 
 test('cloneMeasurementForClipboard deep-copies geometry and stores source scale metadata', async () => {
@@ -451,6 +548,47 @@ test('removeAnchorFromMeasurement removes extra line anchors', async () => {
   assert.equal(commands.canRemoveAnchorFromMeasurement(measurement), true);
   assert.equal(commands.removeAnchorFromMeasurement(measurement, { kind: 'anchor-hit', vertexIndex: 1 }), true);
   assert.deepEqual(measurement.points, [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
+});
+
+test('freehand anchor and control edits update curve geometry anchors', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    shape: { active: 'freehand' },
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 0, y: 0 },
+      c1: { x: 3, y: 0 },
+      c2: { x: 7, y: 0 },
+      to: { x: 10, y: 0 },
+    }, {
+      type: 'cubic',
+      from: { x: 10, y: 0 },
+      c1: { x: 13, y: 0 },
+      c2: { x: 17, y: 0 },
+      to: { x: 20, y: 0 },
+    }],
+  };
+
+  assert.equal(commands.applyVertexDrag(measurement, {
+    kind: 'curve-control',
+    segmentIndex: 0,
+    control: 'c1',
+  }, { x: 2, y: 6 }), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.segments[0].c1)), { x: 2, y: 6 });
+
+  assert.equal(commands.applyVertexDrag(measurement, {
+    kind: 'curve-anchor',
+    segmentIndex: 0,
+    anchor: 'to',
+  }, { x: 12, y: 4 }), true);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.segments[0].to)), { x: 12, y: 4 });
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.segments[1].from)), { x: 12, y: 4 });
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 12, y: 4 },
+    { x: 20, y: 0 },
+  ]);
 });
 
 test('continuation endpoint role is available only for terminal anchors', async () => {
