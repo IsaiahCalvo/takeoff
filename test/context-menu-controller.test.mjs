@@ -20,7 +20,7 @@ async function loadController() {
 
 function createContextMenu() {
   const buttons = new Map();
-  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path', 'merge-paths']) {
+  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path', 'merge-paths', 'unmerge-paths']) {
     buttons.set(action, { hidden: false, disabled: false });
   }
   return {
@@ -47,6 +47,7 @@ test('conversionMenuState exposes only Convert to Line for Freehand measurements
     canConvertToFreehand: false,
     canContinuePath: false,
     canMergePaths: false,
+    canUnmergePaths: false,
   });
 });
 
@@ -61,6 +62,7 @@ test('conversionMenuState exposes only Convert to Freehand for active Line measu
     canConvertToFreehand: true,
     canContinuePath: false,
     canMergePaths: false,
+    canUnmergePaths: false,
   });
 });
 
@@ -78,6 +80,8 @@ test('applyConversionMenuState hides conversion actions when no measurement is t
   assert.equal(menu.buttons.get('continue-path').disabled, true);
   assert.equal(menu.buttons.get('merge-paths').hidden, true);
   assert.equal(menu.buttons.get('merge-paths').disabled, true);
+  assert.equal(menu.buttons.get('unmerge-paths').hidden, true);
+  assert.equal(menu.buttons.get('unmerge-paths').disabled, true);
 });
 
 test('conversionMenuState exposes Continue Path only for terminal anchors', async () => {
@@ -101,6 +105,7 @@ test('conversionMenuState exposes Continue Path only for terminal anchors', asyn
     canConvertToFreehand: true,
     canContinuePath: true,
     canMergePaths: false,
+    canUnmergePaths: false,
   });
 
   assert.equal(controller.conversionMenuState({
@@ -138,6 +143,7 @@ test('conversionMenuState exposes Merge Paths only for eligible snapped endpoint
     canConvertToFreehand: true,
     canContinuePath: true,
     canMergePaths: true,
+    canUnmergePaths: false,
   });
 
   assert.equal(controller.conversionMenuState({
@@ -150,6 +156,40 @@ test('conversionMenuState exposes Merge Paths only for eligible snapped endpoint
     target,
     measurements: [measurement],
   }).canMergePaths, false);
+});
+
+test('conversionMenuState exposes Unmerge Paths only for measurements with merge memory', async () => {
+  const { controller, measurements } = await loadController();
+  const merged = {
+    id: 40,
+    shape: { active: 'path' },
+    drawType: 'path',
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+  };
+
+  assert.deepEqual(plain(controller.conversionMenuState({
+    measurement: merged,
+    measurementModel: measurements,
+    measurementCommands: {
+      unmergePathState(target) {
+        return { canUnmergePaths: target === merged, canMaintainEdits: true, maintainEditsReason: '' };
+      },
+    },
+  })), {
+    canConvertToLine: false,
+    canConvertToFreehand: false,
+    canContinuePath: false,
+    canMergePaths: false,
+    canUnmergePaths: true,
+  });
+
+  assert.equal(controller.conversionMenuState({
+    measurement: merged,
+    measurementModel: measurements,
+    measurementCommands: {
+      unmergePathState: () => ({ canUnmergePaths: false }),
+    },
+  }).canUnmergePaths, false);
 });
 
 test('convertSelectedMeasurement records history, keeps selection, and refreshes UI hooks', async () => {

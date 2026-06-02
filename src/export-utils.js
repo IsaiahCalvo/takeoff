@@ -29,6 +29,7 @@
       || measurement?.type
       || 'line';
     const normalized = String(value).toLowerCase();
+    if (normalized === 'path') return 'path';
     return normalized === 'freehand' ? 'freehand' : 'line';
   }
 

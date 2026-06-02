@@ -34,6 +34,22 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function straightSegment(from, to) {
+  return {
+    type: 'cubic',
+    from: { ...from },
+    c1: {
+      x: from.x + (to.x - from.x) / 3,
+      y: from.y + (to.y - from.y) / 3,
+    },
+    c2: {
+      x: from.x + (to.x - from.x) * 2 / 3,
+      y: from.y + (to.y - from.y) * 2 / 3,
+    },
+    to: { ...to },
+  };
+}
+
 function baseState() {
   return {
     measurements: [{
@@ -279,6 +295,80 @@ test('merge history snapshots restore both paths through undo and redo', async (
     { x: 10, y: 0 },
     { x: 20, y: 0 },
   ]);
+});
+
+test('mixed merge and unmerge history snapshots preserve merge memory and originals', async () => {
+  const { commands, history } = await loadHistoryWithCommands();
+  const state = {
+    measurements: [{
+      id: 8,
+      name: 'Line original',
+      page: 1,
+      pathTemplateId: 'template-security',
+      pathId: 'path-cat6',
+      pathStyle: { stroke: { color: '#36d399' } },
+      drawType: 'line',
+      shape: { active: 'line' },
+      points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      snapConnections: [{ endpoint: 'end', targetId: 9, targetEndpoint: 'start' }],
+    }, {
+      id: 9,
+      name: 'Freehand original',
+      page: 1,
+      pathTemplateId: 'template-security',
+      pathId: 'path-cat6',
+      pathStyle: { stroke: { color: '#36d399' } },
+      drawType: 'freehand',
+      shape: { active: 'freehand' },
+      points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+      segments: [straightSegment({ x: 10, y: 0 }, { x: 20, y: 0 })],
+    }],
+    pageScales: { 1: 2 },
+    pxPerInch: 2,
+    selectedId: 8,
+    copiedMeasurement: null,
+    rotateModeId: null,
+    undoStack: [],
+    redoStack: [],
+    historyLimit: 20,
+  };
+
+  const beforeMerge = history.createHistorySnapshot(state);
+  const merged = commands.mergeSnappedEndpointPaths(state.measurements, {
+    sourceId: 8,
+    sourceEndpoint: 'end',
+    targetId: 9,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 });
+  state.measurements = merged.measurements;
+  state.selectedId = merged.measurement.id;
+  assert.equal(history.recordHistory(state, beforeMerge, 'path merge'), true);
+
+  let entry = state.undoStack.pop();
+  state.redoStack.push(entry);
+  history.applyHistorySnapshot(state, entry.before, 1);
+  assert.deepEqual(plain(state.measurements.map(measurement => measurement.id)), [8, 9]);
+
+  state.undoStack.push(state.redoStack.pop());
+  history.applyHistorySnapshot(state, entry.after, 1);
+  assert.equal(state.measurements[0].shape.active, 'path');
+  assert.deepEqual(plain(state.measurements[0].mergeMemory.sources.map(source => source.original.name)), ['Line original', 'Freehand original']);
+
+  const beforeUnmerge = history.createHistorySnapshot(state);
+  const unmerged = commands.unmergePaths(state.measurements, 8, { mode: 'original', pxPerInch: 2 });
+  state.measurements = unmerged.measurements;
+  state.selectedId = unmerged.measurement.id;
+  assert.equal(history.recordHistory(state, beforeUnmerge, 'path unmerge'), true);
+
+  entry = state.undoStack.pop();
+  state.redoStack.push(entry);
+  history.applyHistorySnapshot(state, entry.before, 1);
+  assert.equal(state.measurements.length, 1);
+  assert.equal(state.measurements[0].shape.active, 'path');
+
+  state.undoStack.push(state.redoStack.pop());
+  history.applyHistorySnapshot(state, entry.after, 1);
+  assert.deepEqual(plain(state.measurements.map(measurement => measurement.name)), ['Line original', 'Freehand original']);
 });
 
 test('clearHistory removes undo and redo entries', async () => {

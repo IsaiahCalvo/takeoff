@@ -1997,6 +1997,10 @@ aside {
 }
 .modal h3 { font-size: 18px; margin-bottom: 4px; font-weight: 600; }
 .modal p { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+.modal p.modal-help {
+  margin: -2px 0 0;
+  color: var(--muted);
+}
 .modal .field { display: flex; gap: 8px; align-items: center; }
 .modal .field[hidden] { display: none !important; }
 .modal .field > label {
@@ -2369,6 +2373,13 @@ aside {
   accent-color: var(--accent);
 }
 .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.unmerge-actions {
+  display: grid;
+  gap: 8px;
+}
+.unmerge-actions button {
+  justify-content: center;
+}
 .modal button.primary { background: var(--accent); color: #0b0d0e; border-color: var(--accent); font-weight: 600; }
 .modal button.primary:hover { filter: brightness(1.1); }
 

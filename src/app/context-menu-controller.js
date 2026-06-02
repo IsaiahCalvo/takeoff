@@ -12,7 +12,11 @@
       && target
       && measurementCommands?.mergeConnectionForTarget?.({ measurements, measurement, target })
     );
-    return { canConvertToLine, canConvertToFreehand, canContinuePath, canMergePaths };
+    const canUnmergePaths = !!(
+      measurement
+      && measurementCommands?.unmergePathState?.(measurement)?.canUnmergePaths
+    );
+    return { canConvertToLine, canConvertToFreehand, canContinuePath, canMergePaths, canUnmergePaths };
   }
 
   function setButtonState(button, visible) {
@@ -27,6 +31,7 @@
     setButtonState(contextMenu?.querySelector('[data-action="convert-to-freehand"]'), state.canConvertToFreehand);
     setButtonState(contextMenu?.querySelector('[data-action="continue-path"]'), state.canContinuePath);
     setButtonState(contextMenu?.querySelector('[data-action="merge-paths"]'), state.canMergePaths);
+    setButtonState(contextMenu?.querySelector('[data-action="unmerge-paths"]'), state.canUnmergePaths);
     return state;
   }
 
@@ -149,6 +154,7 @@
     redraw,
     recordHistory,
     showStatus,
+    focusMeasurementName,
   } = {}) {
     const measurement = state?.measurements?.find(item => item.id === state.selectedId);
     if (!measurement) return false;
@@ -200,6 +206,7 @@
     renderList();
     redraw();
     recordHistory(historyBefore, 'path merge');
+    if (typeof focusMeasurementName === 'function') focusMeasurementName(result.measurement.id);
     showStatus('Merge Paths');
     return true;
   }

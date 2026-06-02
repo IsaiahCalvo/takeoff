@@ -17,6 +17,76 @@ async function loadCommands() {
   return sandbox.window.TakeoffMeasurementCommands;
 }
 
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function straightSegment(from, to) {
+  return {
+    type: 'cubic',
+    from: { ...from },
+    c1: {
+      x: from.x + (to.x - from.x) / 3,
+      y: from.y + (to.y - from.y) / 3,
+    },
+    c2: {
+      x: from.x + (to.x - from.x) * 2 / 3,
+      y: from.y + (to.y - from.y) * 2 / 3,
+    },
+    to: { ...to },
+  };
+}
+
+function pathStyleSnapshot(color = '#36d399') {
+  return {
+    stroke: { color, style: 'solid' },
+    anchors: { fill: '#101820', border: color, borderMatchesStroke: true },
+  };
+}
+
+function linePath(id, points, overrides = {}) {
+  return {
+    id,
+    name: `Line ${id}`,
+    page: 1,
+    color: '#36d399',
+    pathTemplateId: 'template-security',
+    pathId: 'path-cat6',
+    pathName: 'Cat 6',
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
+    pathStyle: pathStyleSnapshot(),
+    notes: `note-${id}`,
+    drawType: 'line',
+    shape: { active: 'line' },
+    points: points.map(point => ({ ...point })),
+    snapConnections: [],
+    ...overrides,
+  };
+}
+
+function freehandPath(id, from, to, overrides = {}) {
+  return {
+    id,
+    name: `Freehand ${id}`,
+    page: 1,
+    color: '#36d399',
+    pathTemplateId: 'template-security',
+    pathId: 'path-cat6',
+    pathName: 'Cat 6',
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
+    pathStyle: pathStyleSnapshot(),
+    details: `detail-${id}`,
+    drawType: 'freehand',
+    shape: { active: 'freehand' },
+    points: [{ ...from }, { ...to }],
+    segments: [straightSegment(from, to)],
+    snapConnections: [],
+    ...overrides,
+  };
+}
+
 test('createLineMeasurement builds a scaled run and clones points', async () => {
   const commands = await loadCommands();
   const points = [{ x: 0, y: 0 }, { x: 3, y: 4 }];
@@ -1213,6 +1283,186 @@ test('mergeSnappedEndpointPaths merges compatible Freehand endpoint paths', asyn
   assert.ok(Math.abs(result.measurement.lengthInches - 4) < 0.0001);
 });
 
+test('mergeSnappedEndpointPaths merges Line and Freehand terminal paths without converting portions', async () => {
+  const commands = await loadCommands();
+  const line = linePath(100, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    name: 'Line original',
+    snapConnections: [{ endpoint: 'end', targetId: 101, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(101, { x: 10, y: 0 }, { x: 20, y: 0 }, { name: 'Freehand original' });
+
+  const result = commands.mergeSnappedEndpointPaths([line, freehand], {
+    sourceId: 100,
+    sourceEndpoint: 'end',
+    targetId: 101,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 5 });
+
+  assert.equal(result.merged, true);
+  assert.equal(result.measurements.length, 1);
+  assert.equal(result.measurement.drawType, 'path');
+  assert.equal(result.measurement.shape.active, 'path');
+  assert.deepEqual(plain(result.measurement.points), [{ x: 0, y: 0 }, { x: 20, y: 0 }]);
+  assert.equal(result.measurement.lengthPx, 20);
+  assert.equal(result.measurement.lengthInches, 4);
+  assert.equal(result.measurement.mergeMemory.sources.length, 2);
+  assert.equal(result.measurement.mergeMemory.sources[0].kind, 'line');
+  assert.equal(result.measurement.mergeMemory.sources[1].kind, 'freehand');
+  assert.deepEqual(plain(result.measurement.mergeMemory.sources[0].current.points), [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
+  assert.deepEqual(plain(result.measurement.mergeMemory.sources[1].current.segments[0].from), { x: 10, y: 0 });
+  assert.deepEqual(plain(result.measurement.mergeMemory.sources[1].current.segments[0].to), { x: 20, y: 0 });
+  assert.equal(result.measurement.mergeMemory.sources[0].original.name, 'Line original');
+  assert.equal(result.measurement.mergeMemory.sources[1].original.name, 'Freehand original');
+  assert.equal(result.measurement.mergeMemory.sources[0].original.notes, 'note-100');
+  assert.equal(result.measurement.mergeMemory.sources[1].original.details, 'detail-101');
+  assert.deepEqual(plain(result.measurement.snapConnections), []);
+});
+
+test('mergeSnappedEndpointPaths records ordering and reversal for mixed start connections', async () => {
+  const commands = await loadCommands();
+  const line = linePath(110, [{ x: 10, y: 0 }, { x: 20, y: 0 }], {
+    snapConnections: [{ endpoint: 'start', targetId: 111, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(111, { x: 10, y: 0 }, { x: 0, y: 0 });
+
+  const result = commands.mergeSnappedEndpointPaths([line, freehand], {
+    sourceId: 110,
+    sourceEndpoint: 'start',
+    targetId: 111,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 5 });
+
+  assert.equal(result.merged, true);
+  assert.deepEqual(plain(result.measurement.mergeMemory.sources.map(source => source.original.id)), [111, 110]);
+  assert.equal(result.measurement.mergeMemory.sources[0].reversed, true);
+  assert.equal(result.measurement.mergeMemory.sources[1].reversed, false);
+  assert.deepEqual(plain(result.measurement.mergeMemory.sources[0].current.segments[0].from), { x: 0, y: 0 });
+  assert.deepEqual(plain(result.measurement.mergeMemory.sources[0].current.segments[0].to), { x: 10, y: 0 });
+  assert.deepEqual(plain(result.measurement.points), [{ x: 0, y: 0 }, { x: 20, y: 0 }]);
+});
+
+test('mergeSnappedEndpointPaths flattens repeated merge memory into one ordered source list', async () => {
+  const commands = await loadCommands();
+  const line = linePath(120, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 121, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(121, { x: 10, y: 0 }, { x: 20, y: 0 });
+  const first = commands.mergeSnappedEndpointPaths([line, freehand], {
+    sourceId: 120,
+    sourceEndpoint: 'end',
+    targetId: 121,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 5 });
+  const extra = linePath(122, [{ x: 20, y: 0 }, { x: 30, y: 0 }]);
+  first.measurement.snapConnections = [{ endpoint: 'end', targetId: 122, targetEndpoint: 'start' }];
+
+  const second = commands.mergeSnappedEndpointPaths([...first.measurements, extra], {
+    sourceId: 120,
+    sourceEndpoint: 'end',
+    targetId: 122,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 5 });
+
+  assert.equal(second.merged, true);
+  assert.deepEqual(plain(second.measurement.mergeMemory.sources.map(source => source.original.id)), [120, 121, 122]);
+  assert.equal(second.measurement.mergeMemory.sources.filter(source => source.original.mergeMemory).length, 0);
+  assert.equal(second.measurement.mergeMemory.sources.length, 3);
+  assert.deepEqual(plain(second.measurement.points), [{ x: 0, y: 0 }, { x: 30, y: 0 }]);
+});
+
+test('copy and paste preserve mixed merge memory and move portion boundaries', async () => {
+  const commands = await loadCommands();
+  const line = linePath(130, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 131, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(131, { x: 10, y: 0 }, { x: 20, y: 0 });
+  const merged = commands.mergeSnappedEndpointPaths([line, freehand], {
+    sourceId: 130,
+    sourceEndpoint: 'end',
+    targetId: 131,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 }).measurement;
+
+  const clipboard = commands.cloneMeasurementForClipboard(merged, { 1: 2 });
+  merged.mergeMemory.sources[0].current.points[0].x = 99;
+  const pasted = commands.createPastedMeasurement({
+    source: clipboard,
+    id: 132,
+    existingMeasurements: [],
+    palette: [],
+    pasteAt: { x: 100, y: 100 },
+    currentPage: 2,
+    pxPerInch: 2,
+  });
+
+  assert.equal(pasted.drawType, 'path');
+  assert.equal(pasted.shape.active, 'path');
+  assert.equal(pasted.mergeMemory.sources.length, 2);
+  assert.notEqual(pasted.mergeMemory, clipboard.mergeMemory);
+  assert.deepEqual(plain(pasted.points), [{ x: 90, y: 100 }, { x: 110, y: 100 }]);
+  assert.deepEqual(plain(pasted.mergeMemory.sources[0].current.points), [{ x: 90, y: 100 }, { x: 100, y: 100 }]);
+  assert.deepEqual(plain(pasted.mergeMemory.sources[1].current.segments[0].from), { x: 100, y: 100 });
+  assert.deepEqual(plain(pasted.mergeMemory.sources[1].current.segments[0].to), { x: 110, y: 100 });
+});
+
+test('unmergePaths can restore originals or maintain safely mapped mixed edits', async () => {
+  const commands = await loadCommands();
+  const line = linePath(140, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    name: 'Original Line',
+    snapConnections: [{ endpoint: 'end', targetId: 141, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(141, { x: 10, y: 0 }, { x: 20, y: 0 }, { name: 'Original Freehand' });
+  const result = commands.mergeSnappedEndpointPaths([line, freehand], {
+    sourceId: 140,
+    sourceEndpoint: 'end',
+    targetId: 141,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 });
+  const merged = result.measurement;
+  merged.points = [{ x: 5, y: 5 }, { x: 25, y: 5 }];
+  merged.mergeMemory.sources[0].current.points = [{ x: 5, y: 5 }, { x: 15, y: 5 }];
+  merged.mergeMemory.sources[1].current.points = [{ x: 15, y: 5 }, { x: 25, y: 5 }];
+  merged.mergeMemory.sources[1].current.segments = [straightSegment({ x: 15, y: 5 }, { x: 25, y: 5 })];
+  commands.finalizeMeasurementGeometry(merged, { pxPerInch: 2 });
+
+  const original = commands.unmergePaths([merged], merged.id, { mode: 'original', pxPerInch: 2 });
+  assert.equal(original.unmerged, true);
+  assert.deepEqual(plain(original.measurements.map(measurement => measurement.name)), ['Original Line', 'Original Freehand']);
+  assert.deepEqual(plain(original.measurements[0].points), [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
+  assert.deepEqual(plain(original.measurements[1].points), [{ x: 10, y: 0 }, { x: 20, y: 0 }]);
+
+  const maintainState = commands.unmergePathState(merged);
+  assert.equal(maintainState.canMaintainEdits, true);
+  const maintained = commands.unmergePaths([merged], merged.id, { mode: 'maintain-edits', pxPerInch: 2 });
+  assert.equal(maintained.unmerged, true);
+  assert.deepEqual(plain(maintained.measurements.map(measurement => measurement.name)), ['Original Line', 'Original Freehand']);
+  assert.deepEqual(plain(maintained.measurements[0].points), [{ x: 5, y: 5 }, { x: 15, y: 5 }]);
+  assert.deepEqual(plain(maintained.measurements[1].segments[0].to), { x: 25, y: 5 });
+});
+
+test('unmergePathState disables maintain edits when portion boundaries are unsafe', async () => {
+  const commands = await loadCommands();
+  const line = linePath(150, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 151, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(151, { x: 10, y: 0 }, { x: 20, y: 0 });
+  const merged = commands.mergeSnappedEndpointPaths([line, freehand], {
+    sourceId: 150,
+    sourceEndpoint: 'end',
+    targetId: 151,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 }).measurement;
+  merged.points = [{ x: 0, y: 0 }, { x: 22, y: 0 }];
+
+  const state = commands.unmergePathState(merged);
+  assert.equal(state.canUnmergePaths, true);
+  assert.equal(state.canMaintainEdits, false);
+  assert.equal(state.maintainEditsReason, 'Current path edits cannot be mapped to the original paths.');
+  const result = commands.unmergePaths([merged], merged.id, { mode: 'maintain-edits', pxPerInch: 2 });
+  assert.equal(result.unmerged, false);
+  assert.equal(result.reason, 'Current path edits cannot be mapped to the original paths.');
+});
+
 test('mergeConnectionForTarget requires snapped terminal endpoints and compatible path styling', async () => {
   const commands = await loadCommands();
   const target = { kind: 'anchor-hit', vertexIndex: 1 };
@@ -1265,5 +1515,45 @@ test('mergeConnectionForTarget requires snapped terminal endpoints and compatibl
     measurements: [mismatchedStyle, compatibleB],
     measurement: mismatchedStyle,
     target,
+  }), null);
+});
+
+test('mergeConnectionForTarget allows mixed terminal endpoints and rejects nonterminal or endpoint-to-segment snaps', async () => {
+  const commands = await loadCommands();
+  const line = linePath(160, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 161, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(161, { x: 10, y: 0 }, { x: 20, y: 0 });
+  const styledDifferently = freehandPath(162, { x: 10, y: 0 }, { x: 20, y: 0 }, {
+    pathStyle: pathStyleSnapshot('#ff4d7d'),
+  });
+  const nonterminalLine = linePath(163, [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 161, targetEndpoint: 'start' }],
+  });
+
+  assert.deepEqual(plain(commands.mergeConnectionForTarget({
+    measurements: [line, freehand],
+    measurement: line,
+    target: { kind: 'anchor-hit', vertexIndex: 1 },
+  })), {
+    sourceId: 160,
+    sourceEndpoint: 'end',
+    targetId: 161,
+    targetEndpoint: 'start',
+  });
+  assert.equal(commands.mergeConnectionForTarget({
+    measurements: [line, styledDifferently],
+    measurement: { ...line, snapConnections: [{ endpoint: 'end', targetId: 162, targetEndpoint: 'start' }] },
+    target: { kind: 'anchor-hit', vertexIndex: 1 },
+  }), null);
+  assert.equal(commands.mergeConnectionForTarget({
+    measurements: [nonterminalLine, freehand],
+    measurement: nonterminalLine,
+    target: { kind: 'anchor-hit', vertexIndex: 1 },
+  }), null);
+  assert.equal(commands.mergeConnectionForTarget({
+    measurements: [line, freehand],
+    measurement: line,
+    target: { kind: 'path-hit', segmentIndex: 0 },
   }), null);
 });

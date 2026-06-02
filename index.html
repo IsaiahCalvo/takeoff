@@ -233,6 +233,7 @@
   <button type="button" data-action="convert-to-line" hidden>Convert to Line</button>
   <button type="button" data-action="convert-to-freehand" hidden>Convert to Freehand</button>
   <button type="button" data-action="merge-paths" hidden>Merge Paths</button>
+  <button type="button" data-action="unmerge-paths" hidden>Unmerge Paths</button>
 </div>
 
 <div id="rotationPill" class="rotation-pill">
@@ -300,6 +301,8 @@
     </div>
   </div>
 </div>
+
+<div class="modal-bg" id="unmergePathModal"><div class="modal unmerge-path-modal" role="dialog" aria-labelledby="unmergePathTitle" aria-modal="true"><h3 id="unmergePathTitle">Unmerge Paths</h3><p>Choose how to split this Path.</p><div class="unmerge-actions"><button id="unmergeOriginal" class="primary" type="button">Unmerge to original</button><button id="unmergeMaintain" type="button">Unmerge and maintain edits</button><p id="unmergeMaintainReason" class="modal-help" hidden></p><button id="unmergeCancel" type="button">Cancel</button></div></div></div>
 
 <div class="modal-bg" id="pathSettingsModal">
   <div class="modal path-settings-modal" role="dialog" aria-labelledby="pathSettingsTitle" aria-modal="true">

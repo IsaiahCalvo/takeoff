@@ -58,6 +58,10 @@
     return JSON.parse(JSON.stringify(style));
   }
 
+  function cloneValue(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
   function cleanOptionalString(value) {
     return typeof value === 'string' ? value.trim() : '';
   }
@@ -116,8 +120,51 @@
     return measurementModel.transformShapeGeometry(shape, point => ({ x: point.x + dx, y: point.y + dy }));
   }
 
+  function transformSegmentGeometry(segment, mapPoint) {
+    return {
+      ...segment,
+      from: mapPoint(segment.from),
+      c1: mapPoint(segment.c1),
+      c2: mapPoint(segment.c2),
+      to: mapPoint(segment.to),
+    };
+  }
+
+  function transformCurrentGeometry(current, mapPoint) {
+    if (!current || typeof current !== 'object') return current;
+    return {
+      ...current,
+      points: Array.isArray(current.points) ? current.points.map(mapPoint) : current.points,
+      segments: Array.isArray(current.segments) ? current.segments.map(segment => transformSegmentGeometry(segment, mapPoint)) : current.segments,
+    };
+  }
+
+  function transformMergeMemoryGeometry(memory, mapPoint) {
+    if (!memory || typeof memory !== 'object' || typeof mapPoint !== 'function') return cloneValue(memory);
+    const cloned = cloneValue(memory);
+    if (Array.isArray(cloned.sources)) {
+      cloned.sources = cloned.sources.map(source => ({
+        ...source,
+        current: transformCurrentGeometry(source.current, mapPoint),
+        boundary: source.boundary ? transformCurrentGeometry(source.boundary, mapPoint) : source.boundary,
+      }));
+    }
+    return cloned;
+  }
+
+  function translateMergeMemoryGeometry(memory, dx, dy) {
+    return transformMergeMemoryGeometry(memory, point => ({ x: point.x + dx, y: point.y + dy }));
+  }
+
   function scaleShapeGeometryAround(shape, center, scale) {
     return measurementModel.transformShapeGeometry(shape, point => ({
+      x: center.x + (point.x - center.x) * scale,
+      y: center.y + (point.y - center.y) * scale,
+    }));
+  }
+
+  function scaleMergeMemoryGeometryAround(memory, center, scale) {
+    return transformMergeMemoryGeometry(memory, point => ({
       x: center.x + (point.x - center.x) * scale,
       y: center.y + (point.y - center.y) * scale,
     }));
@@ -226,6 +273,7 @@
       segments: measurementModel.isCurveMeasurement(selected) ? cloneSegments(selected.segments) : null,
       shape: cloneMeasurementShape(selected),
       pathStyle: clonePathStyle(selected.pathStyle),
+      mergeMemory: cloneValue(selected.mergeMemory),
       sourcePage: selected.page,
       sourceScale: (pageScales || {})[selected.page] || null,
       sourceLengthInches: selected.lengthInches,
@@ -409,9 +457,13 @@
     if ((a.page || 1) !== (b.page || 1)) return false;
     const aShape = measurementModel.measurementShapeKind(a);
     const bShape = measurementModel.measurementShapeKind(b);
-    if (aShape !== bShape) return false;
-    if (aShape === 'freehand' && (!measurementModel.isCurveMeasurement(a) || !measurementModel.isCurveMeasurement(b))) return false;
-    if (aShape !== 'line' && aShape !== 'freehand') return false;
+    const mergeableShape = measurement => {
+      const shape = measurementModel.measurementShapeKind(measurement);
+      if (shape === 'line') return true;
+      if (shape === 'freehand') return measurementModel.isCurveMeasurement(measurement);
+      return shape === 'path' && measurementModel.isMixedMeasurement?.(measurement);
+    };
+    if (!mergeableShape(a) || !mergeableShape(b)) return false;
     return compatiblePathStyling(a, b);
   }
 
@@ -528,6 +580,134 @@
     return true;
   }
 
+  function currentGeometryForLine(points) {
+    return { points: clonePoints(points), segments: null };
+  }
+
+  function currentGeometryForFreehand(segments) {
+    const clonedSegments = cloneSegments(segments);
+    return {
+      points: measurementModel.anchorsFromSegments(clonedSegments).map(clonePoint),
+      segments: clonedSegments,
+    };
+  }
+
+  function sourceBoundary(current) {
+    const points = current?.segments?.length
+      ? geometry.flattenSegments(current.segments, 18)
+      : (current?.points || []);
+    return {
+      points: points.length
+        ? [clonePoint(points[0]), clonePoint(points[points.length - 1])]
+        : [],
+      lengthPx: current?.segments?.length
+        ? current.segments.reduce((sum, segment) => sum + geometry.cubicLengthPx(segment), 0)
+        : geometry.polylineLengthPx(current?.points || []),
+    };
+  }
+
+  function sourcePortionId(measurement) {
+    return `source:${measurement?.id ?? 'path'}`;
+  }
+
+  function cloneSourcePortion(source) {
+    return cloneValue(source);
+  }
+
+  function reverseCurrentGeometry(kind, current) {
+    if (kind === 'freehand') return currentGeometryForFreehand(reverseSegments(current?.segments || []));
+    return currentGeometryForLine(reversePoints(current?.points || []));
+  }
+
+  function reverseSourcePortion(source) {
+    const reversed = cloneSourcePortion(source);
+    reversed.current = reverseCurrentGeometry(reversed.kind, reversed.current);
+    reversed.reversed = !reversed.reversed;
+    reversed.boundary = sourceBoundary(reversed.current);
+    return reversed;
+  }
+
+  function measurementCurrentPortion(measurement) {
+    const kind = measurementModel.measurementShapeKind(measurement);
+    if (kind === 'freehand') {
+      return {
+        kind,
+        current: currentGeometryForFreehand(measurement.segments || []),
+      };
+    }
+    return {
+      kind: 'line',
+      current: currentGeometryForLine(measurement.points || []),
+    };
+  }
+
+  function sourcePortionsForMeasurement(measurement, { reverse = false, connection = null } = {}) {
+    const existing = measurement?.mergeMemory?.sources;
+    let portions = Array.isArray(existing) && existing.length
+      ? existing.map(cloneSourcePortion)
+      : [(() => {
+        const portion = measurementCurrentPortion(measurement);
+        return {
+          portionId: sourcePortionId(measurement),
+          originalId: measurement.id,
+          original: cloneValue(measurement),
+          kind: portion.kind,
+          current: portion.current,
+          reversed: false,
+          boundary: sourceBoundary(portion.current),
+        };
+      })()];
+    if (reverse) portions = portions.reverse().map(reverseSourcePortion);
+    return portions.map((portion, order) => ({
+      ...portion,
+      connection: connection ? cloneValue(connection) : portion.connection || null,
+      order,
+      boundary: sourceBoundary(portion.current),
+    }));
+  }
+
+  function appendGeometryPoints(points, addition) {
+    for (const point of addition || []) appendUniquePoint(points, point);
+  }
+
+  function combinedLinePoints(portions) {
+    const points = [];
+    for (const portion of portions) appendGeometryPoints(points, portion.current?.points || []);
+    return points;
+  }
+
+  function combinedFreehandSegments(portions) {
+    return portions.flatMap(portion => cloneSegments(portion.current?.segments || []));
+  }
+
+  function applyMergedPortions(source, portions) {
+    const kinds = new Set(portions.map(portion => portion.kind));
+    if (!source.shape) source.shape = measurementModel.createShapeMetadata('line');
+    if (kinds.size === 1 && kinds.has('line')) {
+      const points = combinedLinePoints(portions);
+      if (points.length < 2) return false;
+      source.drawType = 'line';
+      source.shape.active = 'line';
+      source.points = points;
+      source.segments = null;
+    } else if (kinds.size === 1 && kinds.has('freehand')) {
+      const segments = combinedFreehandSegments(portions);
+      if (!segments.length) return false;
+      source.drawType = 'freehand';
+      source.shape.active = 'freehand';
+      source.segments = segments;
+      measurementModel.updateCurveAnchors(source);
+    } else {
+      source.drawType = 'path';
+      source.shape.active = 'path';
+      source.segments = null;
+      source.mergeMemory = { version: 1, sources: portions };
+      measurementModel.updateMixedAnchors?.(source);
+    }
+    source.mergeMemory = { version: 1, sources: portions };
+    return true;
+  }
+
   function removeSnapConnectionsForMergedIds(measurements, mergedIds) {
     for (const measurement of measurements || []) {
       if (!measurement) continue;
@@ -556,9 +736,25 @@
       return { merged: false, measurements: list, measurement: source || null };
     }
 
-    const merged = measurementModel.isCurveMeasurement(source)
-      ? mergeFreehandGeometry(source, target, sourceEndpoint, targetEndpoint)
-      : mergeLineGeometry(source, target, sourceEndpoint, targetEndpoint);
+    const connectionSnapshot = {
+      sourceId: source.id,
+      sourceEndpoint,
+      targetId: target.id,
+      targetEndpoint,
+    };
+    const sourcePortions = sourcePortionsForMeasurement(source, { connection: connectionSnapshot });
+    const targetPortions = sourcePortionsForMeasurement(target, {
+      reverse: sourceEndpoint === targetEndpoint,
+      connection: connectionSnapshot,
+    });
+    const portions = sourceEndpoint === 'end'
+      ? [...sourcePortions, ...targetPortions]
+      : [...targetPortions, ...sourcePortions];
+    const merged = applyMergedPortions(source, portions.map((portion, order) => ({
+      ...portion,
+      order,
+      boundary: sourceBoundary(portion.current),
+    })));
     if (!merged) return { merged: false, measurements: list, measurement: source };
 
     finalizeMeasurementGeometry(source, { pxPerInch });
@@ -685,6 +881,7 @@
   function finalizeMeasurementGeometry(measurement, { pxPerInch, preservedLabelPoint } = {}) {
     if (!measurement) return false;
     if (measurementModel.isCurveMeasurement(measurement)) measurementModel.updateCurveAnchors(measurement);
+    if (measurementModel.isMixedMeasurement?.(measurement)) measurementModel.updateMixedAnchors?.(measurement);
     measurement.lengthPx = measurementModel.measurementLengthPx(measurement);
     measurement.lengthInches = pxPerInch ? measurement.lengthPx / pxPerInch : null;
     const displayPoints = measurementModel.measurementDisplayPoints(measurement);
@@ -708,6 +905,105 @@
       y: point.y - projection.point.y,
     };
     return true;
+  }
+
+  function mergeMemorySources(measurement) {
+    return Array.isArray(measurement?.mergeMemory?.sources) ? measurement.mergeMemory.sources : [];
+  }
+
+  function currentDisplayPointsForSource(source) {
+    if (measurementModel.mixedSourceDisplayPoints) return measurementModel.mixedSourceDisplayPoints(source);
+    const current = source?.current || {};
+    return source?.kind === 'freehand' && current.segments?.length
+      ? geometry.flattenSegments(current.segments, 18)
+      : (current.points || []);
+  }
+
+  function displayPointsForSources(sources) {
+    const points = [];
+    for (const source of sources || []) appendGeometryPoints(points, currentDisplayPointsForSource(source));
+    return points;
+  }
+
+  function samePointList(a, b) {
+    if ((a || []).length !== (b || []).length) return false;
+    return (a || []).every((point, index) => samePoint(point, b[index]));
+  }
+
+  function sourceMemoryMatchesCurrentMeasurement(measurement) {
+    const sources = mergeMemorySources(measurement);
+    if (sources.length < 2) return false;
+    const points = displayPointsForSources(sources);
+    if (points.length < 2) return false;
+    if (measurementModel.isMixedMeasurement?.(measurement)) {
+      const endpoints = measurementModel.mixedEndpointPoints?.(measurement) || [points[0], points[points.length - 1]];
+      return samePointList(measurement.points || [], endpoints);
+    }
+    return samePointList(measurementModel.measurementDisplayPoints(measurement), points);
+  }
+
+  const UNSAFE_MAINTAIN_REASON = 'Current path edits cannot be mapped to the original paths.';
+
+  function unmergePathState(measurement) {
+    const canUnmergePaths = mergeMemorySources(measurement).length > 1;
+    const canMaintainEdits = canUnmergePaths && sourceMemoryMatchesCurrentMeasurement(measurement);
+    return {
+      canUnmergePaths,
+      canMaintainEdits,
+      maintainEditsReason: canMaintainEdits ? '' : UNSAFE_MAINTAIN_REASON,
+    };
+  }
+
+  function sourceOriginalMeasurement(source) {
+    const original = cloneValue(source?.original) || {};
+    delete original.mergeMemory;
+    return original;
+  }
+
+  function measurementFromMaintainedSource(source, { pxPerInch } = {}) {
+    const measurement = sourceOriginalMeasurement(source);
+    const kind = source?.kind === 'freehand' ? 'freehand' : 'line';
+    measurement.drawType = kind;
+    measurement.shape = measurementModel.cloneShapeMetadata(measurement.shape, kind);
+    measurement.shape.active = kind;
+    delete measurement.mergeMemory;
+    if (kind === 'freehand') {
+      measurement.segments = cloneSegments(source.current?.segments || []);
+      measurement.points = clonePoints(source.current?.points?.length
+        ? source.current.points
+        : measurementModel.anchorsFromSegments(measurement.segments));
+    } else {
+      measurement.points = clonePoints(source.current?.points || []);
+      measurement.segments = null;
+    }
+    finalizeMeasurementGeometry(measurement, { pxPerInch });
+    return measurement;
+  }
+
+  function unmergePaths(measurementList, measurementId, { mode = 'original', pxPerInch } = {}) {
+    const list = measurementList || [];
+    const index = list.findIndex(measurement => measurement.id === measurementId);
+    const measurement = list[index];
+    const sources = mergeMemorySources(measurement);
+    if (index < 0 || sources.length < 2) return { unmerged: false, measurements: list, measurement: measurement || null, reason: 'Path is not merged.' };
+    const state = unmergePathState(measurement);
+    if (mode === 'maintain-edits' && !state.canMaintainEdits) {
+      return { unmerged: false, measurements: list, measurement, reason: state.maintainEditsReason };
+    }
+    const restored = mode === 'maintain-edits'
+      ? sources.map(source => measurementFromMaintainedSource(source, { pxPerInch }))
+      : sources.map(sourceOriginalMeasurement);
+    const measurements = [
+      ...list.slice(0, index),
+      ...restored,
+      ...list.slice(index + 1),
+    ];
+    return {
+      unmerged: true,
+      measurements,
+      measurement: restored[0] || null,
+      restored,
+    };
   }
 
   function shouldAskPasteMode(source, { currentPage, pxPerInch }) {
@@ -735,15 +1031,19 @@
     let points = (source.points || []).map(point => ({ x: point.x + dx, y: point.y + dy }));
     let segments = measurementModel.isCurveMeasurement(source) ? geometry.translateSegments(source.segments, dx, dy) : null;
     let shape = translateShapeGeometry(cloneMeasurementShape(source), dx, dy);
+    let mergeMemory = source.mergeMemory ? translateMergeMemoryGeometry(source.mergeMemory, dx, dy) : null;
 
     if (mode === 'real-length' && source.sourceLengthInches != null && pxPerInch) {
-      const visualLength = segments ? measurementModel.measurementLengthPx({ segments }) : geometry.polylineLengthPx(points);
+      const visualLength = mergeMemory
+        ? measurementModel.measurementLengthPx({ drawType: 'path', shape: { active: 'path' }, points, mergeMemory })
+        : (segments ? measurementModel.measurementLengthPx({ segments }) : geometry.polylineLengthPx(points));
       const targetLengthPx = source.sourceLengthInches * pxPerInch;
       if (visualLength > 0 && targetLengthPx > 0) {
         const scale = targetLengthPx / visualLength;
         points = geometry.scalePointsAround(points, pasteAt, scale);
         if (segments) segments = geometry.scaleSegmentsAround(segments, pasteAt, scale);
         shape = scaleShapeGeometryAround(shape, pasteAt, scale);
+        if (mergeMemory) mergeMemory = scaleMergeMemoryGeometryAround(mergeMemory, pasteAt, scale);
       }
     }
 
@@ -753,7 +1053,9 @@
       points = constrained.points;
       segments = constrained.segments;
       if (beforeConstrain?.length && points?.length) {
+        const shift = { dx: points[0].x - beforeConstrain[0].x, dy: points[0].y - beforeConstrain[0].y };
         shape = translateShapeGeometry(shape, points[0].x - beforeConstrain[0].x, points[0].y - beforeConstrain[0].y);
+        if (mergeMemory) mergeMemory = translateMergeMemoryGeometry(mergeMemory, shift.dx, shift.dy);
       }
     }
 
@@ -767,11 +1069,13 @@
       points,
       segments,
       shape,
+      mergeMemory,
       labelT: Number.isFinite(source.labelT)
         ? source.labelT
         : defaultLabelT(segments ? geometry.flattenSegments(segments, 18) : points),
     };
     if (segments) measurementModel.updateCurveAnchors(pasted);
+    if (measurementModel.isMixedMeasurement?.(pasted)) measurementModel.updateMixedAnchors?.(pasted);
     pasted.lengthPx = measurementModel.measurementLengthPx(pasted);
     pasted.lengthInches = pxPerInch ? pasted.lengthPx / pxPerInch : null;
     return pasted;
@@ -797,6 +1101,10 @@
     setEndpointSnapConnection,
     mergeConnectionForTarget,
     mergeSnappedEndpointPaths,
+    unmergePathState,
+    unmergePaths,
+    transformMergeMemoryGeometry,
+    translateMergeMemoryGeometry,
     continueLineMeasurement,
     continueFreehandMeasurement,
     measurementLabelPoint,

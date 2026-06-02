@@ -407,6 +407,56 @@
       }
     }
 
+    function drawMixedPath(sources, opts) {
+      if (!sources || !sources.length) return;
+      const group = svgNode('g');
+      drawSvg.appendChild(group);
+      const strokeWidth = overlayPageSize(opts.width || 2);
+      const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
+      const strokeColor = strokeAttrs.stroke || opts.color;
+
+      for (const source of sources) {
+        const current = source?.current || {};
+        const d = source?.kind === 'freehand' && current.segments?.length
+          ? buildBezierPath(current.segments)
+          : buildPolylinePath(current.points || []);
+        if (!d) continue;
+        if (opts.glow) {
+          group.appendChild(svgNode('path', {
+            d,
+            fill: 'none',
+            stroke: strokeColor,
+            'stroke-width': strokeWidth + overlayPageSize(8),
+            'stroke-linecap': 'round',
+            'stroke-linejoin': 'round',
+            opacity: '0.18',
+          }));
+        }
+        group.appendChild(svgNode('path', {
+          d,
+          ...strokeAttrs,
+        }));
+      }
+
+      const anchors = opts.anchorPoints || [];
+      if (opts.dots && anchors.length) {
+        const r = overlayPageSize(opts.emphasizeDots ? 6 : 4);
+        const anchorAttrs = anchorCircleAttrs(opts, r);
+        for (const point of anchors) {
+          group.appendChild(svgNode('circle', {
+            cx: point.x,
+            cy: point.y,
+            ...anchorAttrs,
+          }));
+        }
+      }
+
+      const labelPoints = opts.labelPoints || [];
+      if (opts.label && labelPoints.length >= 2) {
+        drawPathLabel(group, labelPoints, { ...opts, anchors });
+      }
+    }
+
     function drawSnapFeedback(snap) {
       if (!snap?.point) return;
       const kind = snap.kind === 'centerline' ? 'centerline' : 'anchor';
@@ -478,6 +528,7 @@
     return {
       drawBezierSegments,
       drawEndpointAnchors,
+      drawMixedPath,
       drawPolyline,
       drawSnapFeedback,
     };

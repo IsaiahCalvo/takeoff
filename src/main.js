@@ -11,7 +11,7 @@ import './app/state.js';
 import './app/geometry.js';
 import './app/measurements.js';
 import './app/measurement-commands.js';
-import './app/measurement-workflows.js';
+import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js';
 import './app/page-state.js';
 import './app/continuous-scroll.js';
 import './app/continuous-renderer.js';
@@ -386,7 +386,8 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
   state.contextTarget = target;
   const canActOnRun = state.selectedId != null, targetedMeasurement = measurementId != null ? state.measurements.find(x => x.id === measurementId) : null;
   const addButton = contextMenu.querySelector('[data-action="add-anchor"]'), removeButton = contextMenu.querySelector('[data-action="remove-anchor"]');
-  const canAddAnchor = !!(target && target.kind === 'path-hit'), canRemoveAnchor = !!(target && target.kind === 'anchor-hit' && canRemoveAnchorFromTarget(target));
+  const canEditAnchors = !!(targetedMeasurement && !isMixedMeasurement?.(targetedMeasurement));
+  const canAddAnchor = !!(canEditAnchors && target && target.kind === 'path-hit'), canRemoveAnchor = !!(canEditAnchors && target && target.kind === 'anchor-hit' && canRemoveAnchorFromTarget(target));
   addButton.disabled = !canAddAnchor;
   removeButton.disabled = !canRemoveAnchor;
   contextMenu.querySelector('[data-action="cut"]').disabled = !canActOnRun;
@@ -499,8 +500,7 @@ const {
   translateSegments,
 } = window.TakeoffGeometry;
 
-const {
-  isCurveMeasurement,
+const { isCurveMeasurement, isMixedMeasurement,
   measurementLengthPx,
   measurementDisplayPoints,
   buildFreehandSegments,
@@ -1565,7 +1565,7 @@ contextMenu.addEventListener('click', (e) => {
   if (action === 'add-anchor') handledAnchorAction = addAnchorFromContext();
   if (action === 'remove-anchor') handledAnchorAction = removeAnchorFromContext();
   if (action === 'continue-path') handledAnchorAction = contextMenuController.beginContinuePath({ state, target: state.contextTarget, measurementCommands, isCurveMeasurement, currentPage, setMode, clearActiveFitMode, renderList, redraw, showStatus });
-  if (action === 'merge-paths') handledAnchorAction = contextMenuController.mergeSnappedPaths({ state, target: state.contextTarget, measurementCommands, scaleForPage, createHistorySnapshot, setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }), endRotateMode, renderList, redraw, recordHistory, showStatus });
+  if (action === 'merge-paths') handledAnchorAction = contextMenuController.mergeSnappedPaths({ state, target: state.contextTarget, measurementCommands, scaleForPage, createHistorySnapshot, setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }), endRotateMode, renderList, redraw, recordHistory, showStatus, focusMeasurementName });
   closeContextMenu();
   if (handledAnchorAction) return;
   if (action === 'cut') cutSelectedMeasurement();
@@ -1573,6 +1573,7 @@ contextMenu.addEventListener('click', (e) => {
   if (action === 'paste') pasteCopiedMeasurement();
   if (action === 'rotate') beginRotateMode(state.selectedId);
   if (action === 'convert-to-line' || action === 'convert-to-freehand') contextMenuController.convertSelectedMeasurement({ nextShape: action === 'convert-to-line' ? 'line' : 'freehand', state, measurementCommands, scaleForPage, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
+  if (action === 'unmerge-paths') unmergePathModal.open();
 });
 
 document.addEventListener('click', (e) => {
@@ -1640,14 +1641,7 @@ function finishMeasurement() {
   // User can type to rename, hit Enter / Escape to commit, or just click the
   // canvas to start a new measurement (canvas click naturally blurs the input
   // and the default "Run N" name stays).
-  requestAnimationFrame(() => {
-    const item = measList.querySelector(`.meas-item[data-meas-id="${id}"]`);
-    if (item) {
-      item.scrollIntoView({ block: 'nearest' });
-      const input = item.querySelector('input.name');
-      if (input && item.startNameEdit) item.startNameEdit();
-    }
-  });
+  focusMeasurementName(id);
 }
 
 function finishFreehandMeasurement() {
@@ -1732,6 +1726,8 @@ function recomputeMeasurementLength(m) {
     measureLengthPx: measurementLengthPx,
   });
 }
+
+function focusMeasurementName(id) { requestAnimationFrame(() => { const item = measList.querySelector(`.meas-item[data-meas-id="${id}"]`); if (!item) return; item.scrollIntoView({ block: 'nearest' }); const input = item.querySelector('input.name'); if (input && item.startNameEdit) item.startNameEdit(); }); }
 
 function copySelectedMeasurement() {
   const selected = state.measurements.find(m => m.id === state.selectedId);
@@ -2094,6 +2090,7 @@ const pathSettingsModal = pathSettings.createPathSettingsModal({
   setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }),
   syncSelectionWithPathCategoryVisibility, renderList, redraw, showStatus,
 });
+const unmergePathModal = window.TakeoffUnmergePathModal.createUnmergePathModal({ getElement: $, state, measurementCommands, scaleForPage, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus, setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }) });
 
 function openPathSettingsForGroup(pathGroupId, triggerElement) { pathSettingsModal.open(sidebarPathGroupsById.get(pathGroupId), triggerElement); }
 // Sidebar tab switching
@@ -2386,6 +2383,7 @@ function redraw(previewTo) {
 function redrawActivePreview() { redraw(state.inProgress ? getEffectiveCursor() : undefined); }
 
 function drawMeasurementPath(m, opts) {
+  if (isMixedMeasurement?.(m)) { drawMixedPath(m.mergeMemory?.sources || [], { ...opts, labelPoints: measurementDisplayPoints(m), anchorPoints: m.points || [], measurementId: m.id }); return; }
   if (isCurveMeasurement(m)) {
     drawBezierSegments(m.segments, {
       ...opts,
@@ -2401,6 +2399,8 @@ function drawMeasurementPath(m, opts) {
 function drawBezierSegments(segments, opts) { svgRenderer.drawBezierSegments(segments, { ...opts, labelHitboxes: state.labelHitboxes }); }
 
 function drawEndpointAnchors(points, color) { svgRenderer.drawEndpointAnchors(points, color); }
+
+function drawMixedPath(sources, opts) { svgRenderer.drawMixedPath(sources, { ...opts, labelHitboxes: state.labelHitboxes }); }
 
 function drawPolyline(points, opts) { svgRenderer.drawPolyline(points, { ...opts, labelHitboxes: state.labelHitboxes }); }
 

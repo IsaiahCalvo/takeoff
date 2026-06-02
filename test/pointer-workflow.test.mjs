@@ -201,6 +201,55 @@ test('applyMeasurementDrag can use a snapped whole-path delta', async () => {
   assert.deepEqual(plain(measurement.rotationFrame), { x: 5, y: 2, width: 10, height: 1, cx: 10, cy: 2.5 });
 });
 
+test('applyMeasurementDrag moves mixed path merge memory with visible endpoints', async () => {
+  const workflow = await loadPointerWorkflow();
+  const measurement = {
+    id: 8,
+    drawType: 'path',
+    shape: { active: 'path' },
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    mergeMemory: {
+      sources: [{
+        portionId: 'line-a',
+        kind: 'line',
+        current: { points: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+      }, {
+        portionId: 'freehand-b',
+        kind: 'freehand',
+        current: {
+          points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+          segments: [{
+            type: 'cubic',
+            from: { x: 10, y: 0 },
+            c1: { x: 13, y: 0 },
+            c2: { x: 17, y: 0 },
+            to: { x: 20, y: 0 },
+          }],
+        },
+      }],
+    },
+  };
+  const drag = workflow.createMeasurementDrag({
+    measurement,
+    pointer: { x: 0, y: 0 },
+    historyBefore: null,
+    bounds: { x: 0, y: 0, width: 20, height: 1 },
+  });
+  measurement.mergeMemory.sources[0].current.points[0].x = 99;
+
+  workflow.applyMeasurementDrag({
+    measurement,
+    drag,
+    cursor: { x: 4, y: 6 },
+    constrainDelta: () => ({ dx: 4, dy: 6 }),
+  });
+
+  assert.deepEqual(plain(measurement.points), [{ x: 4, y: 6 }, { x: 24, y: 6 }]);
+  assert.deepEqual(plain(measurement.mergeMemory.sources[0].current.points), [{ x: 4, y: 6 }, { x: 14, y: 6 }]);
+  assert.deepEqual(plain(measurement.mergeMemory.sources[1].current.segments[0].from), { x: 14, y: 6 });
+  assert.deepEqual(plain(measurement.mergeMemory.sources[1].current.segments[0].to), { x: 24, y: 6 });
+});
+
 test('applyRotationDrag rotates geometry, snaps when shifted, and rebuilds the frame', async () => {
   const workflow = await loadPointerWorkflow();
   const measurement = {

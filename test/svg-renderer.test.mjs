@@ -458,6 +458,49 @@ test('drawBezierSegments applies stored path style snapshot attributes', async (
   ]);
 });
 
+test('drawMixedPath renders line and freehand portions with one endpoint anchor set', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawMixedPath([{
+    kind: 'line',
+    current: { points: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+  }, {
+    kind: 'freehand',
+    current: {
+      segments: [{
+        type: 'cubic',
+        from: { x: 10, y: 0 },
+        c1: { x: 13, y: 0 },
+        c2: { x: 17, y: 0 },
+        to: { x: 20, y: 0 },
+      }],
+    },
+  }], {
+    color: '#b6ff3c',
+    dots: true,
+    width: 2,
+    anchorPoints: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    labelPoints: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+  });
+
+  assert.equal(drawSvg.children.length, 1);
+  assert.deepEqual(drawSvg.children[0].children.map(child => child.tag), ['path', 'path', 'circle', 'circle']);
+  assert.equal(drawSvg.children[0].children[0].attrs.d, 'M 0 0 L 10 0');
+  assert.equal(drawSvg.children[0].children[1].attrs.d, 'M 10 0 C 13 0 17 0 20 0');
+});
+
 test('label layout respects the dragged side of the path', async () => {
   const renderer = await loadRenderer();
 
