@@ -10,7 +10,7 @@ import './app/path-template-store.js'; import './app/path-template-view.js';
 import './app/state.js';
 import './app/geometry.js';
 import './app/measurements.js';
-import './app/measurement-commands.js';
+import './app/run-details.js'; import './app/measurement-commands.js';
 import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js';
 import './app/page-state.js';
 import './app/continuous-scroll.js';

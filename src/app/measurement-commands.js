@@ -1,6 +1,7 @@
 (function () {
   const geometry = window.TakeoffGeometry;
   const measurementModel = window.TakeoffMeasurements;
+  const runDetailsModel = window.TakeoffRunDetails;
 
   function clonePoint(point) {
     return { x: point.x, y: point.y };
@@ -60,6 +61,25 @@
 
   function cloneValue(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
+  function normalizeRunDetails(details) {
+    if (!runDetailsModel?.normalizeRunDetails) throw new Error('TakeoffRunDetails helper is required.');
+    return runDetailsModel.normalizeRunDetails(details);
+  }
+
+  function hasMeasurementRunDetails(measurement) {
+    return !!(
+      measurement
+      && typeof measurement === 'object'
+      && Object.prototype.hasOwnProperty.call(measurement, 'runDetails')
+    );
+  }
+
+  function cloneMeasurementWithNormalizedRunDetails(measurement) {
+    const cloned = cloneValue(measurement) || {};
+    if (hasMeasurementRunDetails(cloned)) cloned.runDetails = normalizeRunDetails(cloned.runDetails);
+    return cloned;
   }
 
   function cleanOptionalString(value) {
@@ -208,6 +228,19 @@
     return text || fallbackMeasurementName(existingMeasurements, measurement);
   }
 
+  function saveMeasurementRunDetails(measurements, measurementId, details) {
+    const list = measurements || [];
+    const index = list.findIndex(measurement => measurement && measurement.id === measurementId);
+    if (index < 0) return { updated: false, measurements: list, measurement: null };
+    const updated = {
+      ...list[index],
+      runDetails: normalizeRunDetails(details),
+    };
+    const nextMeasurements = list.slice();
+    nextMeasurements[index] = updated;
+    return { updated: true, measurements: nextMeasurements, measurement: updated };
+  }
+
   function defaultLabelT(points) {
     if (!points || points.length < 2) return 0.5;
     const total = geometry.polylineLengthPx(points);
@@ -278,7 +311,7 @@
 
   function cloneMeasurementForClipboard(selected, pageScales) {
     if (!selected) return null;
-    return {
+    const clipboard = {
       ...selected,
       points: clonePoints(selected.points),
       segments: measurementModel.isCurveMeasurement(selected) ? cloneSegments(selected.segments) : null,
@@ -290,6 +323,8 @@
       sourceLengthInches: selected.lengthInches,
       sourceLengthPx: selected.lengthPx || measurementModel.measurementLengthPx(selected),
     };
+    if (hasMeasurementRunDetails(selected)) clipboard.runDetails = normalizeRunDetails(selected.runDetails);
+    return clipboard;
   }
 
   function deleteMeasurementById(existingMeasurements, id) {
@@ -662,7 +697,7 @@
         return {
           portionId: sourcePortionId(measurement),
           originalId: measurement.id,
-          original: cloneValue(measurement),
+          original: cloneMeasurementWithNormalizedRunDetails(measurement),
           kind: portion.kind,
           current: portion.current,
           reversed: false,
@@ -969,7 +1004,7 @@
   }
 
   function sourceOriginalMeasurement(source) {
-    const original = cloneValue(source?.original) || {};
+    const original = cloneMeasurementWithNormalizedRunDetails(source?.original);
     delete original.mergeMemory;
     return original;
   }
@@ -1088,6 +1123,7 @@
         ? source.labelT
         : defaultLabelT(segments ? geometry.flattenSegments(segments, 18) : points),
     };
+    if (hasMeasurementRunDetails(source)) pasted.runDetails = normalizeRunDetails(source.runDetails);
     if (segments) measurementModel.updateCurveAnchors(pasted);
     if (measurementModel.isMixedMeasurement?.(pasted)) measurementModel.updateMixedAnchors?.(pasted);
     pasted.lengthPx = measurementModel.measurementLengthPx(pasted);
@@ -1099,6 +1135,7 @@
     nextMeasurementColor,
     fallbackMeasurementName,
     cleanMeasurementName,
+    saveMeasurementRunDetails,
     defaultLabelT,
     createLineMeasurement,
     createFreehandMeasurement,

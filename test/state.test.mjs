@@ -192,6 +192,11 @@ test('restoreDocumentState applies saved document fields and clears transient ed
           points: [{ x: 0, y: 0 }],
         },
       },
+      runDetails: {
+        text: 'Restored details',
+        photos: [{ id: 'photo-1', metadata: { tags: ['restored'] } }],
+        videos: [],
+      },
     }],
     sidebarTab: 'all',
     collapsedPageGroups: { 1: true },
@@ -213,6 +218,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
 
   store.restoreDocumentState(state, doc);
   doc.measurements[0].shape.previousFreehand.points[0].x = 99;
+  doc.measurements[0].runDetails.photos[0].metadata.tags.push('mutated');
 
   assert.equal(state.activeDocId, 'doc-1');
   assert.equal(state.pdf, doc.pdf);
@@ -235,6 +241,11 @@ test('restoreDocumentState applies saved document fields and clears transient ed
       previousFreehand: {
         points: [{ x: 0, y: 0 }],
       },
+    },
+    runDetails: {
+      text: 'Restored details',
+      photos: [{ id: 'photo-1', metadata: { tags: ['restored'] } }],
+      videos: [],
     },
   }]);
   assert.equal(state.sidebarTab, 'all');

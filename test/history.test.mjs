@@ -12,9 +12,10 @@ async function loadHistory() {
 }
 
 async function loadHistoryWithCommands() {
-  const [geometry, measurements, commands, history] = await Promise.all([
+  const [geometry, measurements, runDetails, commands, history] = await Promise.all([
     readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/run-details.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/measurement-commands.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/history.js', import.meta.url), 'utf8'),
   ]);
@@ -22,6 +23,7 @@ async function loadHistoryWithCommands() {
   vm.createContext(sandbox);
   vm.runInContext(geometry, sandbox, { filename: 'geometry.js' });
   vm.runInContext(measurements, sandbox, { filename: 'measurements.js' });
+  vm.runInContext(runDetails, sandbox, { filename: 'run-details.js' });
   vm.runInContext(commands, sandbox, { filename: 'measurement-commands.js' });
   vm.runInContext(history, sandbox, { filename: 'history.js' });
   return {
@@ -62,6 +64,11 @@ function baseState() {
           points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
         },
       },
+      runDetails: {
+        text: 'Snapshot details',
+        photos: [{ id: 'photo-1', metadata: { tags: ['snapshot'] } }],
+        videos: [],
+      },
     }],
     pageScales: { 1: 2 },
     pxPerInch: 2,
@@ -99,12 +106,18 @@ test('createHistorySnapshot clones editable state', async () => {
 
   state.measurements[0].points[0].x = 99;
   state.measurements[0].shape.previousFreehand.points[0].x = 77;
+  state.measurements[0].runDetails.photos[0].metadata.tags.push('mutated');
   state.pageScales[1] = 10;
   state.copiedMeasurement.points[0].x = 42;
   state.copiedMeasurement.shape.previousLine.points[0].x = 66;
 
   assert.equal(snapshot.measurements[0].points[0].x, 0);
   assert.equal(snapshot.measurements[0].shape.previousFreehand.points[0].x, 0);
+  assert.deepEqual(plain(snapshot.measurements[0].runDetails), {
+    text: 'Snapshot details',
+    photos: [{ id: 'photo-1', metadata: { tags: ['snapshot'] } }],
+    videos: [],
+  });
   assert.equal(snapshot.pageScales[1], 2);
   assert.equal(snapshot.copiedMeasurement.points[0].x, 0);
   assert.equal(snapshot.copiedMeasurement.shape.previousLine.points[0].x, 0);
@@ -210,6 +223,11 @@ test('conversion history snapshots restore selected measurement through undo and
       shape: { active: 'freehand' },
       lengthPx: 30,
       lengthInches: 15,
+      runDetails: {
+        text: 'Conversion details',
+        photos: [{ id: 'conversion-photo' }],
+        videos: [{ id: 'conversion-video' }],
+      },
     }],
     pageScales: { 1: 2 },
     pxPerInch: 2,
@@ -231,6 +249,11 @@ test('conversion history snapshots restore selected measurement through undo and
   assert.equal(state.selectedId, 5);
   assert.equal(state.measurements[0].shape.active, 'freehand');
   assert.equal(state.measurements[0].segments.length, 1);
+  assert.deepEqual(plain(state.measurements[0].runDetails), {
+    text: 'Conversion details',
+    photos: [{ id: 'conversion-photo' }],
+    videos: [{ id: 'conversion-video' }],
+  });
 
   state.undoStack.push(state.redoStack.pop());
   history.applyHistorySnapshot(state, entry.after, 1);
@@ -242,6 +265,11 @@ test('conversion history snapshots restore selected measurement through undo and
     { x: 10, y: 8 },
     { x: 20, y: 0 },
   ]);
+  assert.deepEqual(plain(state.measurements[0].runDetails), {
+    text: 'Conversion details',
+    photos: [{ id: 'conversion-photo' }],
+    videos: [{ id: 'conversion-video' }],
+  });
 });
 
 test('merge history snapshots restore both paths through undo and redo', async () => {
@@ -310,6 +338,7 @@ test('mixed merge and unmerge history snapshots preserve merge memory and origin
       drawType: 'line',
       shape: { active: 'line' },
       points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      runDetails: { text: 'Line history details', photos: [{ id: 'line-photo' }], videos: [] },
       snapConnections: [{ endpoint: 'end', targetId: 9, targetEndpoint: 'start' }],
     }, {
       id: 9,
@@ -322,6 +351,7 @@ test('mixed merge and unmerge history snapshots preserve merge memory and origin
       shape: { active: 'freehand' },
       points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
       segments: [straightSegment({ x: 10, y: 0 }, { x: 20, y: 0 })],
+      runDetails: { text: 'Freehand history details', photos: [], videos: [{ id: 'freehand-video' }] },
     }],
     pageScales: { 1: 2 },
     pxPerInch: 2,
@@ -353,6 +383,10 @@ test('mixed merge and unmerge history snapshots preserve merge memory and origin
   history.applyHistorySnapshot(state, entry.after, 1);
   assert.equal(state.measurements[0].shape.active, 'path');
   assert.deepEqual(plain(state.measurements[0].mergeMemory.sources.map(source => source.original.name)), ['Line original', 'Freehand original']);
+  assert.deepEqual(plain(state.measurements[0].mergeMemory.sources.map(source => source.original.runDetails)), [
+    { text: 'Line history details', photos: [{ id: 'line-photo' }], videos: [] },
+    { text: 'Freehand history details', photos: [], videos: [{ id: 'freehand-video' }] },
+  ]);
 
   const beforeUnmerge = history.createHistorySnapshot(state);
   const unmerged = commands.unmergePaths(state.measurements, 8, { mode: 'original', pxPerInch: 2 });
@@ -369,6 +403,10 @@ test('mixed merge and unmerge history snapshots preserve merge memory and origin
   state.undoStack.push(state.redoStack.pop());
   history.applyHistorySnapshot(state, entry.after, 1);
   assert.deepEqual(plain(state.measurements.map(measurement => measurement.name)), ['Line original', 'Freehand original']);
+  assert.deepEqual(plain(state.measurements.map(measurement => measurement.runDetails)), [
+    { text: 'Line history details', photos: [{ id: 'line-photo' }], videos: [] },
+    { text: 'Freehand history details', photos: [], videos: [{ id: 'freehand-video' }] },
+  ]);
 });
 
 test('clearHistory removes undo and redo entries', async () => {
