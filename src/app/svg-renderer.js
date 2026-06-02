@@ -74,6 +74,41 @@
     return !!(offset && Number.isFinite(offset.x) && Number.isFinite(offset.y));
   }
 
+  function appendLengthLabelNav(group, layout, opts, overlayPageSize) {
+    if (opts.measurementId == null) return;
+    const size = overlayPageSize(18);
+    const gap = overlayPageSize(4);
+    const x = layout.bx + layout.bw + gap;
+    const y = layout.by + (layout.bh - size) / 2;
+    const iconScale = size / 12;
+    const nav = svgNode('g', {
+      class: `canvas-length-tag-nav${opts.labelNavVisible ? ' visible' : ''}`,
+      'data-length-label-nav': 'true',
+      'data-measurement-id': opts.measurementId,
+      transform: `translate(${x} ${y})`,
+    });
+    nav.appendChild(svgNode('rect', {
+      class: 'canvas-length-tag-nav-shell',
+      x: 0,
+      y: 0,
+      width: size,
+      height: size,
+      rx: overlayPageSize(6),
+      ry: overlayPageSize(6),
+    }));
+    nav.appendChild(svgNode('path', {
+      class: 'canvas-length-tag-nav-icon',
+      d: 'M4.5 3 7.5 6 4.5 9',
+      transform: `scale(${iconScale})`,
+      fill: 'none',
+      stroke: 'currentColor',
+      'stroke-width': overlayPageSize(1.6) / iconScale,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round',
+    }));
+    group.appendChild(nav);
+  }
+
   function clampOffset(offset, minDistance, maxDistance) {
     const length = vectorLength(offset);
     if (!length) return offset;
@@ -274,7 +309,20 @@
         group.appendChild(foreignObject);
         return;
       }
-      group.appendChild(svgNode('rect', {
+      const labelGroup = svgNode('g', {
+        class: 'canvas-length-tag',
+        'data-measurement-id': opts.measurementId,
+      });
+      group.appendChild(labelGroup);
+      labelGroup.appendChild(svgNode('rect', {
+        class: 'canvas-length-tag-hit',
+        x: layout.hitbox.x,
+        y: layout.hitbox.y,
+        width: layout.hitbox.width,
+        height: layout.hitbox.height,
+      }));
+      labelGroup.appendChild(svgNode('rect', {
+        class: 'canvas-length-tag-body',
         x: bx,
         y: by,
         width: bw,
@@ -285,7 +333,8 @@
         stroke: opts.labelColor,
         'stroke-width': overlayPageSize(1.25),
       }));
-      group.appendChild(svgNode('rect', {
+      labelGroup.appendChild(svgNode('rect', {
+        class: 'canvas-length-tag-accent',
         x: bx + overlayPageSize(4),
         y: by + overlayPageSize(4),
         width: accentW,
@@ -307,7 +356,8 @@
         'dominant-baseline': 'middle',
       });
       text.textContent = opts.label;
-      group.appendChild(text);
+      labelGroup.appendChild(text);
+      appendLengthLabelNav(labelGroup, layout, opts, overlayPageSize);
     }
 
     function drawBezierSegments(segments, opts) {

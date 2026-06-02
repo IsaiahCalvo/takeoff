@@ -208,6 +208,43 @@ test('drawPolyline renders active length edits inside the SVG label', async () =
   assert.equal(unit.attrs.class, 'canvas-length-tag-unit');
   assert.equal(unit.textContent, 'ft');
   assert.equal(group.children.some(child => child.tag === 'text'), false);
+  assert.equal(group.children.some(child => child.attrs?.class === 'canvas-length-tag'), false);
+});
+
+test('drawPolyline adds a hover-only label navigation chevron for saved labels', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const labelHitboxes = [];
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawPolyline([{ x: 0, y: 0 }, { x: 80, y: 0 }], {
+    color: '#36d399',
+    labelColor: '#36d399',
+    label: '12.50 ft',
+    labelT: 0.5,
+    measurementId: 'run-12',
+    labelHitboxes,
+  });
+
+  const labelGroup = drawSvg.children[0].children.find(child => child.attrs?.class === 'canvas-length-tag');
+  assert.ok(labelGroup, 'saved label should render a label group');
+  assert.equal(labelGroup.attrs['data-measurement-id'], 'run-12');
+  const nav = labelGroup.children.find(child => child.attrs?.class === 'canvas-length-tag-nav');
+  assert.ok(nav, 'saved label should render the navigation affordance');
+  assert.equal(nav.attrs['data-length-label-nav'], 'true');
+  assert.equal(nav.attrs['data-measurement-id'], 'run-12');
+  assert.equal(nav.children[1].attrs.d, 'M4.5 3 7.5 6 4.5 9');
+  assert.ok(Number(nav.attrs.transform.match(/translate\(([-\d.]+)/)?.[1]) > labelHitboxes[0].x + labelHitboxes[0].width - 3);
 });
 
 test('drawBezierSegments keeps floating labels clear of curve anchors', async () => {
