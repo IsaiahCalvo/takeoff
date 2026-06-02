@@ -67,7 +67,7 @@
       x: point.x + normal.x * baseOffset,
       y: point.y + normal.y * baseOffset,
     };
-    const clearance = overlayPageSize(12);
+    const clearance = overlayPageSize(6);
     const activeAnchors = (anchors || []).filter(Boolean);
 
     function isClear(layout) {
