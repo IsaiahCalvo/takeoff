@@ -327,6 +327,53 @@
     return clipboard;
   }
 
+  function duplicateOffsetDelta(bounds, pageSize, offset = { x: 18, y: 18 }) {
+    const rawX = typeof offset === 'number' ? offset : offset?.x;
+    const rawY = typeof offset === 'number' ? offset : offset?.y;
+    const dx = Number.isFinite(rawX) ? rawX : 18;
+    const dy = Number.isFinite(rawY) ? rawY : 18;
+    const candidates = [
+      { dx, dy },
+      { dx: -dx, dy },
+      { dx, dy: -dy },
+      { dx: -dx, dy: -dy },
+    ];
+    if (!pageSize?.width || !pageSize?.height) return candidates[0];
+    return candidates
+      .map(candidate => geometry.constrainDeltaToRect(bounds, candidate.dx, candidate.dy, pageSize.width, pageSize.height))
+      .sort((a, b) => Math.hypot(b.dx, b.dy) - Math.hypot(a.dx, a.dy))[0];
+  }
+
+  function createDuplicateMeasurement({
+    source,
+    id,
+    existingMeasurements,
+    palette,
+    pageScales,
+    pxPerInch,
+    offset,
+    pageSize,
+    constrainGeometry,
+  } = {}) {
+    if (!source) return null;
+    const currentPage = source.page;
+    const scale = pxPerInch || (pageScales || {})[currentPage] || null;
+    const clipboard = cloneMeasurementForClipboard(source, { ...(pageScales || {}), [currentPage]: scale });
+    const bounds = measurementModel.measurementBounds(clipboard);
+    if (!bounds) return null;
+    const delta = duplicateOffsetDelta(bounds, pageSize, offset);
+    return createPastedMeasurement({
+      source: clipboard,
+      id,
+      existingMeasurements,
+      palette,
+      pasteAt: { x: bounds.cx + delta.dx, y: bounds.cy + delta.dy },
+      currentPage,
+      pxPerInch: scale,
+      constrainGeometry,
+    });
+  }
+
   function deleteMeasurementById(existingMeasurements, id) {
     return (existingMeasurements || []).filter(measurement => measurement.id !== id);
   }
@@ -1140,6 +1187,7 @@
     createLineMeasurement,
     createFreehandMeasurement,
     cloneMeasurementForClipboard,
+    createDuplicateMeasurement,
     deleteMeasurementById,
     applyVertexDrag,
     canRemoveAnchorFromMeasurement,

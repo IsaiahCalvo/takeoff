@@ -29,6 +29,7 @@
     if (isCommand && key === 'z') return { action: event.shiftKey ? 'redo' : 'undo', preventDefault: true };
     if (isCommand && key === 'y') return { action: 'redo', preventDefault: true };
     if (isCommand && key === 'c') return { action: 'copy', preventDefault: true };
+    if (isCommand && key === 'd') return { action: 'duplicate', preventDefault: true };
     if (isCommand && key === 'x') return { action: 'cut', preventDefault: true };
     if (isCommand && key === 'v') return { action: 'paste', preventDefault: true };
 
