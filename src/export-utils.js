@@ -1,11 +1,21 @@
 (function () {
-  const UNIT_TO_INCH = { in: 1, ft: 12, yd: 36, cm: 0.393700787, m: 39.3700787 };
   const UNIT_LABEL = { in: 'in', ft: 'ft', yd: 'yd', cm: 'cm', m: 'm' };
-  const HEADERS = ['Page', 'Name', 'Type', 'Length', 'Unit', 'Scaled'];
-
-  function inchesToUnit(inches, unit) {
-    return inches / (UNIT_TO_INCH[unit] || UNIT_TO_INCH.ft);
-  }
+  const LEGACY_PATH_DISPLAY_NAME = 'Legacy measurements';
+  const UNCATEGORIZED_DISPLAY_NAME = 'Uncategorized';
+  const HEADERS = [
+    'Page',
+    'Name',
+    'Type',
+    'Length',
+    'Unit',
+    'Scaled',
+    'Path',
+    'Category',
+    'Group Run Count',
+    'Group Total',
+    'Group Unit',
+    'Visible',
+  ];
 
   function cleanName(value, fallback) {
     const name = String(value || '').trim();
@@ -22,23 +32,108 @@
     return normalized === 'freehand' ? 'freehand' : 'line';
   }
 
+  function exportAggregation() {
+    const aggregation = window.TakeoffPathAggregation;
+    if (!aggregation || typeof aggregation.buildPathRunGroups !== 'function') {
+      throw new Error('TakeoffPathAggregation.buildPathRunGroups is required for measurement exports.');
+    }
+    return aggregation;
+  }
+
+  function roundExportNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Number(number.toFixed(2)) : 0;
+  }
+
+  function categoryDisplayName(run) {
+    return cleanName(run?.categoryName, run?.isLegacy ? LEGACY_PATH_DISPLAY_NAME : UNCATEGORIZED_DISPLAY_NAME);
+  }
+
+  function breakdownKey(run) {
+    return [
+      run?.page || 1,
+      run?.groupKey || LEGACY_PATH_DISPLAY_NAME,
+      run?.pathCategoryVisibilityKey || run?.categoryKey || UNCATEGORIZED_DISPLAY_NAME,
+    ].join('\u001f');
+  }
+
+  function buildBreakdowns(groups, unit) {
+    const breakdowns = new Map();
+    (groups || []).forEach((group, groupOrder) => {
+      for (const run of group.runs || []) {
+        const key = breakdownKey(run);
+        let breakdown = breakdowns.get(key);
+        if (!breakdown) {
+          breakdown = {
+            groupOrder,
+            path: cleanName(group.displayName || run.pathName, LEGACY_PATH_DISPLAY_NAME),
+            category: categoryDisplayName(run),
+            runCount: 0,
+            total: 0,
+          };
+          breakdowns.set(key, breakdown);
+        }
+        breakdown.runCount += 1;
+        const total = Number(run.totalsByUnit?.[unit]);
+        if (Number.isFinite(total)) breakdown.total += total;
+      }
+    });
+    return breakdowns;
+  }
+
+  function attachSummaryGroupKey(row, key) {
+    Object.defineProperty(row, '_summaryGroupKey', {
+      value: key,
+      enumerable: false,
+      configurable: true,
+    });
+    return row;
+  }
+
   function buildExportRows(measurements, options = {}) {
     const unit = options.unit || 'ft';
     const unitLabel = UNIT_LABEL[unit] || unit;
-    return (measurements || [])
-      .slice()
-      .sort((a, b) => (a.page || 1) - (b.page || 1))
-      .map((measurement, index) => {
-        const scaled = measurement.lengthInches != null && Number.isFinite(measurement.lengthInches);
-        return {
-          page: measurement.page || 1,
-          name: cleanName(measurement.name, `Run ${index + 1}`),
-          type: measurementType(measurement),
-          length: scaled ? Number(inchesToUnit(measurement.lengthInches, unit).toFixed(2)) : null,
-          unit: unitLabel,
-          scaled: scaled ? 'Y' : 'N',
+    const aggregation = exportAggregation().buildPathRunGroups(measurements, {
+      ...options,
+      unit,
+      units: [unit],
+      totalsScope: 'all',
+    });
+    const breakdowns = buildBreakdowns(aggregation.groups, unit);
+    const rows = [];
+
+    for (const group of aggregation.groups || []) {
+      for (const run of group.runs || []) {
+        const breakdown = breakdowns.get(breakdownKey(run)) || {
+          groupOrder: 0,
+          path: cleanName(group.displayName || run.pathName, LEGACY_PATH_DISPLAY_NAME),
+          category: categoryDisplayName(run),
+          runCount: 1,
+          total: Number(run.totalsByUnit?.[unit]) || 0,
         };
-      });
+        rows.push({
+          _sourceIndex: run.sourceIndex,
+          _groupOrder: breakdown.groupOrder,
+          _summaryGroupKey: breakdownKey(run),
+          page: run.page || 1,
+          name: cleanName(run.displayName, `Run ${(run.sourceIndex || 0) + 1}`),
+          type: run.measurementType || measurementType(run),
+          length: run.scaled ? roundExportNumber(run.totalsByUnit?.[unit]) : null,
+          unit: unitLabel,
+          scaled: run.scaled ? 'Y' : 'N',
+          path: breakdown.path,
+          category: breakdown.category,
+          groupRunCount: breakdown.runCount,
+          groupTotal: roundExportNumber(breakdown.total),
+          groupUnit: unitLabel,
+          visible: run.isVisible ? 'Y' : 'N',
+        });
+      }
+    }
+
+    return rows
+      .sort((a, b) => (a.page - b.page) || (a._groupOrder - b._groupOrder) || (a._sourceIndex - b._sourceIndex))
+      .map(({ _sourceIndex, _groupOrder, _summaryGroupKey, ...row }) => attachSummaryGroupKey(row, _summaryGroupKey));
   }
 
   function csvCell(value) {
@@ -61,9 +156,47 @@
         formatLength(row.length),
         row.unit,
         row.scaled,
+        row.path,
+        row.category,
+        row.groupRunCount,
+        formatLength(row.groupTotal),
+        row.groupUnit,
+        row.visible,
       ].map(csvCell).join(','));
     }
     return lines.join('\r\n');
+  }
+
+  function rowGroupKey(row) {
+    if (row?._summaryGroupKey) return row._summaryGroupKey;
+    return [
+      row?.page || 1,
+      row?.path || LEGACY_PATH_DISPLAY_NAME,
+      row?.category || UNCATEGORIZED_DISPLAY_NAME,
+    ].join('\u001f');
+  }
+
+  function groupedPageRows(rows) {
+    const groups = [];
+    const byKey = new Map();
+    for (const row of rows || []) {
+      const key = rowGroupKey(row);
+      let group = byKey.get(key);
+      if (!group) {
+        group = {
+          path: cleanName(row.path, LEGACY_PATH_DISPLAY_NAME),
+          category: cleanName(row.category, UNCATEGORIZED_DISPLAY_NAME),
+          runCount: Number(row.groupRunCount) || 0,
+          total: Number(row.groupTotal) || 0,
+          unit: row.groupUnit || row.unit,
+          rows: [],
+        };
+        byKey.set(key, group);
+        groups.push(group);
+      }
+      group.rows.push(row);
+    }
+    return groups;
   }
 
   function generateSummary(rows) {
@@ -82,13 +215,17 @@
     for (const page of pages) {
       let pageTotal = 0;
       lines.push(`Page ${page}`);
-      for (const row of byPage.get(page)) {
-        if (row.scaled === 'Y' && row.length != null) {
-          pageTotal += row.length;
-          lines.push(`- ${row.name}: ${formatLength(row.length)} ${row.unit}`);
-        } else {
-          unscaledCount += 1;
-          lines.push(`- ${row.name}: Unscaled`);
+      for (const group of groupedPageRows(byPage.get(page))) {
+        lines.push(`Path: ${group.path} | Category: ${group.category} | Runs: ${group.runCount} | Total: ${formatLength(group.total)} ${group.unit}`);
+        for (const row of group.rows) {
+          const visibilityNote = row.visible === 'N' ? ' (hidden)' : '';
+          if (row.scaled === 'Y' && row.length != null) {
+            pageTotal += row.length;
+            lines.push(`- ${row.name}: ${formatLength(row.length)} ${row.unit}${visibilityNote}`);
+          } else {
+            unscaledCount += 1;
+            lines.push(`- ${row.name}: Unscaled${visibilityNote}`);
+          }
         }
       }
       grandTotal += pageTotal;
@@ -141,6 +278,8 @@
 
   function buildSheetXml(rows) {
     const rowCount = Math.max(1, (rows || []).length + 1);
+    const lastColumn = columnName(HEADERS.length);
+    const columnWidths = [10.83, 19.33, 11, 13, 13, 12.33, 20, 18, 17, 14, 13, 12.33];
     const data = [];
     data.push(`<row r="1">${HEADERS.map((header, i) => textCell(1, i + 1, header, 1)).join('')}</row>`);
     (rows || []).forEach((row, i) => {
@@ -152,22 +291,23 @@
         row.length == null ? blankCell(r, 4, 3) : numberCell(r, 4, formatLength(row.length), 3),
         textCell(r, 5, row.unit, 1),
         textCell(r, 6, row.scaled, 1),
+        textCell(r, 7, row.path, 2),
+        textCell(r, 8, row.category, 2),
+        numberCell(r, 9, Number(row.groupRunCount) || 0, 1),
+        numberCell(r, 10, formatLength(row.groupTotal), 3),
+        textCell(r, 11, row.groupUnit, 1),
+        textCell(r, 12, row.visible, 1),
       ].join('') + '</row>');
     });
 
     const conditionalRange = 'F2:F1000';
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <dimension ref="A1:F${rowCount}"/>
+  <dimension ref="A1:${lastColumn}${rowCount}"/>
   <sheetViews><sheetView workbookViewId="0"/></sheetViews>
   <sheetFormatPr defaultRowHeight="15"/>
   <cols>
-    <col min="1" max="1" width="10.83" customWidth="1"/>
-    <col min="2" max="2" width="19.33" customWidth="1"/>
-    <col min="3" max="3" width="11" customWidth="1"/>
-    <col min="4" max="4" width="13" customWidth="1"/>
-    <col min="5" max="5" width="13" customWidth="1"/>
-    <col min="6" max="6" width="12.33" customWidth="1"/>
+    ${columnWidths.map((width, index) => `<col min="${index + 1}" max="${index + 1}" width="${width}" customWidth="1"/>`).join('\n    ')}
   </cols>
   <sheetData>${data.join('')}</sheetData>
   <conditionalFormatting sqref="${conditionalRange}">
@@ -180,10 +320,11 @@
 
   function buildTableXml(rows) {
     const rowCount = Math.max(1, (rows || []).length + 1);
+    const lastColumn = columnName(HEADERS.length);
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:F${rowCount}" totalsRowShown="0">
-  <autoFilter ref="A1:F${rowCount}"/>
-  <tableColumns count="6">
+<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="Table1" displayName="Table1" ref="A1:${lastColumn}${rowCount}" totalsRowShown="0">
+  <autoFilter ref="A1:${lastColumn}${rowCount}"/>
+  <tableColumns count="${HEADERS.length}">
     ${HEADERS.map((header, i) => `<tableColumn id="${i + 1}" name="${xmlEscape(header)}"/>`).join('')}
   </tableColumns>
   <tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>

@@ -2044,7 +2044,10 @@ function exportBaseName() {
 function getExportRows() {
   const utils = window.TakeoffExportUtils;
   if (!utils) return [];
-  return utils.buildExportRows(state.measurements, { unit: state.unit });
+  return utils.buildExportRows(state.measurements, {
+    unit: state.unit,
+    pathCategoryVisibility: stateStore.pathCategoryVisibilityForAggregation(state),
+  });
 }
 
 const exportDownloads = exportController.createDownloadHelpers({
