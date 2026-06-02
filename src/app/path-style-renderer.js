@@ -24,6 +24,8 @@
     pathStrokeWidth: 8,
     anchorRadius: 13,
     anchorStrokeWidth: 5,
+    previewWidth: 170,
+    previewHeight: 170,
     anchors: Object.freeze([
       Object.freeze({ cx: 19, cy: 48 }),
       Object.freeze({ cx: 146, cy: 46 }),
@@ -128,6 +130,9 @@
       svg: {
         xmlns: 'http://www.w3.org/2000/svg',
         viewBox: PATH_STYLE_PREVIEW_GEOMETRY.viewBox,
+        width: PATH_STYLE_PREVIEW_GEOMETRY.previewWidth,
+        height: PATH_STYLE_PREVIEW_GEOMETRY.previewHeight,
+        style: `width:${PATH_STYLE_PREVIEW_GEOMETRY.previewWidth}px;height:${PATH_STYLE_PREVIEW_GEOMETRY.previewHeight}px;display:block;overflow:visible`,
         'aria-hidden': 'true',
       },
       path,
@@ -162,7 +167,7 @@
     const anchors = attrs.anchors
       .map(anchor => `<circle cx="${anchor.cx}" cy="${anchor.cy}" r="${anchor.r}" fill="${anchor.fill}" stroke="${anchor.stroke}" stroke-width="${anchor['stroke-width']}"/>`)
       .join('');
-    return `<svg xmlns="${attrs.svg.xmlns}" viewBox="${attrs.svg.viewBox}" ${aria}>${path}${anchors}</svg>`;
+    return `<svg xmlns="${attrs.svg.xmlns}" viewBox="${attrs.svg.viewBox}" width="${attrs.svg.width}" height="${attrs.svg.height}" style="${attrs.svg.style}" ${aria}>${path}${anchors}</svg>`;
   }
 
   window.TakeoffPathStyleRenderer = {
