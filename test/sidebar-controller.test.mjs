@@ -215,6 +215,56 @@ test('Path group settings controls dispatch the grouped row action', async () =>
   assert.deepEqual(plain(calls), ['stopped', 'prevented', 'path:template-security:path-cat6', 'button']);
 });
 
+test('revealMeasurementRow expands the containing Path group and scrolls the exact run row', async () => {
+  const sidebar = await loadSidebarController();
+  const events = [];
+  const runs = { hidden: true };
+  const toggle = {
+    setAttribute(name, value) {
+      events.push(`${name}:${value}`);
+    },
+  };
+  const group = {
+    removed: [],
+    classList: {
+      remove(name) {
+        group.removed.push(name);
+      },
+    },
+    querySelector(selector) {
+      if (selector === '.path-group-runs') return runs;
+      if (selector === '[aria-expanded="false"]') return toggle;
+      return null;
+    },
+  };
+  const rowA = {
+    dataset: { measId: 'run-a' },
+    closest: () => group,
+    scrollIntoView() {
+      events.push('wrong-row');
+    },
+  };
+  const rowB = {
+    dataset: { measId: '42' },
+    closest: selector => selector === '.path-group' ? group : null,
+    scrollIntoView(options) {
+      events.push(`scroll:${options.block}:${options.inline}`);
+    },
+  };
+  const root = {
+    querySelectorAll(selector) {
+      return selector === '.meas-item' ? [rowA, rowB] : [];
+    },
+  };
+
+  const revealed = sidebar.revealMeasurementRow({ root, measurementId: 42 });
+
+  assert.equal(revealed, rowB);
+  assert.equal(runs.hidden, false);
+  assert.deepEqual(group.removed, ['collapsed']);
+  assert.deepEqual(events, ['aria-expanded:true', 'scroll:center:nearest']);
+});
+
 test('editableLengthInput handles Enter commit and Escape cancel', async () => {
   const sidebar = await loadSidebarController();
   const events = [];

@@ -514,6 +514,24 @@ test('Path group rows expose marker, title, category, total, run count, and page
   assert.match(chipRule, /white-space:\s*nowrap/);
 });
 
+test('canvas length labels expose a chevron-only navigation path to the selected sidebar run', async () => {
+  const { main, styles, source } = await readIndexAndSidebarView();
+  const mousedownHandler = main.match(/stage\.addEventListener\('mousedown'[\s\S]*?\n\}\);/)?.[0] || '';
+  const labelNavRule = styles.match(/\.canvas-length-tag-nav\s*\{[^}]+\}/)?.[0] || '';
+  const labelNavHoverRule = styles.match(/\.canvas-length-tag:hover \.canvas-length-tag-nav,[\s\S]*?\{[^}]+\}/)?.[0] || '';
+
+  assert.match(source, /data-length-label-nav/);
+  assert.match(source, /M4\.5 3 7\.5 6 4\.5 9/);
+  assert.match(labelNavRule, /opacity:\s*0/);
+  assert.match(labelNavRule, /pointer-events:\s*auto/);
+  assert.match(labelNavHoverRule, /opacity:\s*1/);
+  assert.match(mousedownHandler, /lengthLabelNavigationTarget\(e\.target\)/);
+  assert.match(mousedownHandler, /navigateLengthLabelToSidebar\(labelNavTarget\)[\s\S]*return;/);
+  assert.match(main, /state\.selectedId = measurement\.id;/);
+  assert.match(main, /revealMeasurementInSidebar\(measurement\.id\)/);
+  assert.match(main, /isMeasurementVisibleForPathCategories\(measurement\)/);
+});
+
 test('measurement list uses a slim themed vertical scrollbar only', async () => {
   const { styles } = await readIndexAndSidebarView();
   const measListRule = styles.match(/\.meas-list\s*\{[^}]+\}/)?.[0] || '';

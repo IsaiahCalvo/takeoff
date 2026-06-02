@@ -193,6 +193,39 @@
     });
   }
 
+  function measurementIdMatches(left, right) {
+    return left != null && right != null && String(left) === String(right);
+  }
+
+  function findMeasurementRow(root, measurementId) {
+    if (!root?.querySelectorAll || measurementId == null) return null;
+    return [...root.querySelectorAll('.meas-item')]
+      .find(item => measurementIdMatches(item?.dataset?.measId, measurementId)) || null;
+  }
+
+  function expandContainingPathGroup(row) {
+    const group = row?.closest?.('.path-group');
+    if (!group) return null;
+    group.classList?.remove('collapsed');
+    const runs = group.querySelector?.('.path-group-runs');
+    if (runs && runs.hidden === true) runs.hidden = false;
+    const collapsedToggle = group.querySelector?.('[aria-expanded="false"]');
+    if (collapsedToggle?.setAttribute) collapsedToggle.setAttribute('aria-expanded', 'true');
+    return group;
+  }
+
+  function revealMeasurementRow({
+    root,
+    measurementId,
+    scrollOptions = { block: 'center', inline: 'nearest' },
+  } = {}) {
+    const row = findMeasurementRow(root, measurementId);
+    if (!row) return null;
+    expandContainingPathGroup(row);
+    if (row.scrollIntoView) row.scrollIntoView(scrollOptions);
+    return row;
+  }
+
   window.TakeoffSidebarController = {
     applyScopeChrome,
     buildMeasurementItemViewModel,
@@ -200,5 +233,9 @@
     categoryVisibilityKeys,
     bindCategoryVisibilityControls,
     bindPathGroupSettingsControls,
+    measurementIdMatches,
+    findMeasurementRow,
+    expandContainingPathGroup,
+    revealMeasurementRow,
   };
 })();
