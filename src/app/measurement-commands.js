@@ -49,6 +49,11 @@
     );
   }
 
+  function clonePathStyle(style) {
+    if (!style || typeof style !== 'object') return style;
+    return JSON.parse(JSON.stringify(style));
+  }
+
   function translateShapeGeometry(shape, dx, dy) {
     return measurementModel.transformShapeGeometry(shape, point => ({ x: point.x + dx, y: point.y + dy }));
   }
@@ -155,6 +160,7 @@
       points: clonePoints(selected.points),
       segments: measurementModel.isCurveMeasurement(selected) ? cloneSegments(selected.segments) : null,
       shape: cloneMeasurementShape(selected),
+      pathStyle: clonePathStyle(selected.pathStyle),
       sourcePage: selected.page,
       sourceScale: (pageScales || {})[selected.page] || null,
       sourceLengthInches: selected.lengthInches,
@@ -504,7 +510,8 @@
       ...source,
       id,
       name: `${String(source.name || '').trim() || 'Run'} copy`,
-      color: nextMeasurementColor(existingMeasurements, palette),
+      color: source.color || nextMeasurementColor(existingMeasurements, palette),
+      pathStyle: clonePathStyle(source.pathStyle),
       page: currentPage,
       points,
       segments,
