@@ -141,3 +141,38 @@ test('convertSelectedMeasurement records history, keeps selection, and refreshes
     ['status', 'Converted to Line'],
   ]);
 });
+
+test('convertSelectedMeasurement refreshes UI hooks and selection for Line to Freehand', async () => {
+  const { controller } = await loadController();
+  const calls = [];
+  const measurement = { id: 8, page: 3, shape: { active: 'line' } };
+  const state = { selectedId: 8, rotateModeId: null, measurements: [measurement] };
+
+  assert.equal(controller.convertSelectedMeasurement({
+    nextShape: 'freehand',
+    state,
+    measurementCommands: {
+      convertLineMeasurementToFreehand(target, options) {
+        calls.push(['convert', target.id, options.pxPerInch]);
+        target.shape.active = 'freehand';
+        return true;
+      },
+    },
+    scaleForPage: page => page * 5,
+    createHistorySnapshot: () => ({ before: true }),
+    endRotateMode: () => calls.push(['end-rotate']),
+    renderList: () => calls.push(['render-list']),
+    redraw: () => calls.push(['redraw']),
+    recordHistory: (before, label) => calls.push(['history', before.before, label]),
+    showStatus: text => calls.push(['status', text]),
+  }), true);
+
+  assert.equal(state.selectedId, 8);
+  assert.deepEqual(calls, [
+    ['convert', 8, 15],
+    ['render-list'],
+    ['redraw'],
+    ['history', true, 'run conversion'],
+    ['status', 'Converted to Freehand'],
+  ]);
+});

@@ -93,6 +93,11 @@ test('measure start draw mode flips only when Alt or Option starts the run', asy
   }), 'line');
   assert.equal(workflows.resolveMeasureStartDrawMode({
     rememberedDrawMode: 'freehand',
+    shiftKey: true,
+    altKey: false,
+  }), 'freehand');
+  assert.equal(workflows.resolveMeasureStartDrawMode({
+    rememberedDrawMode: 'freehand',
     shiftKey: false,
     altKey: false,
   }), 'freehand');
@@ -103,25 +108,44 @@ test('measure start draw mode flips only when Alt or Option starts the run', asy
   }), 'line');
 });
 
-test('active measure draw mode stays locked after shift changes mid-run', async () => {
+test('active measure draw mode stays locked after modifier changes mid-run', async () => {
   const workflows = await loadMeasurementWorkflows();
 
-  assert.equal(workflows.resolveActiveMeasureDrawMode({
-    rememberedDrawMode: 'freehand',
-    shiftKey: false,
-    inProgress: { type: 'measure', points: [{ x: 0, y: 0 }] },
-  }), 'line');
-  assert.equal(workflows.resolveActiveMeasureDrawMode({
-    rememberedDrawMode: 'line',
-    shiftKey: false,
-    freehandDraft: { rawPoints: [{ x: 0, y: 0 }] },
-  }), 'freehand');
   assert.equal(workflows.resolveActiveMeasureDrawMode({
     rememberedDrawMode: 'line',
     altKey: true,
   }), 'freehand');
   assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'freehand',
+    altKey: true,
+  }), 'line');
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'freehand',
+    altKey: false,
+    inProgress: { type: 'measure', points: [{ x: 0, y: 0 }] },
+  }), 'line');
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'line',
+    altKey: false,
+    freehandDraft: { rawPoints: [{ x: 0, y: 0 }] },
+  }), 'freehand');
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'freehand',
+    altKey: true,
+    inProgress: { type: 'measure', points: [{ x: 0, y: 0 }] },
+  }), 'line');
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'line',
+    altKey: true,
+    freehandDraft: { rawPoints: [{ x: 0, y: 0 }] },
+  }), 'freehand');
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
     rememberedDrawMode: 'line',
     shiftKey: true,
   }), 'line');
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'freehand',
+    shiftKey: false,
+    altKey: false,
+  }), 'freehand');
 });
