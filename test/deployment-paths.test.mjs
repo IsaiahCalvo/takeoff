@@ -595,3 +595,20 @@ test('category tab renders aggregation category sections around Path groups', as
   assert.match(titleRule, /text-overflow:\s*ellipsis/);
   assert.match(summaryRule, /max-width:\s*100%/);
 });
+
+test('hidden category styling uses an icon-only gray shell without broad row dimming', async () => {
+  const { styles, source } = await readIndexAndSidebarView();
+  const hiddenIconRule = styles.match(/\.path-category-icon\.hidden-icon\s*\{[^}]+\}/)?.[0] || '';
+  const categoryHiddenRule = styles.match(/\.path-category-section\.category-hidden\s*\{[^}]+\}/)?.[0] || '';
+  const pathHiddenMarkerRule = styles.match(/\.path-group\.hidden \.path-group-marker\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(source, /class="path-category-icon/);
+  assert.match(source, /path-category-icon-template/);
+  assert.match(source, /path-category-icon-manual/);
+  assert.match(hiddenIconRule, /border-color:\s*#5a666e/);
+  assert.match(hiddenIconRule, /background:\s*transparent/);
+  assert.doesNotMatch(categoryHiddenRule, /opacity/);
+  assert.doesNotMatch(pathHiddenMarkerRule, /filter:\s*grayscale/);
+  assert.doesNotMatch(styles, /\.path-group\.hidden :is\(\.path-group-title,\s*\.path-group-total\)/);
+  assert.doesNotMatch([hiddenIconRule, categoryHiddenRule, pathHiddenMarkerRule].join('\n'), /#f00|#ff0000|\bred\b/i);
+});

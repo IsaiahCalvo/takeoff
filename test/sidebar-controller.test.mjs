@@ -84,14 +84,14 @@ test('category visibility controls collect keys and dispatch sidebar actions', a
   const sidebar = await loadSidebarController();
   const listeners = {};
   const calls = [];
-  const keyButtons = [
+  const keyTargets = [
     { dataset: { pathCategoryKey: 'category:low-voltage' } },
     { dataset: { pathCategoryKey: 'category:power' } },
     { dataset: { pathCategoryKey: 'category:power' } },
   ];
   const root = {
     querySelectorAll(selector) {
-      return selector === '.path-category-visibility-toggle[data-path-category-key]' ? keyButtons : [];
+      return selector === '[data-path-category-key]' ? keyTargets : [];
     },
     contains(target) {
       return target?.insideRoot === true;
@@ -138,13 +138,38 @@ test('category visibility controls collect keys and dispatch sidebar actions', a
     stopPropagation() {
       calls.push({ stopped: true });
     },
+    preventDefault() {
+      calls.push({ prevented: true });
+    },
+  });
+
+  const rowTarget = {
+    insideRoot: true,
+    dataset: { pathCategoryKey: 'category:low-voltage', nextVisible: 'true' },
+  };
+  listeners.click({
+    target: {
+      closest(selector) {
+        return selector === '[data-path-category-key]' ? rowTarget : null;
+      },
+    },
+    stopPropagation() {
+      calls.push({ stopped: true });
+    },
+    preventDefault() {
+      calls.push({ prevented: true });
+    },
   });
 
   assert.deepEqual(plain(calls), [
     { stopped: true },
     { keys: ['category:low-voltage', 'category:power'], visible: true },
     { stopped: true },
+    { prevented: true },
     { keys: ['category:power'], visible: false },
+    { stopped: true },
+    { prevented: true },
+    { keys: ['category:low-voltage'], visible: true },
   ]);
 });
 
