@@ -44,6 +44,33 @@ function sampleTemplates() {
   }];
 }
 
+function drawingContractTemplates() {
+  return [{
+    id: 'rough-in',
+    title: 'Rough-in',
+    paths: [
+      {
+        id: 'path-a',
+        templateId: 'rough-in',
+        name: 'Path A',
+        geometry: 'line',
+        order: 0,
+        stroke: { color: '#ff4d7d', style: 'dashed' },
+        anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+      },
+      {
+        id: 'path-b',
+        templateId: 'rough-in',
+        name: 'Path B',
+        geometry: 'freehand',
+        order: 1,
+        stroke: { color: '#36d399', style: 'dotted' },
+        anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
+      },
+    ],
+  }];
+}
+
 test('builds a no-template fallback model with a default Path Template and Path', async () => {
   const { pathDock } = await loadPathDock();
 
@@ -312,4 +339,66 @@ test('controller mounts visible dock, commits Path selection, and closes menus',
   controller.render();
   assert.equal(root.hidden, true);
   assert.equal(root.innerHTML, '');
+});
+
+test('controller selection feeds the next run and does not mutate an active draft Path', async () => {
+  const { pathTemplates, renderer, pathDock } = await loadPathDock();
+  const root = {
+    hidden: true,
+    innerHTML: '',
+    ownerDocument: {
+      defaultView: { addEventListener() {}, removeEventListener() {} },
+      addEventListener() {},
+      removeEventListener() {},
+    },
+    addEventListener() {},
+    removeEventListener() {},
+    replaceChildren() { this.innerHTML = ''; },
+    contains(target) { return target?.insideRoot === true; },
+  };
+  const state = pathTemplates.normalizePathTemplateState({
+    pathTemplates: drawingContractTemplates(),
+    activePathTemplateId: 'rough-in',
+    activePathId: 'path-a',
+  });
+  state.baseW = 100;
+  state.mode = 'measure';
+
+  const controller = pathDock.createPathDockController({
+    root,
+    state,
+    pathTemplates,
+    renderer,
+    maxVisiblePathCount: 2,
+    visible: () => true,
+  });
+
+  controller.render();
+  assert.match(root.innerHTML, /data-path-dock-active-path-id="path-a"/);
+
+  controller.handleAction({ dataset: { action: 'path-dock-select-path', pathDockTemplateId: 'rough-in', pathDockPathId: 'path-b' } });
+  const nextRunPath = pathTemplates.activePathForState(state);
+  assert.equal(nextRunPath.id, 'path-b');
+  assert.equal(nextRunPath.geometry, 'freehand');
+  assert.deepEqual(plain(nextRunPath.stroke), { color: '#36d399', style: 'dotted' });
+  assert.deepEqual(plain(nextRunPath.anchors), {
+    fill: '#f7fbfc',
+    border: '#111619',
+    borderMatchesStroke: false,
+  });
+
+  const activeDraft = { type: 'measure', points: [{ x: 0, y: 0 }], activePath: nextRunPath };
+  state.inProgress = activeDraft;
+  controller.handleAction({ dataset: { action: 'path-dock-select-path', pathDockTemplateId: 'rough-in', pathDockPathId: 'path-a' } });
+
+  assert.equal(pathTemplates.activePathForState(state).id, 'path-a');
+  assert.equal(activeDraft.activePath.id, 'path-b');
+  assert.equal(activeDraft.activePath.geometry, 'freehand');
+  assert.deepEqual(plain(activeDraft.activePath.stroke), { color: '#36d399', style: 'dotted' });
+  assert.deepEqual(plain(activeDraft.activePath.anchors), {
+    fill: '#f7fbfc',
+    border: '#111619',
+    borderMatchesStroke: false,
+  });
+  assert.match(root.innerHTML, /data-path-dock-active-path-id="path-a"/);
 });
