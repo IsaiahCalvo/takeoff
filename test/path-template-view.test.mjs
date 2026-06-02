@@ -122,3 +122,58 @@ test('preview HTML is delegated to the path style renderer', async () => {
     options: { ariaLabel: 'Branch preview' },
   }]);
 });
+
+test('path cards render shared two-anchor preview glyphs instead of color swatches', async () => {
+  const { pathTemplates, renderer, view } = await loadPathTemplateView();
+  const state = pathTemplates.normalizePathTemplateState({
+    pathTemplates: [{
+      id: 'template-a',
+      title: 'Signal',
+      paths: [{
+        id: 'solid-path',
+        templateId: 'template-a',
+        name: 'Solid path',
+        stroke: { color: '#2f8cff', style: 'solid' },
+        anchors: { fill: '#ff3b66', border: '#ffffff', borderMatchesStroke: false },
+      }, {
+        id: 'dashed-path',
+        templateId: 'template-a',
+        name: 'Dashed path',
+        stroke: { color: '#36d399', style: 'dashed' },
+        anchors: { fill: '#0b0f11', borderMatchesStroke: true },
+      }, {
+        id: 'dotted-path',
+        templateId: 'template-a',
+        name: 'Dotted path',
+        stroke: { color: '#ffb13c', style: 'dotted' },
+        anchors: { fill: '#7c3cff', border: '#ffd166', borderMatchesStroke: false },
+      }],
+    }],
+    activePathTemplateId: 'template-a',
+    activePathId: 'solid-path',
+  });
+  const root = {
+    innerHTML: '',
+    addEventListener() {},
+    removeEventListener() {},
+  };
+
+  view.createPathTemplateHome({ root, state, pathTemplates, renderer });
+
+  const card = (id) => root.innerHTML.match(new RegExp(`<button class="path-template-path-card[\\s\\S]*?data-path-id="${id}"[\\s\\S]*?</button>`))?.[0] || '';
+  const solidCard = card('solid-path');
+  const dashedCard = card('dashed-path');
+  const dottedCard = card('dotted-path');
+
+  assert.doesNotMatch(root.innerHTML, /path-template-path-swatch/);
+  assert.equal((root.innerHTML.match(/path-template-path-preview/g) || []).length, 3);
+  assert.match(solidCard, /<svg\b/);
+  assert.equal(solidCard.includes(`d="${renderer.PATH_STYLE_PREVIEW_GEOMETRY.pathD}"`), true);
+  assert.equal(solidCard.includes('stroke="#2f8cff"'), true);
+  assert.equal(solidCard.includes('fill="#ff3b66" stroke="#ffffff"'), true);
+  assert.doesNotMatch(solidCard, /stroke-dasharray/);
+  assert.match(dashedCard, /stroke-dasharray="18 13"/);
+  assert.equal(dashedCard.includes('fill="#0b0f11" stroke="#36d399"'), true);
+  assert.match(dottedCard, /stroke-dasharray="1 16"/);
+  assert.equal(dottedCard.includes('fill="#7c3cff" stroke="#ffd166"'), true);
+});
