@@ -30,6 +30,54 @@ test('findNearestVertex detects line anchors within tolerance', async () => {
   });
 });
 
+test('mixed paths expose terminal snap anchors without vertex edit handles', async () => {
+  const hitTesting = await loadHitTesting();
+  const mixed = {
+    id: 10,
+    drawType: 'path',
+    shape: { active: 'path' },
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    mergeMemory: {
+      sources: [{
+        kind: 'line',
+        current: { points: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+      }, {
+        kind: 'freehand',
+        current: {
+          points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+          segments: [{
+            type: 'cubic',
+            from: { x: 10, y: 0 },
+            c1: { x: 13, y: 0 },
+            c2: { x: 17, y: 0 },
+            to: { x: 20, y: 0 },
+          }],
+        },
+      }],
+    },
+  };
+
+  assert.equal(hitTesting.findNearestVertex([mixed], { x: 0, y: 0 }, 6), null);
+  const snap = hitTesting.findSnapTarget([mixed], { x: 1, y: 1 }, {
+    anchorTolerance: 6,
+    centerlineTolerance: 0,
+  });
+  assert.equal(snap.kind, 'anchor');
+  assert.equal(snap.endpoint, 'start');
+  assert.equal(snap.measurementId, 10);
+
+  const pathHit = hitTesting.findNearestPathPoint([mixed], { x: 5, y: 2 }, 6);
+  assert.equal(pathHit.measurementId, 10);
+  assert.equal(pathHit.type, 'mixed');
+
+  const centerlineSnap = hitTesting.findSnapTarget([mixed], { x: 15, y: 2 }, {
+    anchorTolerance: 0,
+    centerlineTolerance: 6,
+  });
+  assert.equal(centerlineSnap.kind, 'centerline');
+  assert.equal(centerlineSnap.measurementId, 10);
+});
+
 test('curve controls are only returned when requested', async () => {
   const hitTesting = await loadHitTesting();
   const measurement = {

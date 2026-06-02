@@ -218,8 +218,13 @@ test('context menu exposes only Line and Freehand conversion wording', async () 
   assert.match(contextMenu, /data-action="convert-to-line"[^>]*>Convert to Line<\/button>/);
   assert.match(contextMenu, /data-action="convert-to-freehand"[^>]*>Convert to Freehand<\/button>/);
   assert.match(contextMenu, /data-action="merge-paths"[^>]*>Merge Paths<\/button>/);
+  assert.match(contextMenu, /data-action="unmerge-paths"[^>]*>Unmerge Paths<\/button>/);
+  assert.match(html, /id="unmergePathModal"/);
+  assert.match(html, />Unmerge to original<\/button>/);
+  assert.match(html, />Unmerge and maintain edits<\/button>/);
   assert.doesNotMatch(contextMenu, /Bezier|Bézier|spline|polyline|curve/i);
   assert.match(styles, /\.context-menu button\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(styles, /\.unmerge-actions\s*\{/);
 });
 
 test('bottom-left HUD exposes the Snap to paths toggle beside cursor status', async () => {

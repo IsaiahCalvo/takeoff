@@ -86,6 +86,59 @@
     };
   }
 
+  function translateShapeGeometry(shape, dx, dy) {
+    if (!shape || typeof shape !== 'object') return shape;
+    const cloned = JSON.parse(JSON.stringify(shape));
+    const translatePoint = point => (point ? { x: point.x + dx, y: point.y + dy } : point);
+    const translateSegments = segments => (
+      Array.isArray(segments) ? segments.map(segment => translateSegment(segment, dx, dy)) : segments
+    );
+    for (const key of ['previousLine', 'previousFreehand']) {
+      if (!cloned[key]) continue;
+      if (Array.isArray(cloned[key].points)) cloned[key].points = cloned[key].points.map(translatePoint);
+      if (Array.isArray(cloned[key].segments)) cloned[key].segments = translateSegments(cloned[key].segments);
+      if (cloned[key].labelPoint) cloned[key].labelPoint = translatePoint(cloned[key].labelPoint);
+    }
+    return cloned;
+  }
+
+  function translateGeometryObject(geometryObject, dx, dy) {
+    if (!geometryObject || typeof geometryObject !== 'object') return geometryObject;
+    const translated = { ...geometryObject };
+    if (Array.isArray(geometryObject.points)) {
+      translated.points = geometryObject.points.map(point => ({ x: point.x + dx, y: point.y + dy }));
+    }
+    if (Array.isArray(geometryObject.segments)) {
+      translated.segments = geometryObject.segments.map(segment => translateSegment(segment, dx, dy));
+    }
+    if (geometryObject.shape) translated.shape = translateShapeGeometry(geometryObject.shape, dx, dy);
+    if (geometryObject.rotationFrame) {
+      translated.rotationFrame = {
+        ...geometryObject.rotationFrame,
+        x: geometryObject.rotationFrame.x + dx,
+        y: geometryObject.rotationFrame.y + dy,
+        cx: geometryObject.rotationFrame.cx + dx,
+        cy: geometryObject.rotationFrame.cy + dy,
+      };
+    }
+    return translated;
+  }
+
+  function translateMergeMemory(memory, dx, dy) {
+    if (!memory || typeof memory !== 'object') return memory;
+    return {
+      ...memory,
+      sources: Array.isArray(memory.sources)
+        ? memory.sources.map(source => ({
+          ...source,
+          current: translateGeometryObject(source.current, dx, dy),
+          boundary: translateGeometryObject(source.boundary, dx, dy),
+          original: translateGeometryObject(source.original, dx, dy),
+        }))
+        : memory.sources,
+    };
+  }
+
   function measurementToStackMeasurement(measurement, layout) {
     const pageBox = pageBoxForPage(layout, measurement?.page);
     if (!measurement || !pageBox) return null;
@@ -96,6 +149,7 @@
       points: (measurement.points || []).map(point => ({ x: point.x + dx, y: point.y + dy })),
       segments: measurement.segments ? measurement.segments.map(segment => translateSegment(segment, dx, dy)) : null,
     };
+    if (measurement.mergeMemory) translated.mergeMemory = translateMergeMemory(measurement.mergeMemory, dx, dy);
     if (measurement.rotationFrame) {
       translated.rotationFrame = {
         ...measurement.rotationFrame,

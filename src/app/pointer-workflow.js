@@ -30,6 +30,10 @@
     return segments ? segments.map(cloneSegment) : null;
   }
 
+  function cloneValue(value) {
+    return value == null ? value : JSON.parse(JSON.stringify(value));
+  }
+
   function cloneShape(shape) {
     return measurementModel?.cloneShapeMetadata ? measurementModel.cloneShapeMetadata(shape) : null;
   }
@@ -42,8 +46,41 @@
     return transformShape(shape, point => ({ x: point.x + dx, y: point.y + dy }));
   }
 
+  function transformCurrentGeometry(current, mapPoint) {
+    if (!current || typeof current !== 'object') return current;
+    return {
+      ...current,
+      points: Array.isArray(current.points) ? current.points.map(mapPoint) : current.points,
+      segments: Array.isArray(current.segments) ? current.segments.map(segment => ({
+        ...segment,
+        from: mapPoint(segment.from),
+        c1: mapPoint(segment.c1),
+        c2: mapPoint(segment.c2),
+        to: mapPoint(segment.to),
+      })) : current.segments,
+    };
+  }
+
+  function transformMergeMemory(memory, mapPoint) {
+    const cloned = cloneValue(memory);
+    if (!cloned?.sources || typeof mapPoint !== 'function') return cloned;
+    cloned.sources = cloned.sources.map(source => ({
+      ...source,
+      current: transformCurrentGeometry(source.current, mapPoint),
+    }));
+    return cloned;
+  }
+
+  function translateMergeMemory(memory, dx, dy) {
+    return transformMergeMemory(memory, point => ({ x: point.x + dx, y: point.y + dy }));
+  }
+
   function rotateShape(shape, center, degrees) {
     return transformShape(shape, point => geometry.rotatePoint(point, center, degrees));
+  }
+
+  function rotateMergeMemory(memory, center, degrees) {
+    return transformMergeMemory(memory, point => geometry.rotatePoint(point, center, degrees));
   }
 
   function firstPointDelta(before, after) {
@@ -89,6 +126,7 @@
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
       originalShape: cloneShape(measurement.shape),
+      originalMergeMemory: cloneValue(measurement.mergeMemory),
       originalAngle: geometry.normalizeDegrees(measurement.rotationAngle || 0),
       originalFrame: { ...frame },
     };
@@ -102,6 +140,7 @@
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
       originalShape: cloneShape(measurement.shape),
+      originalMergeMemory: cloneValue(measurement.mergeMemory),
       originalFrame: measurement.rotationFrame ? { ...measurement.rotationFrame } : null,
       originalBounds: bounds,
     };
@@ -133,6 +172,7 @@
       measurement.segments = geometry.translateSegments(drag.originalSegments, dx, dy);
     }
     if (drag.originalShape) measurement.shape = translateShape(drag.originalShape, dx, dy);
+    if (drag.originalMergeMemory) measurement.mergeMemory = translateMergeMemory(drag.originalMergeMemory, dx, dy);
     if (drag.originalFrame) {
       measurement.rotationFrame = {
         ...drag.originalFrame,
@@ -152,6 +192,7 @@
     originalPoints,
     originalSegments = null,
     originalShape = null,
+    originalMergeMemory = null,
     nextAngle,
     constrainGeometry = (points, segments) => ({ points, segments }),
     createRotationFrame = () => null,
@@ -167,12 +208,16 @@
     const constrainedGeometry = constrainGeometry(rotatedPoints, isCurve ? rotatedSegments : null);
     const constrainedDelta = firstPointDelta(rotatedPoints, constrainedGeometry.points);
     const rotatedShape = originalShape ? translateShape(rotateShape(originalShape, center, rotateDelta), constrainedDelta.dx, constrainedDelta.dy) : null;
+    const rotatedMergeMemory = originalMergeMemory
+      ? translateMergeMemory(rotateMergeMemory(originalMergeMemory, center, rotateDelta), constrainedDelta.dx, constrainedDelta.dy)
+      : null;
 
     measurement.points = constrainedGeometry.points;
     if (isCurve && constrainedGeometry.segments) {
       measurement.segments = constrainedGeometry.segments;
     }
     if (rotatedShape) measurement.shape = rotatedShape;
+    if (rotatedMergeMemory) measurement.mergeMemory = rotatedMergeMemory;
     measurement.rotationAngle = normalizedAngle;
     measurement.rotationFrame = createRotationFrame(measurement);
     if (measurement.rotationFrame) measurement.rotationFrame.angle = normalizedAngle;
@@ -199,6 +244,7 @@
       originalPoints: drag.originalPoints,
       originalSegments: drag.originalSegments,
       originalShape: drag.originalShape,
+      originalMergeMemory: drag.originalMergeMemory,
       nextAngle,
       constrainGeometry,
       createRotationFrame,
@@ -219,6 +265,7 @@
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
       originalShape: cloneShape(measurement.shape),
+      originalMergeMemory: cloneValue(measurement.mergeMemory),
       nextAngle,
       constrainGeometry,
       createRotationFrame,

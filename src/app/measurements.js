@@ -2,6 +2,7 @@
   const geometry = window.TakeoffGeometry;
   const LINE_SHAPE = 'line';
   const FREEHAND_SHAPE = 'freehand';
+  const PATH_SHAPE = 'path';
 
   function cloneValue(value) {
     if (value == null) return value;
@@ -13,7 +14,7 @@
   }
 
   function normalizeShapeKind(kind) {
-    if (kind === LINE_SHAPE || kind === FREEHAND_SHAPE) return kind;
+    if (kind === LINE_SHAPE || kind === FREEHAND_SHAPE || kind === PATH_SHAPE) return kind;
     return null;
   }
 
@@ -37,6 +38,61 @@
 
   function isFreehandMeasurement(measurement) {
     return measurementShapeKind(measurement) === FREEHAND_SHAPE;
+  }
+
+  function mixedSources(measurement) {
+    const sources = measurement?.mergeMemory?.sources;
+    return Array.isArray(sources) ? sources : [];
+  }
+
+  function isMixedMeasurement(measurement) {
+    return measurementShapeKind(measurement) === PATH_SHAPE && mixedSources(measurement).length > 0;
+  }
+
+  function sourceCurrentGeometry(source) {
+    return source?.current && typeof source.current === 'object' ? source.current : source;
+  }
+
+  function appendUniquePoint(points, point) {
+    if (!point) return;
+    const last = points[points.length - 1];
+    if (!last || geometry.distancePx(last, point) > 0.0001) points.push(point);
+  }
+
+  function mixedSourceDisplayPoints(source) {
+    const current = sourceCurrentGeometry(source);
+    if (source?.kind === FREEHAND_SHAPE && Array.isArray(current?.segments) && current.segments.length) {
+      return geometry.flattenSegments(current.segments, 18);
+    }
+    return Array.isArray(current?.points) ? current.points : [];
+  }
+
+  function mixedMeasurementDisplayPoints(measurement) {
+    const points = [];
+    for (const source of mixedSources(measurement)) {
+      for (const point of mixedSourceDisplayPoints(source)) appendUniquePoint(points, point);
+    }
+    return points;
+  }
+
+  function mixedEndpointPoints(measurement) {
+    const points = mixedMeasurementDisplayPoints(measurement);
+    if (!points.length) return [];
+    return points.length === 1
+      ? [{ ...points[0] }]
+      : [{ ...points[0] }, { ...points[points.length - 1] }];
+  }
+
+  function updateMixedAnchors(measurement) {
+    if (isMixedMeasurement(measurement)) measurement.points = mixedEndpointPoints(measurement);
+  }
+
+  function mixedSourceLengthPx(source) {
+    const current = sourceCurrentGeometry(source);
+    if (source?.kind === FREEHAND_SHAPE && Array.isArray(current?.segments) && current.segments.length) {
+      return current.segments.reduce((sum, segment) => sum + geometry.cubicLengthPx(segment), 0);
+    }
+    return geometry.polylineLengthPx(current?.points || []);
   }
 
   function createShapeMetadata(active = LINE_SHAPE, metadata = {}) {
@@ -87,6 +143,9 @@
   }
 
   function measurementLengthPx(measurement) {
+    if (isMixedMeasurement(measurement)) {
+      return mixedSources(measurement).reduce((sum, source) => sum + mixedSourceLengthPx(source), 0);
+    }
     if (isCurveMeasurement(measurement)) {
       return measurement.segments.reduce((sum, segment) => sum + geometry.cubicLengthPx(segment), 0);
     }
@@ -94,6 +153,7 @@
   }
 
   function measurementDisplayPoints(measurement) {
+    if (isMixedMeasurement(measurement)) return mixedMeasurementDisplayPoints(measurement);
     return isCurveMeasurement(measurement)
       ? geometry.flattenSegments(measurement.segments, 18)
       : (measurement.points || []);
@@ -175,11 +235,18 @@
   window.TakeoffMeasurements = {
     LINE_SHAPE,
     FREEHAND_SHAPE,
+    PATH_SHAPE,
     hasCurveGeometry,
     isCurveMeasurement,
     measurementShapeKind,
     isLineMeasurement,
     isFreehandMeasurement,
+    isMixedMeasurement,
+    mixedSources,
+    mixedSourceDisplayPoints,
+    mixedMeasurementDisplayPoints,
+    mixedEndpointPoints,
+    updateMixedAnchors,
     createShapeMetadata,
     cloneShapeMetadata,
     transformGeometryMetadata,
