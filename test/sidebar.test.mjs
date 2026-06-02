@@ -266,6 +266,12 @@ test('shouldSelectMeasurementFromSidebarClick allows readonly title clicks to se
     hasAttribute() { return false; },
     classList: { contains: className => className === 'del' },
   }), false);
+
+  assert.equal(sidebar.shouldSelectMeasurementFromSidebarClick({
+    tagName: 'BUTTON',
+    hasAttribute() { return false; },
+    classList: { contains: className => className === 'run-details-action' },
+  }), false);
 });
 
 test('escapeHtml encodes text inserted into sidebar HTML', async () => {

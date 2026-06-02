@@ -10,7 +10,7 @@ import './app/path-template-store.js'; import './app/path-template-view.js';
 import './app/state.js';
 import './app/geometry.js';
 import './app/measurements.js';
-import './app/run-details.js'; import './app/measurement-commands.js';
+import './app/run-details.js'; import './app/run-detail-modal.js'; import './app/measurement-commands.js';
 import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js';
 import './app/page-state.js';
 import './app/continuous-scroll.js';
@@ -58,7 +58,7 @@ const pageState = window.TakeoffPageState;
 const continuousScroll = window.TakeoffContinuousScroll;
 const continuousRenderer = window.TakeoffContinuousRenderer;
 const continuousMeasurements = window.TakeoffContinuousMeasurements;
-const unitModel = window.TakeoffUnits;
+const unitModel = window.TakeoffUnits, runDetailModalModel = window.TakeoffRunDetailModal;
 const tooltipController = window.TakeoffTooltipController;
 const pdfEngine = window.TakeoffPdfEngine;
 const performanceLogger = window.TakeoffPerformanceLogger.createPerformanceLogger();
@@ -74,28 +74,21 @@ const {
   recomputeLengthsForPage: recomputePageLengths,
 } = window.TakeoffCalibrationUtils;
 
-function currentPage() { return pageState.currentPage(state); }
-function totalPages() { return pageState.totalPages(state); }
-function documentPageCount() { return pageState.documentPageCount(state); }
-
+function currentPage() { return pageState.currentPage(state); } function totalPages() { return pageState.totalPages(state); } function documentPageCount() { return pageState.documentPageCount(state); }
 function updateSidebarScopeChrome(model) {
   sidebarController.applyScopeChrome({ scopeTabs: $('scopeTabs'), totalHeading: $('totalHeading'), entireTotal: $('entireTotal'), tabs: document.querySelectorAll('.tab'), model });
 }
-
 function scaleHudText() { return unitModel.scaleHudText({ pxPerInch: state.pxPerInch, unit: state.unit }); }
-
 function updateCursorHud() {
   const x = state.cursorImg ? state.cursorImg.x.toFixed(0) : '—';
   const y = state.cursorImg ? state.cursorImg.y.toFixed(0) : '—';
   $('cursorPos').innerHTML = `<span class="hud-part">scale: <strong>${scaleHudText()}</strong></span><span class="hud-part">x: <strong>${x}</strong></span><span class="hud-part">y: <strong>${y}</strong></span>`;
 }
-
 function updateScaleLabel() {
   $('resetScale').disabled = !state.pxPerInch;
   updateCursorHud();
   updateContinuousScrollControl();
 }
-
 function updatePageLabel() {
   const current = state.baseW ? currentPage() : '—';
   const total = state.baseW ? totalPages() : '—';
@@ -2090,9 +2083,14 @@ const pathSettingsModal = pathSettings.createPathSettingsModal({
   setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }),
   syncSelectionWithPathCategoryVisibility, renderList, redraw, showStatus,
 });
+runDetailModalModel.bindRunDetailModal({
+  root: document, sidebarRoot: measList, sidebarController, state, stateStore, measurementCommands, measurementById,
+  createHistorySnapshot, recordHistory, renderList, redraw, showStatus,
+});
 const unmergePathModal = window.TakeoffUnmergePathModal.createUnmergePathModal({ getElement: $, state, measurementCommands, scaleForPage, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus, setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }) });
 
 function openPathSettingsForGroup(pathGroupId, triggerElement) { pathSettingsModal.open(sidebarPathGroupsById.get(pathGroupId), triggerElement); }
+
 // Sidebar tab switching
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {

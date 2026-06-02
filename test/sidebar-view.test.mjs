@@ -42,7 +42,27 @@ test('buildMeasurementItemMarkup escapes names and keeps row controls in one tem
   assert.match(markup, /class="length-error"/);
   assert.match(markup, /role="alert"/);
   assert.match(markup, /readonly/);
+  assert.match(markup, /class="run-details-action"/);
+  assert.match(markup, /data-run-details-action="open"/);
+  assert.match(markup, /aria-label="Add Run Details"/);
   assert.match(markup, /data-id="12"/);
+});
+
+test('buildMeasurementItemMarkup marks rows with saved Run Details compactly', async () => {
+  const view = await loadSidebarView();
+  const markup = view.buildMeasurementItemMarkup({
+    color: '#b6ff3c',
+    name: 'Detailed run',
+    pointCount: 2,
+    lengthValue: '8.00',
+    lengthUnit: 'ft',
+    measurementId: 42,
+    detailsPresent: true,
+  });
+
+  assert.match(markup, /class="run-details-action has-details"/);
+  assert.match(markup, /data-measurement-id="42"/);
+  assert.match(markup, /aria-label="Edit Run Details\. Details saved\."/);
 });
 
 test('buildPathGroupMarkup renders Path summary, category, coverage, and total safely', async () => {

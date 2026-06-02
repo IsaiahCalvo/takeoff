@@ -52,6 +52,7 @@ test('buildMeasurementItemViewModel prepares sidebar row display data', async ()
     points: [{}, {}, {}],
     page: 2,
     lengthInches: 24,
+    runDetails: { text: 'Needs review', photos: [], videos: [] },
   };
 
   const model = sidebar.buildMeasurementItemViewModel({
@@ -63,6 +64,7 @@ test('buildMeasurementItemViewModel prepares sidebar row display data', async ()
     formatLength: inches => `${inches / 12}`,
     unitLabel: () => 'ft',
     measurementItemClass: ({ selected, isUnscaled }) => `item ${selected ? 'selected' : ''} ${isUnscaled ? 'unscaled' : ''}`.trim(),
+    hasRunDetails: details => details?.text === 'Needs review',
   });
 
   assert.deepEqual(plain(model), {
@@ -76,6 +78,7 @@ test('buildMeasurementItemViewModel prepares sidebar row display data', async ()
     lengthUnit: 'ft',
     lengthHtml: '2 <span class="unit">ft</span>',
     measurementId: 8,
+    detailsPresent: true,
     className: 'item selected',
   });
 });
@@ -213,6 +216,48 @@ test('Path group settings controls dispatch the grouped row action', async () =>
   });
 
   assert.deepEqual(plain(calls), ['stopped', 'prevented', 'path:template-security:path-cat6', 'button']);
+});
+
+test('Run Details controls dispatch the run row action', async () => {
+  const sidebar = await loadSidebarController();
+  const listeners = {};
+  const calls = [];
+  const root = {
+    contains(target) {
+      return target?.insideRoot === true;
+    },
+    addEventListener(type, handler) {
+      listeners[type] = handler;
+    },
+  };
+  const button = {
+    insideRoot: true,
+    dataset: { measurementId: '42' },
+  };
+
+  sidebar.bindRunDetailsControls({
+    root,
+    openDetails(measurementId, trigger) {
+      calls.push(measurementId);
+      calls.push(trigger === button ? 'button' : 'missing-button');
+    },
+  });
+
+  listeners.click({
+    target: {
+      closest(selector) {
+        return selector === '[data-run-details-action="open"]' ? button : null;
+      },
+    },
+    stopPropagation() {
+      calls.push('stopped');
+    },
+    preventDefault() {
+      calls.push('prevented');
+    },
+  });
+
+  assert.deepEqual(plain(calls), ['stopped', 'prevented', '42', 'button']);
 });
 
 test('revealMeasurementRow expands the containing Path group and scrolls the exact run row', async () => {
