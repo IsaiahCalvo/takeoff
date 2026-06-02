@@ -59,20 +59,47 @@
     };
   }
 
-  function createEditableLengthInput({ input, currentValue, commit, cancel } = {}) {
-    function end() {
-      input.setAttribute('readonly', '');
-      if (input.setSelectionRange) input.setSelectionRange(0, 0);
+  function createEditableLengthInput({
+    input,
+    currentValue,
+    commit,
+    cancel,
+    errorEl = null,
+    validationMessage = 'Enter a positive Length.',
+  } = {}) {
+    function setErrorVisible(visible) {
+      if (!errorEl) return;
+      errorEl.hidden = !visible;
+      errorEl.textContent = visible ? validationMessage : '';
+      if (visible && errorEl.id) input.setAttribute('aria-describedby', errorEl.id);
     }
 
-    function resetToCurrent() {
-      input.value = currentValue ? currentValue() : input.value;
+    function clearValidation() {
+      if (input.classList) input.classList.remove('invalid');
+      input.removeAttribute('aria-invalid');
+      input.removeAttribute('aria-describedby');
+      setErrorVisible(false);
+    }
+
+    function showValidation() {
+      if (input.classList) input.classList.add('invalid');
+      input.setAttribute('aria-invalid', 'true');
+      setErrorVisible(true);
+      input.focus();
+      if (input.select) input.select();
+    }
+
+    function end() {
+      clearValidation();
+      input.setAttribute('readonly', '');
+      if (input.setSelectionRange) input.setSelectionRange(0, 0);
     }
 
     function start() {
       const value = currentValue ? currentValue() : input.value;
       input.dataset.originalLength = value;
       input.value = value;
+      clearValidation();
       input.removeAttribute('readonly');
       input.focus();
       if (input.select) input.select();
@@ -80,7 +107,10 @@
 
     function commitValue() {
       const accepted = commit ? commit(input.value) : true;
-      if (!accepted) resetToCurrent();
+      if (!accepted) {
+        showValidation();
+        return false;
+      }
       end();
       return !!accepted;
     }
@@ -100,8 +130,7 @@
         event.stopPropagation();
         event.preventDefault();
       } else if (event.key === 'Enter') {
-        commitValue();
-        input.blur();
+        if (commitValue()) input.blur();
         event.stopPropagation();
         event.preventDefault();
       }
@@ -109,7 +138,7 @@
 
     function handleBlur() {
       if (input.hasAttribute('readonly')) return;
-      commitValue();
+      return commitValue();
     }
 
     return {

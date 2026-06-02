@@ -39,6 +39,8 @@ test('buildMeasurementItemMarkup escapes names and keeps row controls in one tem
   assert.match(markup, /title="No page scale; excluded from totals\."/);
   assert.match(markup, /input class="length"/);
   assert.match(markup, /aria-label="Length"/);
+  assert.match(markup, /class="length-error"/);
+  assert.match(markup, /role="alert"/);
   assert.match(markup, /readonly/);
   assert.match(markup, /data-id="12"/);
 });

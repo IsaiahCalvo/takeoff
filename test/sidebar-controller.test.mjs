@@ -221,3 +221,84 @@ test('editableLengthInput handles Enter commit and Escape cancel', async () => {
   assert.ok(events.includes('stop-escape'));
   assert.ok(events.includes('prevent-escape'));
 });
+
+test('editableLengthInput keeps focus and validation state when Enter or blur rejects Length', async () => {
+  const sidebar = await loadSidebarController();
+  const events = [];
+  const attrs = {};
+  const classes = new Set();
+  const errorEl = {
+    hidden: true,
+    textContent: '',
+    id: 'length-error-1',
+  };
+  const input = {
+    value: '2.00',
+    dataset: {},
+    readOnly: true,
+    removeAttribute(name) {
+      if (name === 'readonly') this.readOnly = false;
+      delete attrs[name];
+    },
+    setAttribute(name, value = '') {
+      if (name === 'readonly') this.readOnly = true;
+      attrs[name] = value;
+    },
+    hasAttribute(name) {
+      return name === 'readonly' ? this.readOnly : Object.hasOwn(attrs, name);
+    },
+    focus() {
+      events.push('focus');
+    },
+    select() {
+      events.push('select');
+    },
+    blur() {
+      events.push('blur');
+    },
+    setSelectionRange(start, end) {
+      events.push(`selection:${start}:${end}`);
+    },
+    classList: {
+      add(name) { classes.add(name); },
+      remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); },
+    },
+  };
+  const editor = sidebar.createEditableLengthInput({
+    input,
+    errorEl,
+    validationMessage: 'Enter a positive Length.',
+    currentValue: () => '2.00',
+    commit: value => {
+      events.push(`commit:${value}`);
+      return false;
+    },
+  });
+
+  editor.start();
+  input.value = 'bad';
+  editor.handleKeyDown({
+    key: 'Enter',
+    stopPropagation() { events.push('stop'); },
+    preventDefault() { events.push('prevent'); },
+  });
+
+  assert.equal(input.value, 'bad');
+  assert.equal(input.readOnly, false);
+  assert.equal(attrs['aria-invalid'], 'true');
+  assert.equal(attrs['aria-describedby'], 'length-error-1');
+  assert.equal(classes.has('invalid'), true);
+  assert.equal(errorEl.hidden, false);
+  assert.equal(errorEl.textContent, 'Enter a positive Length.');
+  assert.deepEqual(events.slice(-4), ['focus', 'select', 'stop', 'prevent']);
+
+  input.value = '';
+  editor.handleBlur();
+
+  assert.equal(input.value, '');
+  assert.equal(input.readOnly, false);
+  assert.equal(events.at(-2), 'focus');
+  assert.equal(events.at(-1), 'select');
+  assert.equal(errorEl.hidden, false);
+});

@@ -90,10 +90,11 @@
       pill.classList.add('show');
       canvasLengthEditor = sidebarController.createEditableLengthInput({
         input,
+        errorEl: pill.querySelector('.length-edit-error'),
         currentValue: () => measurementLengthValue(measurementById(activeCanvasLengthEditId)),
         commit: value => {
           const accepted = commitMeasurementLengthEdit(activeCanvasLengthEditId, value);
-          hideCanvasLengthEdit();
+          if (accepted) hideCanvasLengthEdit();
           return accepted;
         },
         cancel: () => hideCanvasLengthEdit(),
@@ -123,6 +124,7 @@
       const lengthInput = item.querySelector('.length');
       const lengthEditor = sidebarController.createEditableLengthInput({
         input: lengthInput,
+        errorEl: item.querySelector('.length-error'),
         currentValue: () => measurementLengthValue(measurement),
         commit: value => commitMeasurementLengthEdit(measurement, value),
       });
@@ -150,8 +152,7 @@
     });
     input.addEventListener('blur', () => {
       const editor = canvasLengthEditor;
-      if (editor) editor.handleBlur();
-      hideCanvasLengthEdit();
+      if (editor && editor.handleBlur()) hideCanvasLengthEdit();
     });
 
     return {
