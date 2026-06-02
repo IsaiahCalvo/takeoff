@@ -1,8 +1,11 @@
 import './export-utils.js';
 import './calibration-utils.js';
-import './app/sidebar.js'; import './app/sidebar-view.js';
+import './app/sidebar.js';
+import './app/sidebar-view.js';
 import './app/sidebar-controller.js';
 import './app/length-edit-controller.js';
+import './app/path-templates.js';
+import './app/path-template-store.js';
 import './app/state.js';
 import './app/geometry.js';
 import './app/measurements.js';
@@ -40,6 +43,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 // ------- State -------
 const ONBOARDING_STATUS_KEY = 'cableRunStatusSeen';
 const stateStore = window.TakeoffState;
+const pathTemplateStore = window.TakeoffPathTemplateStore.createPathTemplateStore();
 const sidebarView = window.TakeoffSidebarView;
 const sidebarController = window.TakeoffSidebarController;
 const pointerController = window.TakeoffPointerController;
@@ -59,7 +63,8 @@ const unitModel = window.TakeoffUnits;
 const tooltipController = window.TakeoffTooltipController;
 const pdfEngine = window.TakeoffPdfEngine;
 const performanceLogger = window.TakeoffPerformanceLogger.createPerformanceLogger();
-const state = stateStore.createInitialState();
+const state = stateStore.createInitialState({ pathTemplateState: pathTemplateStore.load() });
+pathTemplateStore.save(state);
 performanceLogger.startFrameSampling(); window.TakeoffPerformanceLog = performanceLogger;
 
 const {
@@ -74,7 +79,6 @@ const {
 function currentPage() { return pageState.currentPage(state); }
 function totalPages() { return pageState.totalPages(state); }
 function documentPageCount() { return pageState.documentPageCount(state); }
-
 
 function updateSidebarScopeChrome(model) {
   sidebarController.applyScopeChrome({
