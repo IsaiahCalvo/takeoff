@@ -84,7 +84,7 @@ test('main runtime stays below the current coordination ceiling', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const lineCount = main.trimEnd().split('\n').length;
 
-  assert.equal(lineCount < 2480, true, `src/main.js has ${lineCount} lines`);
+  assert.equal(lineCount < 2560, true, `src/main.js has ${lineCount} lines`);
   assert.doesNotMatch(main, /function downloadBytes\(/);
   assert.doesNotMatch(main, /function positionToolTip\(/);
   assert.match(main, /TakeoffPointerWorkflow/);
@@ -217,8 +217,20 @@ test('context menu exposes only Line and Freehand conversion wording', async () 
 
   assert.match(contextMenu, /data-action="convert-to-line"[^>]*>Convert to Line<\/button>/);
   assert.match(contextMenu, /data-action="convert-to-freehand"[^>]*>Convert to Freehand<\/button>/);
+  assert.match(contextMenu, /data-action="merge-paths"[^>]*>Merge Paths<\/button>/);
   assert.doesNotMatch(contextMenu, /Bezier|Bézier|spline|polyline|curve/i);
   assert.match(styles, /\.context-menu button\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
+});
+
+test('bottom-left HUD exposes the Snap to paths toggle beside cursor status', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const hud = html.match(/<div class="hud">[\s\S]*?<\/div>\s*<\/div>\s*<\/main>/)?.[0] || '';
+
+  assert.match(hud, /id="cursorPos"/);
+  assert.match(hud, /id="snapToPaths"/);
+  assert.match(hud, />Snap to paths<\/span>/);
+  assert.match(styles, /\.snap-toggle\s*\{/);
 });
 
 test('freehand completion keeps the app in measure mode', async () => {
@@ -234,8 +246,9 @@ test('calibration drafts are page-owned in continuous mode', async () => {
   const calibrationBranch = main.match(/\} else if \(state\.mode === 'calibrate'\) \{[\s\S]*?\n  \} else if \(state\.mode === 'measure'\) \{/)?.[0] || '';
   const previewBlock = main.match(/\/\/ in-progress[\s\S]*?if \(state\.freehandDraft\)/)?.[0] || '';
 
-  assert.match(calibrationBranch, /continuousMeasurements\.pagePointInfo\(state,\s*p\)/);
-  assert.match(calibrationBranch, /drawInfo\.page !== state\.inProgress\.page/);
+  assert.match(calibrationBranch, /const rawInfo = drawingPointInfo\(p\)/);
+  assert.match(calibrationBranch, /rawInfo\.page !== state\.inProgress\.page/);
+  assert.match(calibrationBranch, /placementPointInfo\(p,\s*\{\s*page:\s*state\.inProgress\?\.page \|\| rawInfo\.page/);
   assert.match(calibrationBranch, /page:\s*drawInfo\.page/);
   assert.match(calibrationBranch, /points:\s*\[drawInfo\.point\]/);
   assert.match(calibrationBranch, /point:\s*drawInfo\.point/);

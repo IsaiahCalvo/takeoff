@@ -407,6 +407,30 @@
       }
     }
 
+    function drawSnapFeedback(snap) {
+      if (!snap?.point) return;
+      const kind = snap.kind === 'centerline' ? 'centerline' : 'anchor';
+      const group = svgNode('g', { class: `snap-feedback ${kind}` });
+      drawSvg.appendChild(group);
+      const r = overlayPageSize(kind === 'anchor' ? 7 : 5);
+      const color = kind === 'anchor' ? '#f7fbfc' : '#4cd6ff';
+      group.appendChild(svgNode('circle', {
+        cx: snap.point.x,
+        cy: snap.point.y,
+        r,
+        fill: 'rgba(11,13,14,0.36)',
+        stroke: color,
+        'stroke-width': overlayPageSize(2),
+      }));
+      group.appendChild(svgNode('circle', {
+        cx: snap.point.x,
+        cy: snap.point.y,
+        r: overlayPageSize(2),
+        fill: color,
+        stroke: 'none',
+      }));
+    }
+
     function drawPolyline(points, opts) {
       if (!points || points.length < 1) return;
       const group = svgNode('g');
@@ -455,6 +479,7 @@
       drawBezierSegments,
       drawEndpointAnchors,
       drawPolyline,
+      drawSnapFeedback,
     };
   }
 

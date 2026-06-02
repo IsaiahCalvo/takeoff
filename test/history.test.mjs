@@ -228,6 +228,59 @@ test('conversion history snapshots restore selected measurement through undo and
   ]);
 });
 
+test('merge history snapshots restore both paths through undo and redo', async () => {
+  const { commands, history } = await loadHistoryWithCommands();
+  const state = {
+    measurements: [{
+      id: 6,
+      page: 1,
+      drawType: 'line',
+      shape: { active: 'line' },
+      points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+      snapConnections: [{ endpoint: 'end', targetId: 7, targetEndpoint: 'start' }],
+    }, {
+      id: 7,
+      page: 1,
+      drawType: 'line',
+      shape: { active: 'line' },
+      points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+    }],
+    pageScales: { 1: 2 },
+    pxPerInch: 2,
+    selectedId: 6,
+    copiedMeasurement: null,
+    rotateModeId: null,
+    undoStack: [],
+    redoStack: [],
+    historyLimit: 20,
+  };
+
+  const before = history.createHistorySnapshot(state);
+  const result = commands.mergeSnappedEndpointPaths(state.measurements, {
+    sourceId: 6,
+    sourceEndpoint: 'end',
+    targetId: 7,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 });
+  state.measurements = result.measurements;
+  state.selectedId = result.measurement.id;
+  assert.equal(history.recordHistory(state, before, 'path merge'), true);
+
+  const entry = state.undoStack.pop();
+  state.redoStack.push(entry);
+  history.applyHistorySnapshot(state, entry.before, 1);
+  assert.deepEqual(plain(state.measurements.map(measurement => measurement.id)), [6, 7]);
+
+  state.undoStack.push(state.redoStack.pop());
+  history.applyHistorySnapshot(state, entry.after, 1);
+  assert.deepEqual(plain(state.measurements.map(measurement => measurement.id)), [6]);
+  assert.deepEqual(plain(state.measurements[0].points), [
+    { x: 0, y: 0 },
+    { x: 10, y: 0 },
+    { x: 20, y: 0 },
+  ]);
+});
+
 test('clearHistory removes undo and redo entries', async () => {
   const history = await loadHistory();
   const state = baseState();

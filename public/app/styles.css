@@ -1078,11 +1078,14 @@ main {
   z-index: 4;
 }
 .hud .pill { background: rgba(20,24,26,0.85); backdrop-filter: blur(8px); }
-#cursorPos {
-  min-height: 32px;
-  padding: 5px 10px;
+.cursor-hud {
   gap: 10px;
-  border-radius: 999px;
+  align-items: center;
+}
+#cursorPos {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 #cursorPos .hud-part {
   display: inline-flex;
@@ -1093,6 +1096,23 @@ main {
   padding-left: 10px;
   border-left: 1px solid rgba(132, 148, 158, 0.24);
 }
+.snap-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 10px;
+  border-left: 1px solid rgba(132, 148, 158, 0.24);
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+}
+.snap-toggle input {
+  width: 13px;
+  height: 13px;
+  accent-color: var(--accent);
+  margin: 0;
+}
+.snap-toggle:has(input:checked) { color: var(--text); }
 
 .status {
   position: absolute;

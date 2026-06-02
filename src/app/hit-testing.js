@@ -15,6 +15,63 @@
     return handles;
   }
 
+  function isVisibleMeasurement(measurement) {
+    return !!measurement && measurement.hidden !== true && measurement.visible !== false;
+  }
+
+  function isExcludedMeasurement(measurement, excluded) {
+    return excluded.has(measurement?.id) || excluded.has(String(measurement?.id));
+  }
+
+  function endpointRoleForHandle(measurement, handle) {
+    if (!measurement || !handle) return null;
+    if (measurements.isCurveMeasurement(measurement)) {
+      if (handle.kind !== 'curve-anchor') return null;
+      if (handle.segmentIndex === 0 && handle.anchor === 'from') return 'start';
+      if (handle.segmentIndex === measurement.segments.length - 1 && handle.anchor === 'to') return 'end';
+      return null;
+    }
+    const points = measurement.points || [];
+    if (handle.kind !== 'line-anchor' || !Number.isInteger(handle.vertexIndex) || points.length < 2) return null;
+    if (handle.vertexIndex === 0) return 'start';
+    if (handle.vertexIndex === points.length - 1) return 'end';
+    return null;
+  }
+
+  function snapAnchorHandles(measurement) {
+    if (measurements.isCurveMeasurement(measurement)) {
+      return curveEditHandles(measurement).filter(handle => handle.kind === 'curve-anchor');
+    }
+    return (measurement.points || []).map((point, vertexIndex) => ({
+      kind: 'line-anchor',
+      vertexIndex,
+      point,
+    }));
+  }
+
+  function snapTargetFromAnchor(measurement, handle, distance) {
+    return {
+      kind: 'anchor',
+      measurementId: measurement.id,
+      anchorKind: handle.kind,
+      vertexIndex: handle.vertexIndex,
+      segmentIndex: handle.segmentIndex,
+      anchor: handle.anchor,
+      point: handle.point,
+      endpoint: endpointRoleForHandle(measurement, handle),
+      distance,
+    };
+  }
+
+  function betterSnapHit(candidate, best) {
+    if (!candidate) return best;
+    if (!best) return candidate;
+    const priority = candidate.kind === 'anchor' ? 1 : 0;
+    const bestPriority = best.kind === 'anchor' ? 1 : 0;
+    if (priority !== bestPriority) return priority > bestPriority ? candidate : best;
+    return candidate.distance < best.distance ? candidate : best;
+  }
+
   function findNearestVertex(measurementList, point, tolerance, opts = {}) {
     let best = null;
     const epsilon = 1e-9;
@@ -76,6 +133,69 @@
     return best;
   }
 
+  function findSnapTarget(measurementList, point, opts = {}) {
+    const anchorTolerance = Number.isFinite(opts.anchorTolerance) ? opts.anchorTolerance : 0;
+    const centerlineTolerance = Number.isFinite(opts.centerlineTolerance) ? opts.centerlineTolerance : 0;
+    const excluded = new Set(opts.excludeMeasurementIds || []);
+    for (const id of opts.excludeMeasurementIds || []) excluded.add(String(id));
+    let anchorHit = null;
+    let centerlineHit = null;
+
+    for (const measurement of measurementList || []) {
+      if (!isVisibleMeasurement(measurement) || isExcludedMeasurement(measurement, excluded)) continue;
+      for (const handle of snapAnchorHandles(measurement)) {
+        const distance = geometry.distancePx(point, handle.point);
+        if (distance <= anchorTolerance) {
+          anchorHit = betterSnapHit(snapTargetFromAnchor(measurement, handle, distance), anchorHit);
+        }
+      }
+    }
+    if (anchorHit) return anchorHit;
+
+    for (const measurement of measurementList || []) {
+      if (!isVisibleMeasurement(measurement) || isExcludedMeasurement(measurement, excluded)) continue;
+      const hit = measurements.isCurveMeasurement(measurement)
+        ? measurements.projectPointToCurveMeasurement(point, measurement)
+        : measurements.projectPointToLineMeasurement(point, measurement);
+      if (hit && hit.distance <= centerlineTolerance) {
+        centerlineHit = betterSnapHit({ kind: 'centerline', measurementId: measurement.id, ...hit }, centerlineHit);
+      }
+    }
+    return centerlineHit;
+  }
+
+  function findTranslatedMeasurementSnap(measurement, measurementList, dx, dy, opts = {}) {
+    if (!measurement) return null;
+    let best = null;
+    const excluded = [...(opts.excludeMeasurementIds || []), measurement.id];
+    for (const handle of snapAnchorHandles(measurement)) {
+      const translatedPoint = { x: handle.point.x + dx, y: handle.point.y + dy };
+      const snap = findSnapTarget(measurementList, translatedPoint, {
+        ...opts,
+        excludeMeasurementIds: excluded,
+      });
+      if (!snap) continue;
+      const candidate = {
+        dx: dx + snap.point.x - translatedPoint.x,
+        dy: dy + snap.point.y - translatedPoint.y,
+        snap: {
+          ...snap,
+          source: {
+            kind: handle.kind,
+            vertexIndex: handle.vertexIndex,
+            segmentIndex: handle.segmentIndex,
+            anchor: handle.anchor,
+            endpoint: endpointRoleForHandle(measurement, handle),
+            point: handle.point,
+            translatedPoint,
+          },
+        },
+      };
+      best = betterSnapHit(candidate.snap, best?.snap) === candidate.snap ? candidate : best;
+    }
+    return best;
+  }
+
   function findNearestMeasurement(measurementList, point, tolerance) {
     for (const measurement of measurementList || []) {
       const points = measurements.measurementDisplayPoints(measurement);
@@ -111,6 +231,8 @@
     findNearestVertex,
     findNearestAnchor,
     findNearestPathPoint,
+    findSnapTarget,
+    findTranslatedMeasurementSnap,
     findNearestMeasurement,
     findLabelHit,
     isPointInBox,

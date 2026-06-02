@@ -85,6 +85,34 @@ test('buildBezierPath creates stable SVG cubic path commands', async () => {
   ]), 'M 0 0 C 5 0 5 10 10 10 L 10 10 C 15 10 15 0 20 0');
 });
 
+test('drawSnapFeedback renders a lightweight snap indicator', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawSnapFeedback({
+    kind: 'anchor',
+    point: { x: 12, y: 20 },
+  });
+
+  assert.equal(drawSvg.children.length, 1);
+  assert.equal(drawSvg.children[0].tag, 'g');
+  assert.equal(drawSvg.children[0].attrs.class, 'snap-feedback anchor');
+  assert.equal(drawSvg.children[0].children[0].tag, 'circle');
+  assert.equal(drawSvg.children[0].children[0].attrs.cx, '12');
+  assert.equal(drawSvg.children[0].children[0].attrs.cy, '20');
+});
+
 test('drawPolyline keeps floating labels clear of endpoint anchors on short segments', async () => {
   const renderer = await loadRenderer();
   const drawSvg = {

@@ -141,6 +141,8 @@
       dragLabel: null,
       rotationDrag: null,
       rotateModeId: null,
+      snapToPaths: false,
+      snapFeedback: null,
       rotationHandleHitbox: null,
       rotationInputVisible: false,
       pendingPaste: null,
@@ -195,6 +197,7 @@
     state.pxPerInch = null;
     state.inProgress = null;
     state.freehandDraft = null;
+    state.snapFeedback = null;
     state.selectedId = null;
     state.dragLabel = null;
     state.pageCache.clear();
@@ -232,6 +235,7 @@
     state.pageCache = new Map(doc.pageCache || []);
     state.inProgress = null;
     state.freehandDraft = null;
+    state.snapFeedback = null;
     state.selectedId = null;
     state.dragLabel = null;
     state.navToken++;

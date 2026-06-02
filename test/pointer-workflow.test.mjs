@@ -58,6 +58,38 @@ test('appendPointToDraft snaps only when shift is held', async () => {
   });
 });
 
+test('resolveSnapPoint preserves placement when Snap to paths is off', async () => {
+  const workflow = await loadPointerWorkflow();
+  let called = false;
+  const point = { x: 8, y: 3 };
+
+  assert.deepEqual(plain(workflow.resolveSnapPoint({
+    enabled: false,
+    point,
+    findSnapTarget: () => {
+      called = true;
+      return { point: { x: 8, y: 0 } };
+    },
+  })), {
+    point: { x: 8, y: 3 },
+    snap: null,
+  });
+  assert.equal(called, false);
+});
+
+test('resolveSnapPoint uses snapped path target when Snap to paths is on', async () => {
+  const workflow = await loadPointerWorkflow();
+
+  assert.deepEqual(plain(workflow.resolveSnapPoint({
+    enabled: true,
+    point: { x: 8, y: 3 },
+    findSnapTarget: () => ({ kind: 'centerline', point: { x: 8, y: 0 }, measurementId: 4 }),
+  })), {
+    point: { x: 8, y: 0 },
+    snap: { kind: 'centerline', point: { x: 8, y: 0 }, measurementId: 4 },
+  });
+});
+
 test('createRotationDrag clones editable geometry and captures rotation start state', async () => {
   const workflow = await loadPointerWorkflow();
   const measurement = {
@@ -132,6 +164,41 @@ test('createMeasurementDrag and applyMeasurementDrag translate points, segments,
   assert.equal(measurement.segments[0].to.y, 2);
   assert.deepEqual(plain(measurement.shape.previousLine.points), [{ x: 4, y: 2 }, { x: 14, y: 2 }]);
   assert.deepEqual(plain(measurement.rotationFrame), { x: 3, y: 1, width: 12, height: 2, cx: 9, cy: 2 });
+});
+
+test('applyMeasurementDrag can use a snapped whole-path delta', async () => {
+  const workflow = await loadPointerWorkflow();
+  const measurement = {
+    id: 7,
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+    rotationFrame: { x: 0, y: 0, width: 10, height: 1, cx: 5, cy: 0.5 },
+  };
+  const drag = workflow.createMeasurementDrag({
+    measurement,
+    pointer: { x: 0, y: 0 },
+    historyBefore: null,
+    bounds: { x: 0, y: 0, width: 10, height: 1 },
+  });
+
+  const result = workflow.applyMeasurementDrag({
+    measurement,
+    drag,
+    cursor: { x: 4, y: 4 },
+    constrainDelta: () => ({ dx: 4, dy: 4 }),
+    snapDelta: ({ dx, dy }) => ({
+      dx: dx + 1,
+      dy: dy - 2,
+      snap: { kind: 'anchor', measurementId: 12, point: { x: 5, y: 2 } },
+    }),
+  });
+
+  assert.deepEqual(plain(result), {
+    dx: 5,
+    dy: 2,
+    snap: { kind: 'anchor', measurementId: 12, point: { x: 5, y: 2 } },
+  });
+  assert.deepEqual(plain(measurement.points), [{ x: 5, y: 2 }, { x: 15, y: 2 }]);
+  assert.deepEqual(plain(measurement.rotationFrame), { x: 5, y: 2, width: 10, height: 1, cx: 10, cy: 2.5 });
 });
 
 test('applyRotationDrag rotates geometry, snaps when shifted, and rebuilds the frame', async () => {

@@ -38,6 +38,10 @@
     return (segments || []).slice().reverse().map(reverseSegment);
   }
 
+  function reversePoints(points) {
+    return clonePoints(points).reverse();
+  }
+
   function samePoint(a, b) {
     return !!(a && b && Math.hypot(a.x - b.x, a.y - b.y) <= 0.0001);
   }
@@ -310,6 +314,121 @@
     return null;
   }
 
+  function endpointPoint(measurement, endpoint) {
+    if (!measurement || (endpoint !== 'start' && endpoint !== 'end')) return null;
+    if (measurementModel.isCurveMeasurement(measurement)) {
+      if (!measurement.segments?.length) return null;
+      return endpoint === 'start'
+        ? measurement.segments[0].from
+        : measurement.segments[measurement.segments.length - 1].to;
+    }
+    const points = measurement.points || [];
+    if (points.length < 2) return null;
+    return endpoint === 'start' ? points[0] : points[points.length - 1];
+  }
+
+  function clearEndpointSnapConnection(measurement, endpoint) {
+    if (!measurement) return false;
+    measurement.snapConnections = (measurement.snapConnections || []).filter(connection => connection.endpoint !== endpoint);
+    return true;
+  }
+
+  function clearEndpointSnapConnections(measurement) {
+    if (!measurement) return false;
+    measurement.snapConnections = [];
+    return true;
+  }
+
+  function setEndpointSnapConnection(measurement, endpoint, snap) {
+    if (!measurement || (endpoint !== 'start' && endpoint !== 'end')) return false;
+    clearEndpointSnapConnection(measurement, endpoint);
+    const targetId = snap?.targetId ?? snap?.measurementId;
+    const targetEndpoint = snap?.targetEndpoint ?? snap?.endpoint;
+    if (targetId == null || (targetEndpoint !== 'start' && targetEndpoint !== 'end')) return false;
+    measurement.snapConnections.push({ endpoint, targetId, targetEndpoint });
+    return true;
+  }
+
+  function stableValue(value) {
+    if (value == null || typeof value !== 'object') return value;
+    if (Array.isArray(value)) return value.map(stableValue);
+    return Object.keys(value).sort().reduce((result, key) => {
+      result[key] = stableValue(value[key]);
+      return result;
+    }, {});
+  }
+
+  function sameExplicitField(a, b, key) {
+    const aHas = a && Object.prototype.hasOwnProperty.call(a, key);
+    const bHas = b && Object.prototype.hasOwnProperty.call(b, key);
+    if (!aHas && !bHas) return true;
+    return aHas && bHas && JSON.stringify(stableValue(a[key])) === JSON.stringify(stableValue(b[key]));
+  }
+
+  function compatiblePathStyling(a, b) {
+    for (const key of ['pathTemplateId', 'pathId', 'templateId', 'templatePathId', 'pathStyle', 'templateStyle', 'stroke', 'anchors']) {
+      if (!sameExplicitField(a, b, key)) return false;
+    }
+    return true;
+  }
+
+  function compatibleMergeMeasurements(a, b) {
+    if (!a || !b || a.id === b.id) return false;
+    if ((a.page || 1) !== (b.page || 1)) return false;
+    const aShape = measurementModel.measurementShapeKind(a);
+    const bShape = measurementModel.measurementShapeKind(b);
+    if (aShape !== bShape) return false;
+    if (aShape === 'freehand' && (!measurementModel.isCurveMeasurement(a) || !measurementModel.isCurveMeasurement(b))) return false;
+    if (aShape !== 'line' && aShape !== 'freehand') return false;
+    return compatiblePathStyling(a, b);
+  }
+
+  function connectionMatchesGeometry(source, sourceEndpoint, target, targetEndpoint) {
+    return samePoint(endpointPoint(source, sourceEndpoint), endpointPoint(target, targetEndpoint));
+  }
+
+  function mergeConnectionForTarget({ measurements, measurement, target } = {}) {
+    const sourceEndpoint = continuationEndpointRole(measurement, target);
+    if (!sourceEndpoint) return null;
+    const list = measurements || [];
+    const byId = id => list.find(item => item.id === id);
+
+    for (const connection of measurement.snapConnections || []) {
+      if (connection.endpoint !== sourceEndpoint) continue;
+      const other = byId(connection.targetId);
+      if (
+        compatibleMergeMeasurements(measurement, other)
+        && connectionMatchesGeometry(measurement, sourceEndpoint, other, connection.targetEndpoint)
+      ) {
+        return {
+          sourceId: measurement.id,
+          sourceEndpoint,
+          targetId: other.id,
+          targetEndpoint: connection.targetEndpoint,
+        };
+      }
+    }
+
+    for (const other of list) {
+      if (!other || other.id === measurement.id) continue;
+      for (const connection of other.snapConnections || []) {
+        if (connection.targetId !== measurement.id || connection.targetEndpoint !== sourceEndpoint) continue;
+        if (
+          compatibleMergeMeasurements(measurement, other)
+          && connectionMatchesGeometry(measurement, sourceEndpoint, other, connection.endpoint)
+        ) {
+          return {
+            sourceId: measurement.id,
+            sourceEndpoint,
+            targetId: other.id,
+            targetEndpoint: connection.endpoint,
+          };
+        }
+      }
+    }
+    return null;
+  }
+
   function appendUniquePoint(points, point) {
     if (!point) return;
     if (!points.length || !samePoint(points[points.length - 1], point)) points.push(clonePoint(point));
@@ -344,6 +463,77 @@
       : [...cloneSegments(measurement.segments), ...nextSegments];
     measurementModel.updateCurveAnchors(measurement);
     return finalizeMeasurementGeometry(measurement, { pxPerInch });
+  }
+
+  function mergeLineGeometry(source, target, sourceEndpoint, targetEndpoint) {
+    const targetPoints = sourceEndpoint === targetEndpoint ? reversePoints(target.points) : clonePoints(target.points);
+    const nextPoints = [];
+    if (sourceEndpoint === 'end') {
+      for (const point of source.points || []) appendUniquePoint(nextPoints, point);
+      for (const point of targetPoints) appendUniquePoint(nextPoints, point);
+    } else {
+      for (const point of targetPoints) appendUniquePoint(nextPoints, point);
+      for (const point of source.points || []) appendUniquePoint(nextPoints, point);
+    }
+    if (nextPoints.length < 2) return false;
+    source.points = nextPoints;
+    source.segments = null;
+    source.drawType = 'line';
+    if (source.shape) source.shape.active = 'line';
+    return true;
+  }
+
+  function mergeFreehandGeometry(source, target, sourceEndpoint, targetEndpoint) {
+    const targetSegments = sourceEndpoint === targetEndpoint ? reverseSegments(target.segments) : cloneSegments(target.segments);
+    const sourceSegments = cloneSegments(source.segments);
+    if (!sourceSegments?.length || !targetSegments?.length) return false;
+    source.segments = sourceEndpoint === 'end'
+      ? [...sourceSegments, ...targetSegments]
+      : [...targetSegments, ...sourceSegments];
+    source.drawType = 'freehand';
+    if (source.shape) source.shape.active = 'freehand';
+    measurementModel.updateCurveAnchors(source);
+    return true;
+  }
+
+  function removeSnapConnectionsForMergedIds(measurements, mergedIds) {
+    for (const measurement of measurements || []) {
+      if (!measurement) continue;
+      if (mergedIds.has(measurement.id)) {
+        measurement.snapConnections = [];
+        continue;
+      }
+      measurement.snapConnections = (measurement.snapConnections || []).filter(connection => !mergedIds.has(connection.targetId));
+    }
+  }
+
+  function mergeSnappedEndpointPaths(measurementList, connection, { pxPerInch } = {}) {
+    const list = measurementList || [];
+    const sourceIndex = list.findIndex(measurement => measurement.id === connection?.sourceId);
+    const targetIndex = list.findIndex(measurement => measurement.id === connection?.targetId);
+    const source = list[sourceIndex];
+    const target = list[targetIndex];
+    const sourceEndpoint = connection?.sourceEndpoint;
+    const targetEndpoint = connection?.targetEndpoint;
+    if (
+      sourceIndex < 0
+      || targetIndex < 0
+      || !compatibleMergeMeasurements(source, target)
+      || !connectionMatchesGeometry(source, sourceEndpoint, target, targetEndpoint)
+    ) {
+      return { merged: false, measurements: list, measurement: source || null };
+    }
+
+    const merged = measurementModel.isCurveMeasurement(source)
+      ? mergeFreehandGeometry(source, target, sourceEndpoint, targetEndpoint)
+      : mergeLineGeometry(source, target, sourceEndpoint, targetEndpoint);
+    if (!merged) return { merged: false, measurements: list, measurement: source };
+
+    finalizeMeasurementGeometry(source, { pxPerInch });
+    const mergedIds = new Set([source.id, target.id]);
+    const nextMeasurements = list.filter(measurement => measurement.id !== target.id);
+    removeSnapConnectionsForMergedIds(nextMeasurements, mergedIds);
+    return { merged: true, measurements: nextMeasurements, measurement: source };
   }
 
   function measurementLabelPoint(measurement) {
@@ -569,6 +759,12 @@
     addAnchorToMeasurement,
     removeAnchorFromMeasurement,
     continuationEndpointRole,
+    endpointPoint,
+    clearEndpointSnapConnection,
+    clearEndpointSnapConnections,
+    setEndpointSnapConnection,
+    mergeConnectionForTarget,
+    mergeSnappedEndpointPaths,
     continueLineMeasurement,
     continueFreehandMeasurement,
     measurementLabelPoint,

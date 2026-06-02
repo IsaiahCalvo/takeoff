@@ -158,10 +158,16 @@
     </div>
     <div class="status" id="status"></div>
     <div class="hud">
-      <span class="pill" id="cursorPos">
-        <span class="hud-part">scale: <strong>—</strong></span>
-        <span class="hud-part">x: <strong>—</strong></span>
-        <span class="hud-part">y: <strong>—</strong></span>
+      <span class="pill cursor-hud">
+        <span id="cursorPos">
+          <span class="hud-part">scale: <strong>—</strong></span>
+          <span class="hud-part">x: <strong>—</strong></span>
+          <span class="hud-part">y: <strong>—</strong></span>
+        </span>
+        <label class="snap-toggle">
+          <input id="snapToPaths" type="checkbox" />
+          <span>Snap to paths</span>
+        </label>
       </span>
     </div>
   </div>
@@ -226,6 +232,7 @@
   <button type="button" data-action="rotate">Rotate</button>
   <button type="button" data-action="convert-to-line" hidden>Convert to Line</button>
   <button type="button" data-action="convert-to-freehand" hidden>Convert to Freehand</button>
+  <button type="button" data-action="merge-paths" hidden>Merge Paths</button>
 </div>
 
 <div id="rotationPill" class="rotation-pill">
