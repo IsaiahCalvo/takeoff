@@ -238,6 +238,34 @@ test('bottom-left HUD exposes the Snap to paths toggle beside cursor status', as
   assert.match(styles, /\.snap-toggle\s*\{/);
 });
 
+test('Measure mode mounts a bottom-center Path Dock with upward menus', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const dock = await readFile(new URL('../src/app/path-dock.js', import.meta.url), 'utf8');
+
+  assert.match(html, /id="pathDockRoot" class="path-dock-root" hidden/);
+  assert.match(main, /import '\.\/app\/path-dock\.js';/);
+  assert.match(main, /state\.mode === 'measure'/);
+  assert.match(main, /createPathDockController/);
+  assert.match(main, /pathDock\.render\(\)/);
+  assert.match(dock, /path-dock-select-template/);
+  assert.match(dock, /path-dock-select-path/);
+  assert.match(dock, /closeMenus/);
+  assert.match(main, /activePathForNewRun\(state\.inProgress\)/);
+  assert.match(main, /activePath:\s*activePathForNewRun\(\)/);
+  assert.match(styles, /\.path-dock-root\s*\{[\s\S]*bottom:\s*16px;/);
+  assert.match(styles, /\.path-dock\s*\{[^}]*width:\s*100%;[^}]*box-sizing:\s*border-box;/);
+  assert.match(styles, /\.path-dock-template-menu,\s*\n\.path-dock-overflow-menu\s*\{[\s\S]*bottom:\s*calc\(100% \+ 8px\)/);
+  assert.match(styles, /\.path-dock-template-menu,\s*\n\.path-dock-overflow-menu\s*\{[\s\S]*grid-column:\s*1 \/ -1;/);
+  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-root\s*\{[^}]*left:\s*10px;[^}]*right:\s*10px;[^}]*width:\s*auto;[^}]*transform:\s*none;/);
+  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*128px minmax\(0, 1fr\) 88px;[^}]*overflow:\s*visible;/);
+  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-paths\s*\{[^}]*flex:\s*1 1 0;[^}]*overflow-x:\s*auto;/);
+  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-overflow-menu\s*\{[^}]*position:\s*fixed;[^}]*right:\s*10px;[^}]*bottom:\s*78px;/);
+  assert.doesNotMatch(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock\s*\{[^}]*overflow-x:\s*auto;/);
+  assert.doesNotMatch(html, /\bnode\b/i);
+});
+
 test('freehand completion keeps the app in measure mode', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const finishFreehand = main.match(/function finishFreehandMeasurement\(\) \{[\s\S]*?\n\}/)?.[0] || '';
