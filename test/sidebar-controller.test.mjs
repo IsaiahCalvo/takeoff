@@ -148,6 +148,48 @@ test('category visibility controls collect keys and dispatch sidebar actions', a
   ]);
 });
 
+test('Path group settings controls dispatch the grouped row action', async () => {
+  const sidebar = await loadSidebarController();
+  const listeners = {};
+  const calls = [];
+  const root = {
+    contains(target) {
+      return target?.insideRoot === true;
+    },
+    addEventListener(type, handler) {
+      listeners[type] = handler;
+    },
+  };
+  const button = {
+    insideRoot: true,
+    dataset: { pathGroupId: 'path:template-security:path-cat6' },
+  };
+
+  sidebar.bindPathGroupSettingsControls({
+    root,
+    openSettings(pathGroupId, trigger) {
+      calls.push(pathGroupId);
+      calls.push(trigger === button ? 'button' : 'missing-button');
+    },
+  });
+
+  listeners.click({
+    target: {
+      closest(selector) {
+        return selector === '[data-path-settings-action="open"]' ? button : null;
+      },
+    },
+    stopPropagation() {
+      calls.push('stopped');
+    },
+    preventDefault() {
+      calls.push('prevented');
+    },
+  });
+
+  assert.deepEqual(plain(calls), ['stopped', 'prevented', 'path:template-security:path-cat6', 'button']);
+});
+
 test('editableLengthInput handles Enter commit and Escape cancel', async () => {
   const sidebar = await loadSidebarController();
   const events = [];

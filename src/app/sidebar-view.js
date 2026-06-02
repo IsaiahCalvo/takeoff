@@ -44,6 +44,7 @@
   }
 
   function buildPathGroupMarkup({
+    id = '',
     color = '#7d8a91',
     displayName = 'Path',
     categorySubtitle = '',
@@ -53,6 +54,8 @@
     pageCoverageText = 'No page',
     totalText = '0.00',
     totalUnitText = '',
+    settingsAvailable = false,
+    settingsLabel = 'Path Settings',
   } = {}) {
     const subtitleMarkup = categorySubtitle
       ? `<span class="path-group-subtitle">${escapeHtml(categorySubtitle)}</span>`
@@ -62,6 +65,11 @@
       : '';
     const hiddenMarkup = hiddenText
       ? `<span class="path-group-chip path-group-chip-muted">${escapeHtml(hiddenText)}</span>`
+      : '';
+    const settingsMarkup = settingsAvailable
+      ? `<button class="path-group-settings" type="button" data-path-settings-action="open" data-path-group-id="${escapeHtml(id)}" aria-label="${escapeHtml(settingsLabel)}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M4.2 6.2l2.1 2.1M17.7 17.7l2.1 2.1M3 12h3M18 12h3M4.2 17.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+        </button>`
       : '';
     return `
       <div class="path-group-summary">
@@ -73,6 +81,7 @@
           ${subtitleMarkup}
         </span>
         <span class="path-group-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
+        ${settingsMarkup}
       </div>
       <div class="path-group-meta">
         <span class="path-group-chip">${escapeHtml(runCountText)}</span>

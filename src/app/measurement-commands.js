@@ -58,6 +58,30 @@
     return JSON.parse(JSON.stringify(style));
   }
 
+  function cleanOptionalString(value) {
+    return typeof value === 'string' ? value.trim() : '';
+  }
+
+  function sourceObject(value) {
+    return value && typeof value === 'object' ? value : {};
+  }
+
+  function pathCategorySnapshot(source) {
+    const pathCategory = sourceObject(source?.pathCategory);
+    const category = sourceObject(source?.category);
+    const id = cleanOptionalString(source?.pathCategoryId)
+      || cleanOptionalString(source?.categoryId)
+      || cleanOptionalString(pathCategory.id)
+      || cleanOptionalString(category.id);
+    const name = cleanOptionalString(source?.pathCategoryName)
+      || cleanOptionalString(source?.categoryName)
+      || (typeof source?.pathCategory === 'string' ? cleanOptionalString(source.pathCategory) : '')
+      || (typeof source?.category === 'string' ? cleanOptionalString(source.category) : '')
+      || cleanOptionalString(pathCategory.name)
+      || cleanOptionalString(category.name);
+    return { id, name };
+  }
+
   function selectedPathSnapshot(activePath) {
     if (!activePath || typeof activePath !== 'object') return null;
     const pathTemplateId = activePath.templateId || activePath.pathTemplateId || null;
@@ -73,6 +97,14 @@
       pathId,
       pathName: activePath.name || activePath.pathName || 'Path',
       pathStyle,
+      ...(() => {
+        const category = pathCategorySnapshot(activePath);
+        if (!category.id && !category.name) return {};
+        return {
+          ...(category.id ? { pathCategoryId: category.id } : {}),
+          ...(category.name ? { pathCategoryName: category.name } : {}),
+        };
+      })(),
     };
   }
 

@@ -5,7 +5,7 @@ import './app/sidebar.js';
 import './app/sidebar-view.js';
 import './app/sidebar-controller.js';
 import './app/length-edit-controller.js';
-import './app/path-templates.js'; import './app/path-style-renderer.js';
+import './app/path-templates.js'; import './app/path-style-renderer.js'; import './app/path-settings.js';
 import './app/path-template-store.js'; import './app/path-template-view.js';
 import './app/state.js';
 import './app/geometry.js';
@@ -44,6 +44,7 @@ const stateStore = window.TakeoffState;
 const pathTemplateStore = window.TakeoffPathTemplateStore.createPathTemplateStore();
 const sidebarView = window.TakeoffSidebarView;
 const sidebarController = window.TakeoffSidebarController;
+const pathSettings = window.TakeoffPathSettings;
 const pointerController = window.TakeoffPointerController;
 const pointerWorkflow = window.TakeoffPointerWorkflow;
 const documentLoader = window.TakeoffDocumentLoader;
@@ -195,7 +196,7 @@ const VIEWPORT_BOUND_MARGIN = 96;
 const SNAP_ANCHOR_SCREEN_TOLERANCE = 12, SNAP_CENTERLINE_SCREEN_TOLERANCE = 8;
 const copySummaryButton = $('copySummary');
 const snapToggle = $('snapToPaths');
-window.TakeoffPathTemplateView.createPathTemplateHome({ root: $('pathTemplatesHome'), state, pathTemplates: window.TakeoffPathTemplates, store: pathTemplateStore, renderer: window.TakeoffPathStyleRenderer });
+const pathTemplateHome = window.TakeoffPathTemplateView.createPathTemplateHome({ root: $('pathTemplatesHome'), state, pathTemplates: window.TakeoffPathTemplates, store: pathTemplateStore, renderer: window.TakeoffPathStyleRenderer }); let sidebarPathGroupsById = new Map();
 
 const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
   state, stage, viewport, detailCanvas: pdfDetailCanvas, logger: performanceLogger, desiredPdfRenderScale, desiredPdfDetailTileScale,
@@ -1477,6 +1478,12 @@ function currentInputState(target = null) {
 }
 
 window.addEventListener('keydown', (e) => {
+  if (pathSettingsModal?.isOpen()) {
+    if (e.key === 'Escape') pathSettingsModal.close();
+    e.stopPropagation();
+    if (e.key === 'Escape') e.preventDefault();
+    return;
+  }
   const inputAction = inputController.describeKeyDown(e, currentInputState(e.target));
   if (!inputAction) return;
   if (inputAction.action === 'undo') {
@@ -2081,6 +2088,14 @@ $('resetScale').addEventListener('click', async () => {
   showStatus(`Page ${p} calibration cleared. Undo is available.`, 2200);
 });
 
+const pathSettingsModal = pathSettings.createPathSettingsModal({
+  root: document, getElement: $, state, pathTemplates: window.TakeoffPathTemplates, renderer: window.TakeoffPathStyleRenderer,
+  store: pathTemplateStore, templateHome: pathTemplateHome, currentPage, createHistorySnapshot, recordHistory,
+  setMeasurements: (measurements, selectedId) => stateStore.setMeasurements(state, measurements, { selectedId }),
+  syncSelectionWithPathCategoryVisibility, renderList, redraw, showStatus,
+});
+
+function openPathSettingsForGroup(pathGroupId, triggerElement) { pathSettingsModal.open(sidebarPathGroupsById.get(pathGroupId), triggerElement); }
 // Sidebar tab switching
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -2102,6 +2117,11 @@ function applyPathCategoryVisibility(keys, visible) {
 sidebarController.bindCategoryVisibilityControls({
   root: measList,
   setVisibility: applyPathCategoryVisibility,
+});
+
+sidebarController.bindPathGroupSettingsControls({
+  root: measList,
+  openSettings: openPathSettingsForGroup,
 });
 
 // ------- Unit + clear -------
@@ -2520,6 +2540,7 @@ function renderList() {
     unit: state.unit,
     pathCategoryVisibility: stateStore.pathCategoryVisibilityForAggregation(state),
   });
+  sidebarPathGroupsById = new Map((model.pathGroups || []).map(group => [group.id, group]));
   updateSidebarScopeChrome(model);
   if (model.effectiveSidebarTab === 'categories') appendPathGroupCategories(model.categorySections, model.categoryVisibilityControls);
   else appendPathGroups(model.pathGroups);

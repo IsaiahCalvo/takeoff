@@ -136,9 +136,15 @@
       key: group.key,
       kind: group.kind,
       isLegacy: !!group.isLegacy,
+      pathTemplateId: group.pathTemplateId || null,
+      pathId: group.pathId || null,
+      pathName: group.pathName || null,
+      pathStyle: group.pathStyle || null,
+      categoryId: group.hasMixedCategories ? null : (group.categoryId || null),
       pathCategoryVisibilityKey: group.pathCategoryVisibilityKey,
       categoryKey: group.pathCategoryVisibilityKey || group.categoryKey || 'uncategorized',
       categoryName: group.hasMixedCategories ? 'Mixed categories' : (group.categoryName || 'Uncategorized'),
+      hasMixedCategories: !!group.hasMixedCategories,
       categoryVisible: group.categoryVisible !== false,
       isVisible: group.isVisible !== false,
       visibleRunCount: group.visibleRunCount || 0,
@@ -153,6 +159,8 @@
       totalText: formatPathTotal(group, unit),
       totalUnitText: UNIT_LABEL[unit] || unit,
       pageCoverageText: pageCoverageText(group),
+      settingsAvailable: !group.isLegacy && !!group.pathTemplateId && !!group.pathId,
+      settingsLabel: `Path Settings for ${group.displayName || 'Path'}`,
       measurements: (group.runs || []).map(run => (
         lookup.get(run.measurementId) || lookup.get(`index:${run.sourceIndex}`)
       )).filter(Boolean),
@@ -243,6 +251,7 @@
 
   function shouldSelectMeasurementFromSidebarClick(target) {
     if (!target) return true;
+    if (target.closest?.('.path-group-settings') || target.classList?.contains('path-group-settings')) return false;
     if (target.closest?.('.del') || target.classList?.contains('del')) return false;
     if (target.tagName === 'INPUT') return target.hasAttribute?.('readonly') === true;
     return true;
