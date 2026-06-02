@@ -378,9 +378,7 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
   const canAddAnchor = !!(canEditAnchors && target && target.kind === 'path-hit'), canRemoveAnchor = !!(canEditAnchors && target && target.kind === 'anchor-hit' && canRemoveAnchorFromTarget(target));
   addButton.disabled = !canAddAnchor;
   removeButton.disabled = !canRemoveAnchor;
-  contextMenu.querySelector('[data-action="cut"]').disabled = !canActOnRun;
-  contextMenu.querySelector('[data-action="copy"]').disabled = !canActOnRun;
-  contextMenu.querySelector('[data-action="rotate"]').disabled = !canActOnRun;
+  for (const action of ['cut', 'copy', 'duplicate', 'rotate']) contextMenu.querySelector(`[data-action="${action}"]`).disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
   contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target, measurements: state.measurements });
   contextMenu.style.left = `${Math.min(clientX, window.innerWidth - 170)}px`;
@@ -1487,10 +1485,8 @@ window.addEventListener('keydown', (e) => {
     if (redoHistory()) e.preventDefault();
     return;
   }
-  if (inputAction.action === 'copy') {
-    if (copySelectedMeasurement()) e.preventDefault();
-    return;
-  }
+  if (inputAction.action === 'duplicate') { duplicateSelectedMeasurement(); e.preventDefault(); return; }
+  if (inputAction.action === 'copy') { if (copySelectedMeasurement()) e.preventDefault(); return; }
   if (inputAction.action === 'cut') {
     if (cutSelectedMeasurement()) e.preventDefault();
     return;
@@ -1563,6 +1559,7 @@ contextMenu.addEventListener('click', (e) => {
   if (handledAnchorAction) return;
   if (action === 'cut') cutSelectedMeasurement();
   if (action === 'copy') copySelectedMeasurement();
+  if (action === 'duplicate') duplicateSelectedMeasurement();
   if (action === 'paste') pasteCopiedMeasurement();
   if (action === 'rotate') beginRotateMode(state.selectedId);
   if (action === 'convert-to-line' || action === 'convert-to-freehand') contextMenuController.convertSelectedMeasurement({ nextShape: action === 'convert-to-line' ? 'line' : 'freehand', state, measurementCommands, scaleForPage, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
@@ -1732,7 +1729,7 @@ function copySelectedMeasurement() {
   showStatus(`Copied ${selected.name}`);
   return true;
 }
-
+function duplicateSelectedMeasurement() { const selected = state.measurements.find(m => m.id === state.selectedId); if (!selected) { showStatus('Select a measurement before duplicating.', 1800, { force: true }); return false; } const historyBefore = createHistorySnapshot(); const duplicated = measurementCommands.createDuplicateMeasurement({ source: selected, id: Date.now(), existingMeasurements: state.measurements, palette: PALETTE, pageScales: state.pageScales, pxPerInch: scaleForPage(selected.page), pageSize: continuousMeasurements.pageSize(state, selected.page), constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, selected.page) }); if (!duplicated) return false; const result = measurementWorkflows.appendMeasurementResult({ measurements: state.measurements, measurement: duplicated, selectedId: state.selectedId, selectAppended: true }); stateStore.setMeasurements(state, result.measurements, { selectedId: result.selectedId }); setContinuousCurrentPage(duplicated.page); recordHistory(historyBefore, 'run duplicate'); renderList(); redraw(); showStatus(`Duplicated ${duplicated.name}`); return true; }
 function cutSelectedMeasurement() {
   const historyBefore = createHistorySnapshot();
   if (!copySelectedMeasurement()) return false;

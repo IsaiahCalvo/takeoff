@@ -33,6 +33,8 @@ test('describeKeyDown maps command shortcuts before single-key modes', async () 
   assert.deepEqual(plain(input.describeKeyDown({ key: 'Z', ctrlKey: true, shiftKey: true }, state)), { action: 'redo', preventDefault: true });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'y', ctrlKey: true }, state)), { action: 'redo', preventDefault: true });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'c', metaKey: true }, state)), { action: 'copy', preventDefault: true });
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'd', metaKey: true }, state)), { action: 'duplicate', preventDefault: true });
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'D', ctrlKey: true }, state)), { action: 'duplicate', preventDefault: true });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'x', ctrlKey: true }, state)), { action: 'cut', preventDefault: true });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'v', metaKey: true }, state)), { action: 'paste', preventDefault: true });
 });

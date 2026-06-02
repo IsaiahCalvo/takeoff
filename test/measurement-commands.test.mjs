@@ -932,6 +932,118 @@ test('cloneMeasurementForClipboard deep-copies geometry and stores source scale 
   assert.equal(clipboard.shape.previousLine.points[0].x, 0);
 });
 
+test('createDuplicateMeasurement offsets a selected run on its source page and preserves paste metadata', async () => {
+  const commands = await loadCommands();
+  const source = {
+    id: 4,
+    name: 'Panel feed',
+    page: 3,
+    color: '#ff4d7d',
+    pathTemplateId: 'template-security',
+    pathId: 'path-cat6',
+    pathName: 'Cat 6',
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
+    pathStyle: {
+      stroke: { color: '#ff4d7d', style: 'dashed' },
+      anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+    },
+    drawType: 'line',
+    shape: {
+      active: 'line',
+      previousFreehand: {
+        points: [{ x: 10, y: 20 }, { x: 30, y: 20 }],
+        segments: [straightSegment({ x: 10, y: 20 }, { x: 30, y: 20 })],
+      },
+    },
+    points: [{ x: 10, y: 20 }, { x: 30, y: 20 }],
+    segments: null,
+    labelT: 0.25,
+    lengthPx: 20,
+    lengthInches: 10,
+    runDetails: {
+      text: 'Install above ceiling',
+      photos: [{ id: 'photo-1', metadata: { tags: ['ceiling'] } }],
+      videos: [{ id: 'video-1', metadata: { durationSeconds: 8 } }],
+    },
+  };
+
+  const duplicate = commands.createDuplicateMeasurement({
+    source,
+    id: 44,
+    existingMeasurements: [source],
+    palette: ['#36d399'],
+    pageScales: { 3: 2, 4: 9 },
+    pageSize: { width: 200, height: 120 },
+    offset: { x: 18, y: 18 },
+  });
+
+  assert.equal(duplicate.id, 44);
+  assert.equal(duplicate.name, 'Panel feed copy');
+  assert.equal(duplicate.page, 3);
+  assert.equal(duplicate.sourcePage, 3);
+  assert.equal(duplicate.sourceScale, 2);
+  assert.equal(duplicate.sourceLengthInches, 10);
+  assert.equal(duplicate.sourceLengthPx, 20);
+  assert.equal(duplicate.lengthPx, 20);
+  assert.equal(duplicate.lengthInches, 10);
+  assert.deepEqual(plain(duplicate.points), [{ x: 28, y: 38 }, { x: 48, y: 38 }]);
+  assert.deepEqual(plain(duplicate.shape.previousFreehand.points), [{ x: 28, y: 38 }, { x: 48, y: 38 }]);
+  assert.ok(Math.abs(duplicate.shape.previousFreehand.segments[0].c1.x - 34.666666666666664) < 0.000001);
+  assert.equal(duplicate.shape.previousFreehand.segments[0].c1.y, 38);
+  assert.equal(duplicate.color, '#ff4d7d');
+  assert.equal(duplicate.pathTemplateId, 'template-security');
+  assert.equal(duplicate.pathId, 'path-cat6');
+  assert.equal(duplicate.pathName, 'Cat 6');
+  assert.equal(duplicate.pathCategoryId, 'low-voltage');
+  assert.equal(duplicate.pathCategoryName, 'Low Voltage');
+  assert.deepEqual(plain(duplicate.pathStyle), {
+    stroke: { color: '#ff4d7d', style: 'dashed' },
+    anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+  });
+  assert.deepEqual(plain(duplicate.runDetails), {
+    text: 'Install above ceiling',
+    photos: [{ id: 'photo-1', metadata: { tags: ['ceiling'] } }],
+    videos: [{ id: 'video-1', metadata: { durationSeconds: 8 } }],
+  });
+  assert.notEqual(duplicate.pathStyle, source.pathStyle);
+  assert.notEqual(duplicate.runDetails, source.runDetails);
+  assert.notEqual(duplicate.shape.previousFreehand, source.shape.previousFreehand);
+});
+
+test('createDuplicateMeasurement offsets mixed merge memory inside source page bounds', async () => {
+  const commands = await loadCommands();
+  const line = linePath(150, [{ x: 180, y: 180 }, { x: 190, y: 190 }], {
+    page: 2,
+    snapConnections: [{ endpoint: 'end', targetId: 151, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(151, { x: 190, y: 190 }, { x: 198, y: 198 }, { page: 2 });
+  const merged = commands.mergeSnappedEndpointPaths([line, freehand], {
+    sourceId: 150,
+    sourceEndpoint: 'end',
+    targetId: 151,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 }).measurement;
+
+  const duplicate = commands.createDuplicateMeasurement({
+    source: merged,
+    id: 152,
+    existingMeasurements: [merged],
+    palette: [],
+    pageScales: { 2: 2 },
+    pageSize: { width: 200, height: 200 },
+    offset: { x: 18, y: 18 },
+  });
+
+  assert.equal(duplicate.page, 2);
+  assert.equal(duplicate.shape.active, 'path');
+  assert.deepEqual(plain(duplicate.points), [{ x: 162, y: 162 }, { x: 180, y: 180 }]);
+  assert.deepEqual(plain(duplicate.mergeMemory.sources[0].current.points), [{ x: 162, y: 162 }, { x: 172, y: 172 }]);
+  assert.deepEqual(plain(duplicate.mergeMemory.sources[1].current.segments[0].from), { x: 172, y: 172 });
+  assert.deepEqual(plain(duplicate.mergeMemory.sources[1].current.segments[0].to), { x: 180, y: 180 });
+  assert.notEqual(duplicate.mergeMemory, merged.mergeMemory);
+});
+
 test('createPastedMeasurement can preserve real length across page scales', async () => {
   const commands = await loadCommands();
   const source = {

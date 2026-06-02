@@ -227,6 +227,13 @@ test('context menu exposes only Line and Freehand conversion wording', async () 
   assert.match(styles, /\.unmerge-actions\s*\{/);
 });
 
+test('context menu places Duplicate near Copy and Paste', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const contextMenu = html.match(/<div id="contextMenu"[\s\S]*?<\/div>/)?.[0] || '';
+
+  assert.match(contextMenu, /data-action="copy"[\s\S]*>Copy<[\s\S]*data-action="duplicate"[\s\S]*>Duplicate<[\s\S]*data-action="paste"[\s\S]*>Paste</);
+});
+
 test('bottom-left HUD exposes the Snap to paths toggle beside cursor status', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
