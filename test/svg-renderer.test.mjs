@@ -46,6 +46,13 @@ function distanceFromRectToPoint(rect, point) {
   return Math.hypot(dx, dy);
 }
 
+function createDrawContext(width = 72) {
+  return {
+    font: '',
+    measureText: () => ({ width }),
+  };
+}
+
 test('buildPolylinePath creates stable SVG path commands', async () => {
   const renderer = await loadRenderer();
 
@@ -170,5 +177,58 @@ test('drawBezierSegments keeps floating labels clear of curve anchors', async ()
   assert.ok(
     closestAnchorDistance <= 7,
     `expected curve label to sit close to anchors, got ${closestAnchorDistance}px`
+  );
+});
+
+test('label layout respects the dragged side of the path', async () => {
+  const renderer = await loadRenderer();
+
+  const layout = renderer.resolvePathLabelLayout({
+    labelPosition: { point: { x: 50, y: 0 }, angle: 0 },
+    labelOffset: { x: 0, y: -32 },
+    label: '24 ft',
+    anchors: [],
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  assert.ok(layout.ly < -18, `expected label above the path, got y=${layout.ly}`);
+  assert.ok(layout.ly > -25, `expected label to stay close to the path, got y=${layout.ly}`);
+});
+
+test('label layout clamps far dragged offsets near the path', async () => {
+  const renderer = await loadRenderer();
+
+  const layout = renderer.resolvePathLabelLayout({
+    labelPosition: { point: { x: 50, y: 0 }, angle: 0 },
+    labelOffset: { x: 0, y: 220 },
+    label: '24 ft',
+    anchors: [],
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  assert.ok(layout.ly > 18, `expected far drag to keep the user's side, got y=${layout.ly}`);
+  assert.ok(layout.ly <= 25, `expected far drag to be clamped near the path, got y=${layout.ly}`);
+});
+
+test('label layout pushes around anchors in the dragged radial direction', async () => {
+  const renderer = await loadRenderer();
+
+  const layout = renderer.resolvePathLabelLayout({
+    labelPosition: { point: { x: 0, y: 0 }, angle: 0 },
+    labelOffset: { x: -12, y: -12 },
+    label: '24 ft',
+    anchors: [{ x: 0, y: 0 }],
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  assert.ok(layout.lx < -5, `expected anchor push to keep left-side drag intent, got x=${layout.lx}`);
+  assert.ok(layout.ly < -5, `expected anchor push to keep upper-side drag intent, got y=${layout.ly}`);
+  assert.equal(
+    rectOverlapsPointClearance(layout.hitbox, { x: 0, y: 0 }, 6),
+    false,
+    'label hitbox should stay clear of the anchor'
   );
 });

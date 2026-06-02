@@ -49,7 +49,73 @@
     };
   }
 
-  function resolvePathLabelLayout({ labelPosition, label, anchors = [], drawCtx, overlayPageSize }) {
+  function vectorLength(vector) {
+    return Math.hypot(vector.x, vector.y);
+  }
+
+  function normalizeVector(vector, fallback = { x: 0, y: 1 }) {
+    const length = vectorLength(vector);
+    return length ? { x: vector.x / length, y: vector.y / length } : fallback;
+  }
+
+  function hasFiniteOffset(offset) {
+    return !!(offset && Number.isFinite(offset.x) && Number.isFinite(offset.y));
+  }
+
+  function clampOffset(offset, minDistance, maxDistance) {
+    const length = vectorLength(offset);
+    if (!length) return offset;
+    const nextLength = Math.max(minDistance, Math.min(maxDistance, length));
+    return {
+      x: offset.x / length * nextLength,
+      y: offset.y / length * nextLength,
+    };
+  }
+
+  function layoutOverlapsAnchor(layout, anchor, clearance) {
+    return rectOverlapsPointClearance(layout.hitbox, anchor, clearance);
+  }
+
+  function pushLayoutOutOfAnchors({ layout, point, metrics, anchors, clearance, maxDistance, overlayPageSize }) {
+    let current = layout;
+    for (let iteration = 0; iteration < 4; iteration++) {
+      let changed = false;
+      for (const anchor of anchors) {
+        if (!layoutOverlapsAnchor(current, anchor, clearance)) continue;
+        const currentCenter = { x: current.lx, y: current.ly };
+        const fallback = normalizeVector({ x: currentCenter.x - point.x, y: currentCenter.y - point.y });
+        const direction = normalizeVector({ x: currentCenter.x - anchor.x, y: currentCenter.y - anchor.y }, fallback);
+        let high = Math.max(vectorLength({ x: currentCenter.x - anchor.x, y: currentCenter.y - anchor.y }), overlayPageSize(1));
+        const limit = Math.max(maxDistance, current.hitbox.width + current.hitbox.height + clearance * 2);
+        let clearLayout = null;
+        while (high <= limit) {
+          const candidate = labelLayoutFromCenter(anchor.x + direction.x * high, anchor.y + direction.y * high, metrics, overlayPageSize);
+          if (!layoutOverlapsAnchor(candidate, anchor, clearance)) {
+            clearLayout = candidate;
+            break;
+          }
+          high += overlayPageSize(4);
+        }
+        if (!clearLayout) continue;
+        let low = 0;
+        for (let step = 0; step < 16; step++) {
+          const mid = (low + high) / 2;
+          const candidate = labelLayoutFromCenter(anchor.x + direction.x * mid, anchor.y + direction.y * mid, metrics, overlayPageSize);
+          if (layoutOverlapsAnchor(candidate, anchor, clearance)) low = mid;
+          else {
+            high = mid;
+            clearLayout = candidate;
+          }
+        }
+        current = clearLayout;
+        changed = true;
+      }
+      if (!changed) break;
+    }
+    return current;
+  }
+
+  function resolvePathLabelLayout({ labelPosition, labelOffset, label, anchors = [], drawCtx, overlayPageSize }) {
     const { point, angle } = labelPosition;
     const fontSize = overlayPageSize(13);
     drawCtx.font = `${700} ${fontSize}px 'JetBrains Mono', monospace`;
@@ -60,15 +126,24 @@
       padY: overlayPageSize(4),
       accentW: overlayPageSize(3),
     };
-    const tangent = { x: Math.cos(angle), y: Math.sin(angle) };
     const normal = { x: -Math.sin(angle), y: Math.cos(angle) };
     const baseOffset = overlayPageSize(18);
-    const baseCenter = {
-      x: point.x + normal.x * baseOffset,
-      y: point.y + normal.y * baseOffset,
-    };
     const clearance = overlayPageSize(6);
     const activeAnchors = (anchors || []).filter(Boolean);
+    const probeLayout = labelLayoutFromCenter(point.x, point.y, metrics, overlayPageSize);
+    const minOffset = probeLayout.hitbox.height / 2 + clearance;
+    const nearAnchor = activeAnchors.some(anchor => vectorLength({ x: point.x - anchor.x, y: point.y - anchor.y }) <= overlayPageSize(1));
+    const maxOffset = nearAnchor
+      ? Math.max(overlayPageSize(72), probeLayout.hitbox.width / 2 + overlayPageSize(30))
+      : minOffset + overlayPageSize(2);
+    const defaultOffset = { x: normal.x * baseOffset, y: normal.y * baseOffset };
+    const requestedOffset = hasFiniteOffset(labelOffset) ? labelOffset : defaultOffset;
+    const offset = clampOffset(
+      vectorLength(requestedOffset) ? requestedOffset : defaultOffset,
+      minOffset,
+      maxOffset
+    );
+    const baseCenter = { x: point.x + offset.x, y: point.y + offset.y };
 
     function isClear(layout) {
       return activeAnchors.every(anchor => !rectOverlapsPointClearance(layout.hitbox, anchor, clearance));
@@ -76,68 +151,16 @@
 
     const baseLayout = labelLayoutFromCenter(baseCenter.x, baseCenter.y, metrics, overlayPageSize);
     if (!activeAnchors.length || isClear(baseLayout)) return { ...baseLayout, ...metrics };
-
-    const halfWidth = baseLayout.hitbox.width / 2;
-    const halfHeight = baseLayout.hitbox.height / 2;
-    const normalDistances = [
-      baseOffset,
-      halfHeight + clearance,
-      halfHeight + clearance + overlayPageSize(12),
-      halfHeight + clearance + overlayPageSize(28),
-      halfHeight + clearance + overlayPageSize(52),
-      halfHeight + clearance + overlayPageSize(84),
-    ];
-    const alongDistances = [
-      0,
-      halfWidth / 2 + clearance,
-      -(halfWidth / 2 + clearance),
-      halfWidth + clearance,
-      -(halfWidth + clearance),
-    ];
-    const candidates = [baseLayout];
-    for (const normalSign of [1, -1]) {
-      for (const normalDistance of normalDistances) {
-        for (const alongDistance of alongDistances) {
-          const lx = point.x + normal.x * normalSign * normalDistance + tangent.x * alongDistance;
-          const ly = point.y + normal.y * normalSign * normalDistance + tangent.y * alongDistance;
-          candidates.push(labelLayoutFromCenter(lx, ly, metrics, overlayPageSize));
-        }
-      }
-    }
-
-    const clearCandidates = candidates.filter(isClear);
-    if (clearCandidates.length) {
-      clearCandidates.sort((a, b) => {
-        const aScore = (a.lx - baseCenter.x) ** 2 + (a.ly - baseCenter.y) ** 2;
-        const bScore = (b.lx - baseCenter.x) ** 2 + (b.ly - baseCenter.y) ** 2;
-        return aScore - bScore;
-      });
-      return { ...clearCandidates[0], ...metrics };
-    }
-
-    for (let radius = halfWidth + halfHeight + clearance; radius <= overlayPageSize(420); radius += overlayPageSize(28)) {
-      const radialCandidates = [];
-      for (let step = 0; step < 16; step++) {
-        const theta = step * Math.PI / 8;
-        radialCandidates.push(labelLayoutFromCenter(
-          point.x + Math.cos(theta) * radius,
-          point.y + Math.sin(theta) * radius,
-          metrics,
-          overlayPageSize
-        ));
-      }
-      const clearRadial = radialCandidates.filter(isClear);
-      if (clearRadial.length) {
-        clearRadial.sort((a, b) => {
-          const aScore = (a.lx - baseCenter.x) ** 2 + (a.ly - baseCenter.y) ** 2;
-          const bScore = (b.lx - baseCenter.x) ** 2 + (b.ly - baseCenter.y) ** 2;
-          return aScore - bScore;
-        });
-        return { ...clearRadial[0], ...metrics };
-      }
-    }
-
-    return { ...baseLayout, ...metrics };
+    const pushedLayout = pushLayoutOutOfAnchors({
+      layout: baseLayout,
+      point,
+      metrics,
+      anchors: activeAnchors,
+      clearance,
+      maxDistance: maxOffset,
+      overlayPageSize,
+    });
+    return { ...pushedLayout, ...metrics };
   }
 
   function createMeasurementRenderer({ drawSvg, drawCtx, overlayPageSize }) {
@@ -149,6 +172,7 @@
       if (!labelPosition) return;
       const layout = resolvePathLabelLayout({
         labelPosition,
+        labelOffset: opts.labelOffset,
         label: opts.label,
         anchors: opts.anchors,
         drawCtx,

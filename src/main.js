@@ -493,7 +493,6 @@ const {
   translatePoints,
   rotatedFramePoint,
   translateSegments,
-  projectPointToPolyline,
 } = window.TakeoffGeometry;
 
 const {
@@ -1293,9 +1292,7 @@ stage.addEventListener('mousemove', (e) => {
   if (state.dragLabel) {
     const m = state.measurements.find(x => x.id === state.dragLabel.measurementId);
     if (m) {
-      const projection = projectPointToPolyline(localPointForMeasurement(m), measurementDisplayPoints(m));
-      if (projection) {
-        m.labelT = projection.t;
+      if (measurementCommands.updateMeasurementLabelFromPoint(m, localPointForMeasurement(m))) {
         redraw();
       }
     }
@@ -2213,6 +2210,7 @@ function redraw(previewTo) {
       labelColor: color,
       measurementId: m.id,
       labelT: m.labelT,
+      labelOffset: m.labelOffset,
     });
   }
 
