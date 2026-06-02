@@ -4,13 +4,15 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadSidebar() {
-  const [calibration, sidebar] = await Promise.all([
+  const [calibration, pathAggregation, sidebar] = await Promise.all([
     readFile(new URL('../src/calibration-utils.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/path-aggregation.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/sidebar.js', import.meta.url), 'utf8'),
   ]);
   const sandbox = { window: {} };
   vm.createContext(sandbox);
   vm.runInContext(calibration, sandbox, { filename: 'calibration-utils.js' });
+  vm.runInContext(pathAggregation, sandbox, { filename: 'path-aggregation.js' });
   vm.runInContext(sidebar, sandbox, { filename: 'sidebar.js' });
   return sandbox.window.TakeoffSidebar;
 }
@@ -39,6 +41,21 @@ test('buildSidebarModel summarizes the current page tab', async () => {
   assert.equal(model.totalLenText, '11.00');
   assert.equal(model.runCountText, '3 runs · 1 unscaled excluded');
   assert.equal(model.totalUnitText, 'ft');
+  assert.deepEqual(plain(model.pathGroups.map(group => ({
+    displayName: group.displayName,
+    runCountText: group.runCountText,
+    unscaledText: group.unscaledText,
+    totalText: group.totalText,
+    pageCoverageText: group.pageCoverageText,
+    ids: group.measurements.map(measurement => measurement.id),
+  }))), [{
+    displayName: 'Legacy measurements',
+    runCountText: '3 runs',
+    unscaledText: '1 unscaled excluded',
+    totalText: '11.00',
+    pageCoverageText: 'P 1',
+    ids: [1, 2, 4],
+  }]);
 });
 
 test('buildSidebarModel simplifies single-page documents without scope tabs', async () => {
@@ -56,11 +73,12 @@ test('buildSidebarModel simplifies single-page documents without scope tabs', as
   assert.equal(model.effectiveSidebarTab, 'page');
   assert.equal(model.showScopeTabs, false);
   assert.equal(model.totalHeadingText, 'Total');
-  assert.deepEqual(plain(model.pageGroups), []);
   assert.deepEqual(plain(model.measurementsForTab.map(measurement => measurement.id)), [1, 2]);
+  assert.equal(model.pathGroups.length, 1);
+  assert.deepEqual(plain(model.categorySections), []);
 });
 
-test('buildSidebarModel groups all measurements by page with page totals', async () => {
+test('buildSidebarModel groups all measurements by Path for all pages', async () => {
   const sidebar = await loadSidebar();
   const model = sidebar.buildSidebarModel({
     measurements,
@@ -77,50 +95,76 @@ test('buildSidebarModel groups all measurements by page with page totals', async
   assert.equal(model.effectiveSidebarTab, 'all');
   assert.equal(model.showScopeTabs, true);
   assert.equal(model.totalHeadingText, 'Grand Total');
-  assert.deepEqual(plain(model.pageGroups.map(group => ({
-    page: group.page,
+  assert.deepEqual(plain(model.pathGroups.map(group => ({
+    displayName: group.displayName,
     ids: group.measurements.map(measurement => measurement.id),
-    collapsed: group.collapsed,
-    hasScale: group.hasScale,
-    pageTotalText: group.pageTotalText,
-    excludedText: group.excludedText,
-  }))), [
-    {
-      page: 1,
-      ids: [1, 2],
-      collapsed: true,
-      hasScale: true,
-      pageTotalText: '10.00 ft',
-      excludedText: ' · 1 unscaled excluded',
-    },
-    {
-      page: 2,
-      ids: [3],
-      collapsed: true,
-      hasScale: false,
-      pageTotalText: '5.00 ft',
-      excludedText: '',
-    },
-  ]);
+    runCountText: group.runCountText,
+    unscaledText: group.unscaledText,
+    totalText: group.totalText,
+    pageCoverageText: group.pageCoverageText,
+  }))), [{
+    displayName: 'Legacy measurements',
+    ids: [1, 2, 3],
+    runCountText: '3 runs',
+    unscaledText: '1 unscaled excluded',
+    totalText: '15.00',
+    pageCoverageText: 'P 1-2',
+  }]);
 });
 
-test('buildSidebarModel marks collapsed all-page groups without dropping totals', async () => {
+test('buildSidebarModel renders category sections from Path groups', async () => {
   const sidebar = await loadSidebar();
   const model = sidebar.buildSidebarModel({
-    measurements,
+    measurements: [
+      {
+        id: 'cat6-a',
+        page: 1,
+        lengthInches: 120,
+        pathTemplateId: 'low-voltage',
+        pathId: 'cat6',
+        pathName: 'Cat 6',
+        pathCategoryId: 'low-voltage',
+        pathCategoryName: 'Low Voltage',
+      },
+      {
+        id: 'fiber-a',
+        page: 2,
+        lengthInches: 60,
+        pathTemplateId: 'low-voltage',
+        pathId: 'fiber',
+        pathName: 'Fiber',
+        category: { id: 'low-voltage', name: 'Low Voltage' },
+      },
+      {
+        id: 'legacy-a',
+        page: 2,
+        lengthInches: null,
+      },
+    ],
     currentPage: 1,
-    sidebarTab: 'all',
-    pageScales: { 1: 10 },
-    collapsedPageGroups: { 1: false },
+    sidebarTab: 'categories',
     pageCount: 2,
     unit: 'ft',
   });
 
-  assert.equal(model.pageGroups[0].page, 1);
-  assert.equal(model.pageGroups[0].collapsed, false);
-  assert.equal(model.pageGroups[0].measurementCount, 2);
-  assert.equal(model.pageGroups[0].pageTotalText, '10.00 ft');
-  assert.equal(model.pageGroups[1].collapsed, true);
+  assert.equal(model.effectiveSidebarTab, 'categories');
+  assert.equal(model.totalHeadingText, 'Categories Total');
+  assert.deepEqual(plain(model.categorySections.map(section => ({
+    name: section.name,
+    summaryText: section.summaryText,
+    groups: section.pathGroups.map(group => group.displayName),
+  }))), [
+    {
+      name: 'Low Voltage',
+      summaryText: '2 paths · 2 runs',
+      groups: ['Cat 6', 'Fiber'],
+    },
+    {
+      name: 'Legacy measurements',
+      summaryText: '1 path · 1 run',
+      groups: ['Legacy measurements'],
+    },
+  ]);
 });
 
 test('shouldSelectMeasurementFromSidebarClick allows readonly title clicks to select rows', async () => {

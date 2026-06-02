@@ -1,5 +1,6 @@
 import './export-utils.js';
 import './calibration-utils.js'; import './app/decimal-input.js';
+import './app/path-aggregation.js';
 import './app/sidebar.js';
 import './app/sidebar-view.js';
 import './app/sidebar-controller.js';
@@ -299,7 +300,7 @@ async function restoreDocument(doc) {
   stateStore.restoreDocumentState(state, doc);
   updateHistoryButtons();
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === state.sidebarTab));
-  $('totalHeading').textContent = state.sidebarTab === 'page' ? 'This Page Total' : 'Grand Total';
+  $('totalHeading').textContent = state.sidebarTab === 'all' ? 'Grand Total' : state.sidebarTab === 'categories' ? 'Categories Total' : 'This Page Total';
   updatePerformanceLogContext();
   if (state.pdf) {
     await renderPdfPage({ fit: false, resetInteraction: false });
@@ -2012,7 +2013,6 @@ $('resetScale').addEventListener('click', async () => {
 document.querySelectorAll('.tab').forEach(btn => {
   btn.addEventListener('click', () => {
     state.sidebarTab = btn.dataset.tab;
-    if (state.sidebarTab === 'all') state.collapsedPageGroups = {};
     renderList();
   });
 });
@@ -2376,6 +2376,38 @@ function buildMeasItem(m) {
   return item;
 }
 
+function buildPathGroupItem(group) {
+  const groupEl = document.createElement('section');
+  const header = document.createElement('div');
+  const runs = document.createElement('div');
+  groupEl.className = `path-group${group.isLegacy ? ' legacy' : ''}`;
+  groupEl.dataset.pathGroupId = group.id;
+  header.className = 'path-group-row';
+  header.innerHTML = sidebarView.buildPathGroupMarkup(group);
+  runs.className = 'path-group-runs';
+  for (const m of group.measurements) runs.appendChild(buildMeasItem(m));
+  groupEl.appendChild(header);
+  groupEl.appendChild(runs);
+  return groupEl;
+}
+
+function appendPathGroups(groups, parent = measList) {
+  for (const group of groups || []) parent.appendChild(buildPathGroupItem(group));
+}
+
+function appendPathGroupCategories(sections) {
+  for (const section of sections || []) {
+    const sectionEl = document.createElement('section');
+    const header = document.createElement('div');
+    sectionEl.className = 'path-category-section';
+    header.className = 'path-category-header';
+    header.innerHTML = sidebarView.buildCategoryHeaderMarkup(section);
+    sectionEl.appendChild(header);
+    appendPathGroups(section.pathGroups, sectionEl);
+    measList.appendChild(sectionEl);
+  }
+}
+
 function renderList() {
   measList.innerHTML = '';
   updateExportButtons();
@@ -2383,87 +2415,13 @@ function renderList() {
     measurements: state.measurements,
     currentPage: currentPage(),
     sidebarTab: state.sidebarTab,
-    pageScales: state.pageScales,
-    collapsedPageGroups: state.collapsedPageGroups,
     pageCount: documentPageCount(),
     unit: state.unit,
+    pathCategoryVisibility: stateStore.pathCategoryVisibilityForAggregation(state),
   });
   updateSidebarScopeChrome(model);
-
-  if (model.effectiveSidebarTab === 'page') {
-    for (const m of model.measurementsForTab) measList.appendChild(buildMeasItem(m));
-  } else {
-    for (const group of model.pageGroups) {
-      const groupEl = document.createElement('div');
-      const header = document.createElement('div');
-      const children = document.createElement('div');
-      const childrenInner = document.createElement('div');
-      const scaleText = group.hasScale ? group.pageTotalText : 'No scale';
-      const excludedText = group.excludedText.replace(/^ · /, '');
-      const excludedTitle = excludedText ? `${excludedText} on page ${group.page}` : '';
-      const tooltipId = `page-info-${group.page}`;
-      groupEl.className = `page-group ${group.collapsed ? 'collapsed' : 'open'}`;
-      header.className = 'page-header';
-      header.setAttribute('role', 'button');
-      header.setAttribute('tabindex', '0');
-      header.setAttribute('aria-expanded', group.collapsed ? 'false' : 'true');
-      children.className = 'page-children';
-      childrenInner.className = 'page-children-inner';
-      header.innerHTML = sidebarView.buildPageHeaderMarkup({
-        page: group.page,
-        collapsed: group.collapsed,
-        hasScale: group.hasScale,
-        scaleText,
-        excludedTitle,
-        tooltipId,
-      });
-      const toggleGroup = () => {
-        const isCollapsed = groupEl.classList.contains('collapsed');
-        const nextCollapsed = !isCollapsed;
-        state.collapsedPageGroups[group.page] = nextCollapsed;
-        sidebarController.applyPageGroupCollapsedState({
-          groupEl,
-          header,
-          page: group.page,
-          collapsed: nextCollapsed,
-          collapseIconPath: sidebarView.collapseIconPath,
-        });
-        saveActiveDocument();
-      };
-      header.addEventListener('click', (e) => {
-        if (e.target.closest('.page-actions')) return;
-        toggleGroup();
-      });
-      header.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        e.preventDefault();
-        toggleGroup();
-      });
-      header.querySelector('.collapse-toggle').addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleGroup();
-      });
-      const pageInfoButton = header.querySelector('.page-info');
-      if (pageInfoButton) {
-        pageInfoButton.addEventListener('click', (e) => {
-          e.stopPropagation();
-          sidebarController.setPageInfoOpen(pageInfoButton, !pageInfoButton.classList.contains('is-open'));
-        });
-        pageInfoButton.addEventListener('blur', () => {
-          sidebarController.setPageInfoOpen(pageInfoButton, false);
-        });
-      }
-      header.querySelector('.jump').addEventListener('click', (e) => {
-        e.stopPropagation();
-        goToPage(group.page);
-      });
-      groupEl.appendChild(header);
-      for (const m of group.measurements) childrenInner.appendChild(buildMeasItem(m));
-      children.appendChild(childrenInner);
-      groupEl.appendChild(children);
-      measList.appendChild(groupEl);
-    }
-  }
+  if (model.effectiveSidebarTab === 'categories') appendPathGroupCategories(model.categorySections);
+  else appendPathGroups(model.pathGroups);
 
   $('totalLen').textContent = model.totalLenText;
   $('runCount').textContent = model.runCountText;
