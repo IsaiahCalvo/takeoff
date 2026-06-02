@@ -146,6 +146,7 @@
       rotationHandleHitbox: null,
       rotationInputVisible: false,
       pendingPaste: null,
+      pendingUnmergePathId: null,
       copiedMeasurement: null,
       contextTarget: null,
       undoStack: [],
@@ -197,6 +198,7 @@
     state.pxPerInch = null;
     state.inProgress = null;
     state.freehandDraft = null;
+    state.pendingUnmergePathId = null;
     state.snapFeedback = null;
     state.selectedId = null;
     state.dragLabel = null;

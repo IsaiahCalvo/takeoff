@@ -142,6 +142,58 @@ test('measurementToStackMeasurement offsets page-owned line and freehand geometr
   assert.deepEqual(plain(source.points[0]), { x: 1, y: 2 });
 });
 
+test('measurementToStackMeasurement offsets mixed source geometry without mutating stored merge memory', async () => {
+  const renderer = await loadContinuousRenderer();
+  const layout = renderer.buildContinuousPageLayout([
+    { page: 1, cssWidth: 100, cssHeight: 50 },
+    { page: 2, cssWidth: 80, cssHeight: 60 },
+  ], { pageGap: 10 });
+  const source = {
+    id: 8,
+    page: 2,
+    drawType: 'path',
+    shape: { active: 'path' },
+    points: [{ x: 1, y: 2 }, { x: 20, y: 2 }],
+    mergeMemory: {
+      version: 1,
+      sources: [{
+        kind: 'line',
+        current: { points: [{ x: 1, y: 2 }, { x: 10, y: 2 }], segments: null },
+        boundary: { points: [{ x: 1, y: 2 }, { x: 10, y: 2 }], lengthPx: 9 },
+        original: {
+          points: [{ x: 1, y: 2 }, { x: 10, y: 2 }],
+          shape: { active: 'line' },
+        },
+      }, {
+        kind: 'freehand',
+        current: {
+          points: [{ x: 10, y: 2 }, { x: 20, y: 2 }],
+          segments: [{ from: { x: 10, y: 2 }, c1: { x: 13, y: 2 }, c2: { x: 17, y: 2 }, to: { x: 20, y: 2 } }],
+        },
+        boundary: { points: [{ x: 10, y: 2 }, { x: 20, y: 2 }], lengthPx: 10 },
+        original: {
+          points: [{ x: 10, y: 2 }, { x: 20, y: 2 }],
+          segments: [{ from: { x: 10, y: 2 }, c1: { x: 13, y: 2 }, c2: { x: 17, y: 2 }, to: { x: 20, y: 2 } }],
+          shape: { active: 'freehand' },
+        },
+      }],
+    },
+  };
+
+  const stacked = renderer.measurementToStackMeasurement(source, layout);
+
+  assert.notEqual(stacked.mergeMemory, source.mergeMemory);
+  assert.deepEqual(plain(stacked.points), [{ x: 11, y: 62 }, { x: 30, y: 62 }]);
+  assert.deepEqual(plain(stacked.mergeMemory.sources[0].current.points), [{ x: 11, y: 62 }, { x: 20, y: 62 }]);
+  assert.deepEqual(plain(stacked.mergeMemory.sources[1].current.segments[0].from), { x: 20, y: 62 });
+  assert.deepEqual(plain(stacked.mergeMemory.sources[1].current.segments[0].to), { x: 30, y: 62 });
+  assert.deepEqual(plain(stacked.mergeMemory.sources[0].original.points), [{ x: 11, y: 62 }, { x: 20, y: 62 }]);
+  assert.deepEqual(plain(stacked.mergeMemory.sources[1].original.segments[0].to), { x: 30, y: 62 });
+  assert.deepEqual(plain(source.mergeMemory.sources[0].current.points), [{ x: 1, y: 2 }, { x: 10, y: 2 }]);
+  assert.deepEqual(plain(source.mergeMemory.sources[1].current.segments[0].to), { x: 20, y: 2 });
+  assert.deepEqual(plain(source.mergeMemory.sources[0].original.points), [{ x: 1, y: 2 }, { x: 10, y: 2 }]);
+});
+
 test('renderContinuousPdf reuses cache entries and paints one composite canvas', async () => {
   const renderer = await loadContinuousRenderer();
   const calls = [];

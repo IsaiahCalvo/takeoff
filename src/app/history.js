@@ -44,6 +44,7 @@
     state.snapFeedback = null;
     state.rotationInputVisible = false;
     state.pendingPaste = null;
+    state.pendingUnmergePathId = null;
     state.contextTarget = null;
   }
 

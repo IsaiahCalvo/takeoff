@@ -127,7 +127,9 @@
       || measurement?.drawType
       || measurement?.type
       || 'line';
-    return String(value).toLowerCase() === 'freehand' ? 'freehand' : 'line';
+    const normalized = String(value).toLowerCase();
+    if (normalized === 'path') return 'path';
+    return normalized === 'freehand' ? 'freehand' : 'line';
   }
 
   function scaledLengthInches(measurement) {

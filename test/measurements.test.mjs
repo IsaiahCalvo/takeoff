@@ -105,6 +105,47 @@ test('active freehand metadata uses curve geometry when segments exist', async (
   assert.equal(measurements.measurementDisplayPoints(measurement).length, 19);
 });
 
+test('mixed path measurements measure and display each original geometry type', async () => {
+  const measurements = await loadMeasurements();
+  const measurement = {
+    drawType: 'path',
+    shape: { active: 'path' },
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    mergeMemory: {
+      sources: [{
+        portionId: 'line-a',
+        kind: 'line',
+        current: {
+          points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+        },
+      }, {
+        portionId: 'freehand-b',
+        kind: 'freehand',
+        current: {
+          points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+          segments: [{
+            type: 'cubic',
+            from: { x: 10, y: 0 },
+            c1: { x: 13, y: 0 },
+            c2: { x: 17, y: 0 },
+            to: { x: 20, y: 0 },
+          }],
+        },
+      }],
+    },
+  };
+
+  assert.equal(measurements.measurementShapeKind(measurement), 'path');
+  assert.equal(measurements.isMixedMeasurement(measurement), true);
+  assert.equal(measurements.measurementLengthPx(measurement), 20);
+  const displayPoints = measurements.measurementDisplayPoints(measurement);
+  assert.deepEqual(JSON.parse(JSON.stringify([displayPoints[0], displayPoints[displayPoints.length - 1]])), [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+  ]);
+  assert.ok(displayPoints.length > 3);
+});
+
 test('cloneShapeMetadata deep-copies reversible geometry metadata', async () => {
   const measurements = await loadMeasurements();
   const shape = {

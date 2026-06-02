@@ -84,6 +84,7 @@
     };
 
     for (const measurement of measurementList || []) {
+      if (measurements.isMixedMeasurement?.(measurement)) continue;
       if (measurements.isCurveMeasurement(measurement)) {
         for (const handle of curveEditHandles(measurement)) {
           if (handle.kind === 'curve-control' && !opts.includeCurveControls) continue;
@@ -123,9 +124,7 @@
   function findNearestPathPoint(measurementList, point, tolerance) {
     let best = null;
     for (const measurement of measurementList || []) {
-      const hit = measurements.isCurveMeasurement(measurement)
-        ? measurements.projectPointToCurveMeasurement(point, measurement)
-        : measurements.projectPointToLineMeasurement(point, measurement);
+      const hit = projectPointToMeasurement(point, measurement);
       if (hit && hit.distance <= tolerance && (!best || hit.distance < best.distance)) {
         best = { measurementId: measurement.id, ...hit };
       }
@@ -154,14 +153,37 @@
 
     for (const measurement of measurementList || []) {
       if (!isVisibleMeasurement(measurement) || isExcludedMeasurement(measurement, excluded)) continue;
-      const hit = measurements.isCurveMeasurement(measurement)
-        ? measurements.projectPointToCurveMeasurement(point, measurement)
-        : measurements.projectPointToLineMeasurement(point, measurement);
+      const hit = projectPointToMeasurement(point, measurement);
       if (hit && hit.distance <= centerlineTolerance) {
         centerlineHit = betterSnapHit({ kind: 'centerline', measurementId: measurement.id, ...hit }, centerlineHit);
       }
     }
     return centerlineHit;
+  }
+
+  function projectPointToMixedMeasurement(point, measurement) {
+    const points = measurements.measurementDisplayPoints(measurement);
+    if (!points || points.length < 2) return null;
+    let best = null;
+    for (let index = 1; index < points.length; index++) {
+      const projected = geometry.projectPointToSegment(point, points[index - 1], points[index]);
+      if (!best || projected.distance < best.distance) {
+        best = {
+          type: 'mixed',
+          segmentIndex: index - 1,
+          point: projected.point,
+          distance: projected.distance,
+        };
+      }
+    }
+    return best;
+  }
+
+  function projectPointToMeasurement(point, measurement) {
+    if (measurements.isMixedMeasurement?.(measurement)) return projectPointToMixedMeasurement(point, measurement);
+    return measurements.isCurveMeasurement(measurement)
+      ? measurements.projectPointToCurveMeasurement(point, measurement)
+      : measurements.projectPointToLineMeasurement(point, measurement);
   }
 
   function findTranslatedMeasurementSnap(measurement, measurementList, dx, dy, opts = {}) {
