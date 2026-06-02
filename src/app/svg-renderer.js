@@ -7,6 +7,16 @@
     return el;
   }
 
+  function htmlNode(tag, attrs = {}) {
+    const el = document.createElement(tag);
+    for (const [key, value] of Object.entries(attrs)) {
+      if (value == null) continue;
+      el.setAttribute(key, String(value));
+      if (tag === 'input' && key === 'value') el.value = String(value);
+    }
+    return el;
+  }
+
   function buildPolylinePath(points) {
     return (points || []).map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
   }
@@ -184,6 +194,51 @@
           measurementId: opts.measurementId,
           ...layout.hitbox,
         });
+      }
+      const labelEdit = opts.labelEdit?.active ? opts.labelEdit : null;
+      if (labelEdit) {
+        const foreignObject = svgNode('foreignObject', {
+          x: bx,
+          y: by,
+          width: bw,
+          height: bh,
+          class: 'canvas-length-tag-editor',
+          'data-measurement-id': opts.measurementId,
+        });
+        const wrapper = htmlNode('div', {
+          class: `canvas-length-tag-edit${labelEdit.invalid ? ' invalid' : ''}`,
+          style: [
+            `--length-tag-color:${opts.labelColor}`,
+            `--length-tag-font-size:${fontSize}px`,
+            `--length-tag-accent-width:${accentW}px`,
+          ].join(';'),
+        });
+        const input = htmlNode('input', {
+          id: 'canvasLengthEditInput',
+          class: 'canvas-length-tag-input',
+          type: 'text',
+          inputmode: 'decimal',
+          autocomplete: 'off',
+          'aria-label': 'Length',
+          value: labelEdit.value,
+        });
+        const unit = htmlNode('span', {
+          class: 'canvas-length-tag-unit',
+          'aria-hidden': 'true',
+        });
+        unit.textContent = labelEdit.unit || '';
+        const error = htmlNode('span', {
+          id: 'canvasLengthEditError',
+          class: 'canvas-length-edit-error',
+          role: 'alert',
+          hidden: '',
+        });
+        wrapper.appendChild(input);
+        wrapper.appendChild(unit);
+        wrapper.appendChild(error);
+        foreignObject.appendChild(wrapper);
+        group.appendChild(foreignObject);
+        return;
       }
       group.appendChild(svgNode('rect', {
         x: bx,

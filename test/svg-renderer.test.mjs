@@ -21,6 +21,7 @@ async function loadRenderer() {
   const sandbox = {
     window: {},
     document: {
+      createElement: tag => createElement(tag),
       createElementNS: (namespace, tag) => createElement(tag),
     },
   };
@@ -126,6 +127,57 @@ test('drawPolyline keeps floating labels clear of endpoint anchors on short segm
     closestAnchorDistance <= 7,
     `expected label to sit close to anchors, got ${closestAnchorDistance}px`
   );
+});
+
+test('drawPolyline renders active length edits inside the SVG label', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawPolyline([{ x: 0, y: 0 }, { x: 80, y: 0 }], {
+    color: '#ff73a6',
+    labelColor: '#ff73a6',
+    label: '12.50 ft',
+    labelT: 0.5,
+    measurementId: 'inline-edit',
+    labelEdit: {
+      active: true,
+      value: '12.50',
+      unit: 'ft',
+      invalid: false,
+    },
+  });
+
+  const group = drawSvg.children[0];
+  const foreignObject = group.children.find(child => child.tag === 'foreignObject');
+  assert.ok(foreignObject, 'active edit label should render a foreignObject editor');
+  assert.equal(foreignObject.attrs.class, 'canvas-length-tag-editor');
+  assert.equal(foreignObject.attrs['data-measurement-id'], 'inline-edit');
+  const wrapper = foreignObject.children[0];
+  const input = wrapper.children[0];
+  const unit = wrapper.children[1];
+  assert.equal(wrapper.tag, 'div');
+  assert.equal(wrapper.attrs.class, 'canvas-length-tag-edit');
+  assert.match(wrapper.attrs.style, /--length-tag-color:#ff73a6/);
+  assert.equal(input.tag, 'input');
+  assert.equal(input.attrs.id, 'canvasLengthEditInput');
+  assert.equal(input.attrs.class, 'canvas-length-tag-input');
+  assert.equal(input.attrs.value, '12.50');
+  assert.equal(input.attrs.inputmode, 'decimal');
+  assert.equal(unit.tag, 'span');
+  assert.equal(unit.attrs.class, 'canvas-length-tag-unit');
+  assert.equal(unit.textContent, 'ft');
+  assert.equal(group.children.some(child => child.tag === 'text'), false);
 });
 
 test('drawBezierSegments keeps floating labels clear of curve anchors', async () => {

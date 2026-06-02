@@ -838,44 +838,47 @@ main {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
 }
-.length-edit-pill {
-  --length-edit-color: var(--accent);
-  position: fixed;
-  display: none;
-  min-width: 82px;
-  min-height: 24px;
-  z-index: 76;
+.canvas-length-tag-editor {
+  overflow: visible;
+  pointer-events: auto;
+}
+.canvas-length-tag-edit {
+  box-sizing: border-box;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: nowrap;
   gap: 3px;
-  padding: 0 9px 0 17px;
-  border: 1px solid var(--length-edit-color);
+  padding: 0 8px 0 17px;
+  border: 1px solid var(--length-tag-color);
   border-radius: 5px;
   background: rgba(11,13,14,0.96);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.42);
+  pointer-events: auto;
 }
-.length-edit-pill.show { display: flex; }
-.length-edit-pill::before {
+.canvas-length-tag-edit::before {
   content: "";
   position: absolute;
   left: 4px;
   top: 4px;
   bottom: 4px;
-  width: 3px;
+  width: var(--length-tag-accent-width);
+  min-width: 3px;
   border-radius: 1.5px;
-  background: var(--length-edit-color);
+  background: var(--length-tag-color);
   pointer-events: none;
 }
-.length-edit-pill:has(input.invalid) {
-  width: 190px;
+.canvas-length-tag-edit:has(.canvas-length-tag-input.invalid) {
+  min-width: 190px;
   min-height: 48px;
   border-color: var(--danger);
   align-content: center;
   flex-wrap: wrap;
   gap: 4px 6px;
 }
-.length-edit-pill input {
+.canvas-length-tag-input {
   width: 4ch;
   min-width: 4ch;
   max-width: 14ch;
@@ -884,25 +887,27 @@ main {
   background: transparent;
   color: var(--text);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: var(--length-tag-font-size);
   font-weight: 700;
-  line-height: 13px;
+  line-height: var(--length-tag-font-size);
   font-variant-numeric: tabular-nums;
   text-align: right;
+  pointer-events: auto;
 }
-.length-edit-pill input::selection {
+.canvas-length-tag-input::selection {
   color: var(--text);
-  background: color-mix(in srgb, var(--length-edit-color) 38%, transparent);
+  background: color-mix(in srgb, var(--length-tag-color) 38%, transparent);
 }
-.length-edit-pill .length-edit-unit {
+.canvas-length-tag-unit {
   color: var(--text);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: var(--length-tag-font-size);
   font-weight: 700;
-  line-height: 13px;
+  line-height: var(--length-tag-font-size);
+  pointer-events: none;
 }
-.length-edit-pill input.invalid { color: var(--danger); }
-.length-edit-pill .length-edit-error {
+.canvas-length-tag-input.invalid { color: var(--danger); }
+.canvas-length-edit-error {
   flex-basis: 100%;
   color: var(--danger);
   font-size: 10px;
@@ -910,7 +915,7 @@ main {
   line-height: 1.1;
   white-space: nowrap;
 }
-.length-edit-pill .length-edit-error[hidden] { display: none; }
+.canvas-length-edit-error[hidden] { display: none; }
 
 /* Side panel */
 aside {

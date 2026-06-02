@@ -184,7 +184,6 @@ const measList = $('measList');
 const toolTip = $('toolTip');
 const contextMenu = $('contextMenu');
 const rotationPill = $('rotationPill'), rotationInput = $('rotationInput');
-const lengthEditPill = $('lengthEditPill'), lengthEditInput = $('lengthEditInput');
 const undoButton = $('undoButton');
 const redoButton = $('redoButton');
 const exportWrap = $('exportWrap');
@@ -514,11 +513,11 @@ function scaleForPage(page) { return state.pageScales[page] || (page === current
 function pxToInches(px, page = currentPage()) { return unitModel.pxToInches(px, scaleForPage(page)); }
 function formatLen(inches) { return unitModel.formatLengthInUnit(inches, state.unit); }
 const lengthEditController = window.TakeoffLengthEditController.createLengthEditController({
-  state, input: lengthEditInput, pill: lengthEditPill, stage, sidebarController, scaleForPage, formatLength: formatLen, unitLabel: () => unitModel.unitLabel(state.unit),
+  state, sidebarController, scaleForPage, formatLength: formatLen, unitLabel: () => unitModel.unitLabel(state.unit),
   parseLengthInUnit: value => unitModel.parseLengthInUnit(value, state.unit),
   resizeMeasurementToLength: (measurement, options) => measurementCommands.resizeMeasurementToLength(measurement, options),
   createHistorySnapshot, recordHistory, renderList, redraw, showStatus, syncSidebarSelection,
-  finishPointerDrag, clearActiveFitMode, setSelectionMode: () => setMode('selection'), imageToScreen, endRotateMode,
+  finishPointerDrag, clearActiveFitMode, setSelectionMode: () => setMode('selection'), endRotateMode,
 });
 
 function constrainDeltaToPage(bounds, dx, dy, page = currentPage()) {
@@ -2210,9 +2209,9 @@ function redraw(previewTo) {
       glow: isSelected || isSelHover,
       label: m.lengthInches != null ? `${formatLen(m.lengthInches)} ${unitModel.unitLabel(state.unit)}` : 'no scale',
       labelColor: color,
-      measurementId: m.id,
-      labelT: m.labelT,
+      measurementId: m.id, labelT: m.labelT,
       labelOffset: m.labelOffset,
+      labelEdit: lengthEditController.canvasLengthEditStateForMeasurement(m),
     });
   }
 
@@ -2270,6 +2269,7 @@ function redraw(previewTo) {
     }
     drawEndpointAnchors(drawRaw, '#b6ff3c');
   }
+  lengthEditController.bindActiveCanvasLengthInput();
 }
 
 function redrawActivePreview() { redraw(state.inProgress ? getEffectiveCursor() : undefined); }
