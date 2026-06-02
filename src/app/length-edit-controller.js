@@ -1,4 +1,7 @@
 (function () {
+  const DEFAULT_LABEL_COLOR = '#b6ff3c';
+  const MIN_CANVAS_LENGTH_CH = 4;
+
   function createLengthEditController({
     state,
     input,
@@ -25,6 +28,24 @@
     let activeCanvasLengthEditId = null;
     let canvasLengthEditor = null;
     const canvasLengthUnit = pill?.querySelector?.('.length-edit-unit') || null;
+
+    function setStyleProperty(el, name, value) {
+      if (!el?.style) return;
+      if (el.style.setProperty) el.style.setProperty(name, value);
+      else el.style[name] = value;
+    }
+
+    function measurementLabelColor(measurement) {
+      return typeof measurement?.color === 'string' && measurement.color.trim()
+        ? measurement.color.trim()
+        : DEFAULT_LABEL_COLOR;
+    }
+
+    function syncCanvasLengthInputWidth(value = input.value) {
+      if (!input?.style) return;
+      const text = String(value || '');
+      input.style.width = `${Math.max(MIN_CANVAS_LENGTH_CH, text.length)}ch`;
+    }
 
     function measurementLengthValue(measurement) {
       return measurement && measurement.lengthInches != null ? formatLength(measurement.lengthInches) : 'unscaled';
@@ -84,12 +105,13 @@
       const center = { x: labelHit.x + labelHit.width / 2, y: labelHit.y + labelHit.height / 2 };
       const screen = imageToScreen(center.x, center.y);
       const rect = stage.getBoundingClientRect();
-      const pillWidth = 82;
-      const pillHeight = 30;
+      const pillWidth = Math.max(82, labelHit.width || 0);
+      const pillHeight = 24;
       const left = Math.max(4, Math.min(window.innerWidth - pillWidth - 4, rect.left + screen.x - pillWidth / 2));
       const top = Math.max(4, Math.min(window.innerHeight - pillHeight - 4, rect.top + screen.y - pillHeight / 2));
       pill.style.left = `${left}px`;
       pill.style.top = `${top}px`;
+      setStyleProperty(pill, '--length-edit-color', measurementLabelColor(measurement));
       if (canvasLengthUnit) {
         canvasLengthUnit.textContent = unitLabel ? unitLabel() : '';
         canvasLengthUnit.hidden = false;
@@ -105,10 +127,12 @@
           return accepted;
         },
         cancel: () => hideCanvasLengthEdit(),
+        afterInput: syncCanvasLengthInputWidth,
       });
       renderList();
       redraw();
       canvasLengthEditor.start();
+      syncCanvasLengthInputWidth();
       return true;
     }
 

@@ -350,15 +350,32 @@ test('canvas Length edit pill matches floating tag typography', async () => {
     readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/svg-renderer.js', import.meta.url), 'utf8'),
   ]);
+  const pillRule = styles.match(/\.length-edit-pill\s*\{[^}]+\}/)?.[0] || '';
+  const accentRule = styles.match(/\.length-edit-pill::before\s*\{[^}]+\}/)?.[0] || '';
   const editInputRule = styles.match(/\.length-edit-pill input\s*\{[^}]+\}/)?.[0] || '';
+  const editInputSelectionRule = styles.match(/\.length-edit-pill input::selection\s*\{[^}]+\}/)?.[0] || '';
+  const editUnitRule = styles.match(/\.length-edit-pill \.length-edit-unit\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(renderer, /const fontSize = overlayPageSize\(13\);/);
   assert.match(renderer, /'font-family': "'JetBrains Mono', monospace"/);
   assert.match(renderer, /'font-weight': 700/);
+  assert.match(pillRule, /--length-edit-color:\s*var\(--accent\)/);
+  assert.match(pillRule, /background:\s*rgba\(11,13,14,0\.96\)/);
+  assert.match(pillRule, /border:\s*1px solid var\(--length-edit-color\)/);
+  assert.match(pillRule, /flex-wrap:\s*nowrap/);
+  assert.match(accentRule, /content:\s*""/);
+  assert.match(accentRule, /left:\s*4px/);
+  assert.match(accentRule, /width:\s*3px/);
+  assert.match(accentRule, /background:\s*var\(--length-edit-color\)/);
   assert.match(editInputRule, /font-family:\s*'JetBrains Mono', monospace/);
   assert.match(editInputRule, /font-size:\s*13px/);
   assert.match(editInputRule, /font-weight:\s*700/);
   assert.match(editInputRule, /line-height:\s*13px/);
+  assert.match(editInputRule, /font-variant-numeric:\s*tabular-nums/);
+  assert.match(editInputSelectionRule, /background:\s*color-mix\(in srgb, var\(--length-edit-color\) 38%, transparent\)/);
+  assert.match(editUnitRule, /font-size:\s*13px/);
+  assert.match(editUnitRule, /font-weight:\s*700/);
+  assert.match(editUnitRule, /line-height:\s*13px/);
 });
 
 test('continuous zoom sharpening caps render scale by page bounds', async () => {
