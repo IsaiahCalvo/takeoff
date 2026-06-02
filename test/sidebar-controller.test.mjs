@@ -4,9 +4,13 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadSidebarController() {
-  const source = await readFile(new URL('../src/app/sidebar-controller.js', import.meta.url), 'utf8');
+  const [decimalSource, source] = await Promise.all([
+    readFile(new URL('../src/app/decimal-input.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/sidebar-controller.js', import.meta.url), 'utf8'),
+  ]);
   const sandbox = { window: {} };
   vm.createContext(sandbox);
+  vm.runInContext(decimalSource, sandbox, { filename: 'decimal-input.js' });
   vm.runInContext(source, sandbox, { filename: 'sidebar-controller.js' });
   return sandbox.window.TakeoffSidebarController;
 }
@@ -370,10 +374,15 @@ test('editableLengthInput accepts only positive decimal number syntax while typi
   assert.equal(input.readOnly, true);
 
   editor.start();
+  input.value = '00';
+  listeners.input();
+
+  assert.equal(input.value, '0.0');
+
   input.value = '000';
   listeners.input();
 
-  assert.equal(input.value, '0');
+  assert.equal(input.value, '0.00');
 
   input.value = '05';
   listeners.input();
@@ -388,7 +397,7 @@ test('editableLengthInput accepts only positive decimal number syntax while typi
   input.value = '000.05';
   listeners.input();
 
-  assert.equal(input.value, '0.05');
+  assert.equal(input.value, '0.0005');
 
   input.value = '01.2';
   listeners.input();

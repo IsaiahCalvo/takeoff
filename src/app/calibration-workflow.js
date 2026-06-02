@@ -21,13 +21,7 @@
   }
 
   function sanitizeCalibrationValueInput(input) {
-    let value = String(input || '').replace(/[^0-9.]/g, '');
-    const dotIndex = value.indexOf('.');
-    if (dotIndex !== -1) {
-      value = value.slice(0, dotIndex + 1) + value.slice(dotIndex + 1).replace(/\./g, '');
-    }
-    if (/^0+$/.test(value)) value = '';
-    return value;
+    return window.TakeoffDecimalInput.sanitizePositiveDecimalInput(input);
   }
 
   function calibrationValueNumber(value) {
