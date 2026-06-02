@@ -78,7 +78,17 @@
           hasDecimal = true;
         }
       }
-      return sanitized;
+      return normalizeLeadingZero(sanitized);
+    }
+
+    function normalizeLeadingZero(value) {
+      if (!value.startsWith('0') || value.length <= 1) return value;
+      if (value[1] === '.') return value;
+
+      const rest = value.slice(1).replace(/^0+/, '');
+      if (!rest) return '0';
+      if (rest[0] === '.') return `0${rest}`;
+      return `0.${rest.replace('.', '')}`;
     }
 
     function setErrorVisible(visible) {

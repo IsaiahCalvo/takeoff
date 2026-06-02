@@ -262,12 +262,49 @@ test('canvas Length editor sanitizes typed and pasted decimal input', async () =
   assert.equal(unitEl.textContent, 'ft');
   assert.equal(unitEl.hidden, false);
 
+  input.value = '000';
+  input.listeners.input();
+
+  assert.equal(input.value, '0');
+  assert.equal(unitEl.textContent, 'ft');
+  assert.equal(unitEl.hidden, false);
+
+  input.value = '05';
+  input.listeners.input();
+
+  assert.equal(input.value, '0.5');
+
+  input.value = '0123';
+  input.listeners.input();
+
+  assert.equal(input.value, '0.123');
+
+  input.value = '000.05';
+  input.listeners.input();
+
+  assert.equal(input.value, '0.05');
+
+  input.value = '01.2';
+  input.listeners.input();
+
+  assert.equal(input.value, '0.12');
+
+  input.value = '100';
+  input.listeners.input();
+
+  assert.equal(input.value, '100');
+
+  input.value = '0.005';
+  input.listeners.input();
+
+  assert.equal(input.value, '0.005');
+
   input.listeners.keydown({
     key: 'Enter',
     stopPropagation() {},
     preventDefault() {},
   });
 
-  assert.ok(calls.includes('parse:12.34'));
+  assert.ok(calls.includes('parse:0.005'));
   assert.equal(input.readOnly, true);
 });

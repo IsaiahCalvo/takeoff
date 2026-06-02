@@ -370,6 +370,42 @@ test('editableLengthInput accepts only positive decimal number syntax while typi
   assert.equal(input.readOnly, true);
 
   editor.start();
+  input.value = '000';
+  listeners.input();
+
+  assert.equal(input.value, '0');
+
+  input.value = '05';
+  listeners.input();
+
+  assert.equal(input.value, '0.5');
+
+  input.value = '0123';
+  listeners.input();
+
+  assert.equal(input.value, '0.123');
+
+  input.value = '000.05';
+  listeners.input();
+
+  assert.equal(input.value, '0.05');
+
+  input.value = '01.2';
+  listeners.input();
+
+  assert.equal(input.value, '0.12');
+
+  input.value = '100';
+  listeners.input();
+
+  assert.equal(input.value, '100');
+
+  input.value = '0.005';
+  listeners.input();
+
+  assert.equal(input.value, '0.005');
+
+  editor.start();
   input.value = '-0,abc.0.0';
   listeners.input();
 
