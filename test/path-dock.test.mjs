@@ -191,6 +191,32 @@ test('renders Path tiles with stable action data and two-anchor previews', async
   assert.match(html, /stroke-dasharray="1 16"/);
 });
 
+test('escapes Path Template and Path names in rendered dock markup', async () => {
+  const { pathDock } = await loadPathDock();
+
+  const html = pathDock.renderPathDockHtml({
+    pathTemplates: [{
+      id: 'template-danger',
+      title: 'Template <script>',
+      paths: [{
+        id: 'path-danger',
+        templateId: 'template-danger',
+        name: 'Path "quoted" <img>',
+        order: 0,
+      }],
+    }],
+    selectedTemplateId: 'template-danger',
+    selectedPathId: 'path-danger',
+    templateDropupOpen: true,
+  });
+
+  assert.match(html, /Template &lt;script&gt;/);
+  assert.match(html, /Path "quoted" &lt;img&gt;/);
+  assert.match(html, /aria-label="Path &quot;quoted&quot; &lt;img&gt; preview"/);
+  assert.doesNotMatch(html, /<script>/);
+  assert.doesNotMatch(html, /<img>/);
+});
+
 test('creates an unmounted DOM fragment when a document adapter is supplied', async () => {
   const { pathDock } = await loadPathDock();
   const documentAdapter = {
