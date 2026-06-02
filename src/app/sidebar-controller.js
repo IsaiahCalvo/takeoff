@@ -67,6 +67,20 @@
     errorEl = null,
     validationMessage = 'Enter a positive Length.',
   } = {}) {
+    function sanitizeDecimalInput(value) {
+      let sanitized = '';
+      let hasDecimal = false;
+      for (const char of String(value || '')) {
+        if (char >= '0' && char <= '9') {
+          sanitized += char;
+        } else if (char === '.' && !hasDecimal) {
+          sanitized += char;
+          hasDecimal = true;
+        }
+      }
+      return sanitized;
+    }
+
     function setErrorVisible(visible) {
       if (!errorEl) return;
       errorEl.hidden = !visible;
@@ -105,7 +119,20 @@
       if (input.select) input.select();
     }
 
+    function handleInput() {
+      const sanitized = sanitizeDecimalInput(input.value);
+      if (input.value !== sanitized) {
+        const cursor = typeof input.selectionStart === 'number'
+          ? Math.max(0, input.selectionStart - (input.value.length - sanitized.length))
+          : sanitized.length;
+        input.value = sanitized;
+        if (input.setSelectionRange) input.setSelectionRange(cursor, cursor);
+      }
+      clearValidation();
+    }
+
     function commitValue() {
+      input.value = sanitizeDecimalInput(input.value);
       const accepted = commit ? commit(input.value) : true;
       if (!accepted) {
         showValidation();
@@ -141,10 +168,16 @@
       return commitValue();
     }
 
+    if (input.addEventListener && !input.dataset.lengthSanitizerBound) {
+      input.addEventListener('input', handleInput);
+      input.dataset.lengthSanitizerBound = 'true';
+    }
+
     return {
       start,
       commitValue,
       cancelEdit,
+      handleInput,
       handleKeyDown,
       handleBlur,
     };

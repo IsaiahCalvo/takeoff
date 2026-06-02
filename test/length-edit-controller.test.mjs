@@ -109,7 +109,7 @@ test('canvas Length editor keeps invalid typed value visible and focused', async
     preventDefault() { events.push('prevent'); },
   });
 
-  assert.equal(input.value, 'bad');
+  assert.equal(input.value, '');
   assert.equal(input.readOnly, false);
   assert.equal(input.attrs['aria-invalid'], 'true');
   assert.equal(input.attrs['aria-describedby'], 'canvas-length-error');
@@ -198,4 +198,76 @@ test('canvas Length editor keeps the active unit visible while editing', async (
   });
 
   assert.ok(calls.includes('parse:2.00'));
+});
+
+test('canvas Length editor sanitizes typed and pasted decimal input', async () => {
+  const { sidebar, lengthEdit } = await loadLengthEditController();
+  const events = [];
+  const input = createFakeInput(events);
+  const pillClasses = new Set();
+  const errorEl = { hidden: true, textContent: '', id: 'canvas-length-error' };
+  const unitEl = { textContent: '', hidden: true };
+  const pill = {
+    style: {},
+    classList: {
+      add(name) { pillClasses.add(name); },
+      remove(name) { pillClasses.delete(name); },
+      contains(name) { return pillClasses.has(name); },
+    },
+    querySelector(selector) {
+      if (selector === '.length-edit-error') return errorEl;
+      if (selector === '.length-edit-unit') return unitEl;
+      return null;
+    },
+  };
+  const state = {
+    selectedId: null,
+    rotateModeId: null,
+    measurements: [{ id: 9, page: 1, lengthInches: 24, points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] }],
+  };
+  const calls = [];
+  const controller = lengthEdit.createLengthEditController({
+    state,
+    input,
+    pill,
+    stage: { getBoundingClientRect: () => ({ left: 10, top: 20 }) },
+    sidebarController: sidebar,
+    scaleForPage: () => 10,
+    formatLength: inches => `${inches / 12}.00`,
+    unitLabel: () => 'ft',
+    parseLengthInUnit: value => {
+      calls.push(`parse:${value}`);
+      return Number(value) > 0 ? 12 : null;
+    },
+    resizeMeasurementToLength: () => true,
+    createHistorySnapshot: () => ({}),
+    recordHistory: () => calls.push('history'),
+    renderList: () => calls.push('renderList'),
+    redraw: () => calls.push('redraw'),
+    showStatus: message => calls.push(`status:${message}`),
+    syncSidebarSelection: () => {},
+    finishPointerDrag: () => calls.push('finishDrag'),
+    clearActiveFitMode: () => calls.push('clearFit'),
+    setSelectionMode: () => calls.push('selectionMode'),
+    imageToScreen: () => ({ x: 100, y: 120 }),
+    endRotateMode: () => calls.push('endRotate'),
+  });
+
+  assert.equal(controller.openCanvasLengthEdit({ measurementId: 9, x: 20, y: 30, width: 60, height: 20 }), true);
+
+  input.value = 'ft-1,2.3.4abc';
+  input.listeners.input();
+
+  assert.equal(input.value, '12.34');
+  assert.equal(unitEl.textContent, 'ft');
+  assert.equal(unitEl.hidden, false);
+
+  input.listeners.keydown({
+    key: 'Enter',
+    stopPropagation() {},
+    preventDefault() {},
+  });
+
+  assert.ok(calls.includes('parse:12.34'));
+  assert.equal(input.readOnly, true);
 });

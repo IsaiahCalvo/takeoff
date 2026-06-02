@@ -284,7 +284,7 @@ test('editableLengthInput keeps focus and validation state when Enter or blur re
     preventDefault() { events.push('prevent'); },
   });
 
-  assert.equal(input.value, 'bad');
+  assert.equal(input.value, '');
   assert.equal(input.readOnly, false);
   assert.equal(attrs['aria-invalid'], 'true');
   assert.equal(attrs['aria-describedby'], 'length-error-1');
@@ -301,4 +301,86 @@ test('editableLengthInput keeps focus and validation state when Enter or blur re
   assert.equal(events.at(-2), 'focus');
   assert.equal(events.at(-1), 'select');
   assert.equal(errorEl.hidden, false);
+});
+
+test('editableLengthInput accepts only positive decimal number syntax while typing', async () => {
+  const sidebar = await loadSidebarController();
+  const events = [];
+  const attrs = {};
+  const listeners = {};
+  const classes = new Set();
+  const input = {
+    value: '2.00',
+    dataset: {},
+    readOnly: true,
+    removeAttribute(name) {
+      if (name === 'readonly') this.readOnly = false;
+      delete attrs[name];
+    },
+    setAttribute(name, value = '') {
+      if (name === 'readonly') this.readOnly = true;
+      attrs[name] = value;
+    },
+    hasAttribute(name) {
+      return name === 'readonly' ? this.readOnly : Object.hasOwn(attrs, name);
+    },
+    focus() {
+      events.push('focus');
+    },
+    select() {
+      events.push('select');
+    },
+    blur() {
+      events.push('blur');
+    },
+    setSelectionRange(start, end) {
+      events.push(`selection:${start}:${end}`);
+    },
+    addEventListener(type, handler) {
+      listeners[type] = handler;
+    },
+    classList: {
+      add(name) { classes.add(name); },
+      remove(name) { classes.delete(name); },
+      contains(name) { return classes.has(name); },
+    },
+  };
+  const editor = sidebar.createEditableLengthInput({
+    input,
+    currentValue: () => '2.00',
+    commit: value => {
+      events.push(`commit:${value}`);
+      return Number(value) > 0;
+    },
+  });
+
+  editor.start();
+  input.value = '1a,2-3.4.5ft';
+  listeners.input();
+
+  assert.equal(input.value, '123.45');
+
+  editor.handleKeyDown({
+    key: 'Enter',
+    stopPropagation() { events.push('stop'); },
+    preventDefault() { events.push('prevent'); },
+  });
+
+  assert.ok(events.includes('commit:123.45'));
+  assert.equal(input.readOnly, true);
+
+  editor.start();
+  input.value = '-0,abc.0.0';
+  listeners.input();
+
+  assert.equal(input.value, '0.00');
+
+  editor.handleKeyDown({
+    key: 'Enter',
+    stopPropagation() {},
+    preventDefault() {},
+  });
+
+  assert.equal(input.readOnly, false);
+  assert.equal(classes.has('invalid'), true);
 });
