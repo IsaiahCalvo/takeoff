@@ -116,6 +116,39 @@ test('conversionMenuState exposes Continue Path only for terminal anchors', asyn
   }).canContinuePath, false);
 });
 
+test('conversionMenuState hides Continue Path for mixed paths', async () => {
+  const { controller, measurements } = await loadController();
+  const measurement = {
+    shape: { active: 'path' },
+    drawType: 'path',
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    mergeMemory: {
+      sources: [{
+        kind: 'line',
+        current: { points: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+      }, {
+        kind: 'freehand',
+        current: {
+          points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+          segments: [{ from: { x: 10, y: 0 }, c1: { x: 13, y: 0 }, c2: { x: 17, y: 0 }, to: { x: 20, y: 0 } }],
+        },
+      }],
+    },
+  };
+  const menu = createContextMenu();
+  const state = controller.applyConversionMenuState({
+    contextMenu: menu,
+    measurement,
+    measurementModel: measurements,
+    measurementCommands: { continuationEndpointRole: () => 'end' },
+    target: { kind: 'anchor-hit', vertexIndex: 1 },
+  });
+
+  assert.equal(state.canContinuePath, false);
+  assert.equal(menu.buttons.get('continue-path').hidden, true);
+  assert.equal(menu.buttons.get('continue-path').disabled, true);
+});
+
 test('conversionMenuState exposes Merge Paths only for eligible snapped endpoints', async () => {
   const { controller, measurements } = await loadController();
   const measurement = {

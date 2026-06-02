@@ -5,6 +5,7 @@
     const canContinuePath = !!(
       measurement
       && target
+      && !measurementModel?.isMixedMeasurement?.(measurement)
       && measurementCommands?.continuationEndpointRole?.(measurement, target)
     );
     const canMergePaths = !!(

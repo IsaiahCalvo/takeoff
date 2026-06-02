@@ -310,6 +310,48 @@ test('resizeMeasurementToLength scales Freehand curve anchors and controls unifo
   assert.ok(Math.abs(measurement.lengthInches - originalLength / 2) < 0.0001);
 });
 
+test('resizeMeasurementToLength scales mixed Line and Freehand source geometry and supports maintained unmerge', async () => {
+  const commands = await loadCommands();
+  const line = linePath(44, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 45, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(45, { x: 10, y: 0 }, { x: 20, y: 0 });
+  const merged = commands.mergeSnappedEndpointPaths([line, freehand], {
+    sourceId: 44,
+    sourceEndpoint: 'end',
+    targetId: 45,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 }).measurement;
+
+  assert.equal(commands.resizeMeasurementToLength(merged, { targetLengthInches: 5, pxPerInch: 2 }), true);
+
+  assert.equal(merged.drawType, 'path');
+  assert.equal(merged.shape.active, 'path');
+  assert.deepEqual(plain(merged.points), [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
+  assert.deepEqual(plain(merged.mergeMemory.sources[0].current.points), [{ x: 0, y: 0 }, { x: 5, y: 0 }]);
+  assert.deepEqual(plain(merged.mergeMemory.sources[1].current.points), [{ x: 5, y: 0 }, { x: 10, y: 0 }]);
+  assert.deepEqual(plain(merged.mergeMemory.sources[1].current.segments[0].from), { x: 5, y: 0 });
+  assert.deepEqual(plain(merged.mergeMemory.sources[1].current.segments[0].to), { x: 10, y: 0 });
+  assert.deepEqual(plain(merged.mergeMemory.sources[0].original.points), [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
+  assert.equal(merged.lengthPx, 10);
+  assert.equal(merged.lengthInches, 5);
+  assert.equal(merged.mergeMemory.sources[0].boundary.lengthPx, 5);
+  assert.ok(Math.abs(merged.mergeMemory.sources[1].boundary.lengthPx - 5) < 0.0001);
+
+  const state = commands.unmergePathState(merged);
+  assert.equal(state.canMaintainEdits, true);
+  const maintained = commands.unmergePaths([merged], merged.id, { mode: 'maintain-edits', pxPerInch: 2 });
+  assert.equal(maintained.unmerged, true);
+  assert.deepEqual(plain(maintained.measurements[0].points), [{ x: 0, y: 0 }, { x: 5, y: 0 }]);
+  assert.deepEqual(plain(maintained.measurements[1].points), [{ x: 5, y: 0 }, { x: 10, y: 0 }]);
+  assert.deepEqual(plain(maintained.measurements[1].segments[0].to), { x: 10, y: 0 });
+
+  const original = commands.unmergePaths([merged], merged.id, { mode: 'original', pxPerInch: 2 });
+  assert.equal(original.unmerged, true);
+  assert.deepEqual(plain(original.measurements[0].points), [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
+  assert.deepEqual(plain(original.measurements[1].points), [{ x: 10, y: 0 }, { x: 20, y: 0 }]);
+});
+
 test('resizeMeasurementToLength rejects invalid target lengths without changing geometry', async () => {
   const commands = await loadCommands();
   for (const targetLengthInches of ['', 0, -1, Number.NaN]) {
@@ -330,6 +372,24 @@ test('resizeMeasurementToLength rejects invalid target lengths without changing 
     assert.equal(measurement.lengthPx, 24);
     assert.equal(measurement.lengthInches, 24);
   }
+});
+
+test('resizeMeasurementToLength rejects invalid mixed resize requests without changing merge memory', async () => {
+  const commands = await loadCommands();
+  const line = linePath(46, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 47, targetEndpoint: 'start' }],
+  });
+  const freehand = freehandPath(47, { x: 10, y: 0 }, { x: 20, y: 0 });
+  const merged = commands.mergeSnappedEndpointPaths([line, freehand], {
+    sourceId: 46,
+    sourceEndpoint: 'end',
+    targetId: 47,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 }).measurement;
+  const before = plain(merged);
+
+  assert.equal(commands.resizeMeasurementToLength(merged, { targetLengthInches: 0, pxPerInch: 2 }), false);
+  assert.deepEqual(plain(merged), before);
 });
 
 test('convertFreehandMeasurementToLine preserves ordered freehand anchors and source metadata', async () => {
@@ -1015,6 +1075,23 @@ test('freehand anchor and control edits update curve geometry anchors', async ()
 test('continuation endpoint role is available only for terminal anchors', async () => {
   const commands = await loadCommands();
   const line = { points: [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 10, y: 0 }] };
+  const mixed = {
+    drawType: 'path',
+    shape: { active: 'path' },
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    mergeMemory: {
+      sources: [{
+        kind: 'line',
+        current: { points: [{ x: 0, y: 0 }, { x: 10, y: 0 }] },
+      }, {
+        kind: 'freehand',
+        current: {
+          points: [{ x: 10, y: 0 }, { x: 20, y: 0 }],
+          segments: [straightSegment({ x: 10, y: 0 }, { x: 20, y: 0 })],
+        },
+      }],
+    },
+  };
   const curve = {
     shape: { active: 'freehand' },
     points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 20, y: 0 }],
@@ -1036,6 +1113,8 @@ test('continuation endpoint role is available only for terminal anchors', async 
   assert.equal(commands.continuationEndpointRole(line, { kind: 'anchor-hit', vertexIndex: 0 }), 'start');
   assert.equal(commands.continuationEndpointRole(line, { kind: 'anchor-hit', vertexIndex: 2 }), 'end');
   assert.equal(commands.continuationEndpointRole(line, { kind: 'anchor-hit', vertexIndex: 1 }), null);
+  assert.equal(commands.continuationEndpointRole(mixed, { kind: 'anchor-hit', vertexIndex: 0 }), null);
+  assert.equal(commands.continuationEndpointRole(mixed, { kind: 'anchor-hit', vertexIndex: 1 }), null);
   assert.equal(commands.continuationEndpointRole(curve, { kind: 'anchor-hit', segmentIndex: 0, anchor: 'from' }), 'start');
   assert.equal(commands.continuationEndpointRole(curve, { kind: 'anchor-hit', segmentIndex: 1, anchor: 'to' }), 'end');
   assert.equal(commands.continuationEndpointRole(curve, { kind: 'anchor-hit', segmentIndex: 0, anchor: 'to' }), null);

@@ -170,6 +170,17 @@
     }));
   }
 
+  function refreshMergeMemoryBoundaries(memory) {
+    if (!memory || !Array.isArray(memory.sources)) return memory;
+    return {
+      ...memory,
+      sources: memory.sources.map(source => ({
+        ...source,
+        boundary: sourceBoundary(source.current),
+      })),
+    };
+  }
+
   function measurementStartAnchor(measurement) {
     if (!measurement) return null;
     if (measurementModel.isCurveMeasurement(measurement)) {
@@ -380,6 +391,7 @@
 
   function continuationEndpointRole(measurement, target) {
     if (!measurement || !target || target.kind !== 'anchor-hit') return null;
+    if (measurementModel.isMixedMeasurement?.(measurement)) return null;
     if (measurementModel.isCurveMeasurement(measurement)) {
       if (!Array.isArray(measurement.segments) || !measurement.segments.length) return null;
       const anchorIndex = curveAnchorIndexFromHandle(target);
@@ -868,7 +880,9 @@
     if (!startAnchor) return false;
     const scale = targetLengthPx / currentLengthPx;
 
-    if (measurementModel.isCurveMeasurement(measurement)) {
+    if (measurementModel.isMixedMeasurement?.(measurement)) {
+      measurement.mergeMemory = refreshMergeMemoryBoundaries(scaleMergeMemoryGeometryAround(measurement.mergeMemory, startAnchor, scale));
+    } else if (measurementModel.isCurveMeasurement(measurement)) {
       measurement.segments = geometry.scaleSegmentsAround(measurement.segments, startAnchor, scale);
       measurementModel.updateCurveAnchors(measurement);
     } else {
