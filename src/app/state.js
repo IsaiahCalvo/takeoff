@@ -3,10 +3,26 @@
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
 
-  function createInitialState() {
+  function createInitialPathTemplateState(pathTemplateState) {
+    const pathTemplates = window.TakeoffPathTemplates;
+    if (pathTemplates?.normalizePathTemplateState) {
+      return pathTemplates.normalizePathTemplateState(pathTemplateState);
+    }
+    return {
+      pathTemplates: [],
+      activePathTemplateId: null,
+      activePathId: null,
+    };
+  }
+
+  function createInitialState(options = {}) {
+    const pathTemplateState = createInitialPathTemplateState(options.pathTemplateState);
     return {
       documents: [],
       activeDocId: null,
+      pathTemplates: pathTemplateState.pathTemplates,
+      activePathTemplateId: pathTemplateState.activePathTemplateId,
+      activePathId: pathTemplateState.activePathId,
       mode: 'pan',
       prevMode: 'pan',
       spaceHeld: false,

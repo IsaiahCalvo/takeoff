@@ -4,10 +4,12 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadStateStore() {
-  const source = await readFile(new URL('../src/app/state.js', import.meta.url), 'utf8');
   const sandbox = { window: {} };
   vm.createContext(sandbox);
-  vm.runInContext(source, sandbox, { filename: 'state.js' });
+  const pathTemplateSource = await readFile(new URL('../src/app/path-templates.js', import.meta.url), 'utf8');
+  vm.runInContext(pathTemplateSource, sandbox, { filename: 'path-templates.js' });
+  const stateSource = await readFile(new URL('../src/app/state.js', import.meta.url), 'utf8');
+  vm.runInContext(stateSource, sandbox, { filename: 'state.js' });
   return sandbox.window.TakeoffState;
 }
 
@@ -41,6 +43,28 @@ test('createInitialState returns fresh mutable collections and current defaults'
   assert.equal(b.continuousPageLayout, null);
   assert.equal(b.historyLimit, 100);
   assert.equal(b.MAX_CACHE, 20);
+  assert.deepEqual(plain(b.pathTemplates), [{
+    id: 'default-path-template',
+    title: 'Default',
+    paths: [{
+      id: 'default-path',
+      templateId: 'default-path-template',
+      name: 'Path',
+      geometry: 'line',
+      stroke: {
+        color: '#b6ff3c',
+        style: 'solid',
+      },
+      anchors: {
+        fill: '#ffffff',
+        border: '#b6ff3c',
+        borderMatchesStroke: true,
+      },
+      order: 0,
+    }],
+  }]);
+  assert.equal(b.activePathTemplateId, 'default-path-template');
+  assert.equal(b.activePathId, 'default-path');
 });
 
 test('resetDocumentState clears active document data while preserving app-level state', async () => {
@@ -75,6 +99,13 @@ test('resetDocumentState clears active document data while preserving app-level 
   state.sidebarTab = 'all';
   state.collapsedPageGroups = { 1: true };
   state.continuousScrollPreferences = { '1,2,3': true };
+  state.pathTemplates = [{
+    id: 'template-2',
+    title: 'Rough-in',
+    paths: [{ id: 'path-2', templateId: 'template-2', name: 'Conduit' }],
+  }];
+  state.activePathTemplateId = 'template-2';
+  state.activePathId = 'path-2';
 
   store.resetDocumentState(state);
 
@@ -107,6 +138,13 @@ test('resetDocumentState clears active document data while preserving app-level 
   assert.equal(state.sidebarTab, 'page');
   assert.deepEqual(plain(state.collapsedPageGroups), {});
   assert.deepEqual(plain(state.continuousScrollPreferences), {});
+  assert.deepEqual(plain(state.pathTemplates), [{
+    id: 'template-2',
+    title: 'Rough-in',
+    paths: [{ id: 'path-2', templateId: 'template-2', name: 'Conduit' }],
+  }]);
+  assert.equal(state.activePathTemplateId, 'template-2');
+  assert.equal(state.activePathId, 'path-2');
 });
 
 test('restoreDocumentState applies saved document fields and clears transient editing state', async () => {
@@ -118,6 +156,13 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   state.freehandDraft = { rawPoints: [] };
   state.selectedId = 3;
   state.dragLabel = { measurementId: 3 };
+  state.pathTemplates = [{
+    id: 'template-2',
+    title: 'Rough-in',
+    paths: [{ id: 'path-2', templateId: 'template-2', name: 'Conduit' }],
+  }];
+  state.activePathTemplateId = 'template-2';
+  state.activePathId = 'path-2';
   const doc = {
     id: 'doc-1',
     pdf: { numPages: 9 },
@@ -145,6 +190,13 @@ test('restoreDocumentState applies saved document fields and clears transient ed
     collapsedPageGroups: { 1: true },
     continuousScrollPreferences: { '1,2,3': true },
     pageCache: [[3, { page: 3 }]],
+    pathTemplates: [{
+      id: 'doc-template',
+      title: 'Document template should not restore',
+      paths: [],
+    }],
+    activePathTemplateId: 'doc-template',
+    activePathId: null,
   };
 
   store.restoreDocumentState(state, doc);
@@ -183,6 +235,13 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.freehandDraft, null);
   assert.equal(state.selectedId, null);
   assert.equal(state.dragLabel, null);
+  assert.deepEqual(plain(state.pathTemplates), [{
+    id: 'template-2',
+    title: 'Rough-in',
+    paths: [{ id: 'path-2', templateId: 'template-2', name: 'Conduit' }],
+  }]);
+  assert.equal(state.activePathTemplateId, 'template-2');
+  assert.equal(state.activePathId, 'path-2');
   assert.equal(state.navToken, 8);
 });
 
