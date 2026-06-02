@@ -1555,7 +1555,7 @@ function finishMeasurement() {
     existingMeasurements: state.measurements,
     palette: PALETTE,
     page,
-    pxPerInch: scaleForPage(page),
+    pxPerInch: scaleForPage(page), activePath: window.TakeoffPathTemplates.activePathForState(state),
   });
   const result = measurementWorkflows.appendMeasurementResult({
     measurements: state.measurements,
@@ -1595,7 +1595,7 @@ function finishFreehandMeasurement() {
     existingMeasurements: state.measurements,
     palette: PALETTE,
     page,
-    pxPerInch: scaleForPage(page),
+    pxPerInch: scaleForPage(page), activePath: window.TakeoffPathTemplates.activePathForState(state),
     constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, page),
   });
   if (contextMenuController.finishFreehandContinuation({ state, draft, measurement, page, historyBefore, measurementCommands, scaleForPage, recordHistory, renderList, redraw, showStatus })) return;
@@ -2202,7 +2202,7 @@ function redraw(previewTo) {
     const baseColor = m.color || '#b6ff3c';
     const color = isEraseHover ? '#ff5b5b' : baseColor;
     drawMeasurementPath(m, {
-      color,
+      color, pathStyle: isEraseHover ? null : m.pathStyle,
       width: isSelected ? 4 : 3,
       dots: true,
       emphasizeDots: isSelected,

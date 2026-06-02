@@ -38,6 +38,43 @@ test('createLineMeasurement builds a scaled run and clones points', async () => 
   assert.equal(measurement.lengthPx, 5);
   assert.equal(measurement.lengthInches, 2.5);
   assert.equal(measurement.page, 2);
+  assert.equal(measurement.pathTemplateId, undefined);
+  assert.equal(measurement.pathId, undefined);
+  assert.equal(measurement.pathName, undefined);
+  assert.equal(measurement.pathStyle, undefined);
+});
+
+test('createLineMeasurement snapshots selected path metadata and style', async () => {
+  const commands = await loadCommands();
+  const activePath = {
+    templateId: 'template-security',
+    id: 'path-cat6',
+    name: 'Cat 6',
+    stroke: { color: '#ff4d7d', style: 'dashed' },
+    anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+  };
+  const measurement = commands.createLineMeasurement({
+    id: 11,
+    points: [{ x: 0, y: 0 }, { x: 3, y: 4 }],
+    existingMeasurements: [],
+    palette: ['lime'],
+    page: 2,
+    pxPerInch: 2,
+    activePath,
+  });
+  activePath.stroke.color = '#36d399';
+  activePath.anchors.border = '#36d399';
+
+  assert.equal(measurement.color, '#ff4d7d');
+  assert.equal(measurement.pathTemplateId, 'template-security');
+  assert.equal(measurement.pathId, 'path-cat6');
+  assert.equal(measurement.pathName, 'Cat 6');
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.pathStyle)), {
+    stroke: { color: '#ff4d7d', style: 'dashed' },
+    anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+  });
+  assert.notEqual(measurement.pathStyle.stroke, activePath.stroke);
+  assert.notEqual(measurement.pathStyle.anchors, activePath.anchors);
 });
 
 test('createFreehandMeasurement builds explicit freehand shape metadata', async () => {
@@ -59,6 +96,48 @@ test('createFreehandMeasurement builds explicit freehand shape metadata', async 
   assert.equal(measurement.drawType, 'freehand');
   assert.equal(measurement.shape.active, 'freehand');
   assert.ok(measurement.segments.length > 0);
+  assert.equal(measurement.pathTemplateId, undefined);
+  assert.equal(measurement.pathId, undefined);
+  assert.equal(measurement.pathName, undefined);
+  assert.equal(measurement.pathStyle, undefined);
+});
+
+test('createFreehandMeasurement snapshots selected path metadata and style', async () => {
+  const commands = await loadCommands();
+  const activePath = {
+    templateId: 'template-power',
+    id: 'path-feeder',
+    name: 'Feeder',
+    stroke: { color: '#36d399', style: 'dotted' },
+    anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
+  };
+  const measurement = commands.createFreehandMeasurement({
+    id: 21,
+    rawPoints: [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 40, y: 20 },
+      { x: 60, y: 20 },
+    ],
+    existingMeasurements: [],
+    palette: ['cyan'],
+    page: 1,
+    pxPerInch: 10,
+    activePath,
+  });
+  activePath.stroke.color = '#ff4d7d';
+  activePath.anchors.fill = '#101820';
+
+  assert.equal(measurement.color, '#36d399');
+  assert.equal(measurement.pathTemplateId, 'template-power');
+  assert.equal(measurement.pathId, 'path-feeder');
+  assert.equal(measurement.pathName, 'Feeder');
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.pathStyle)), {
+    stroke: { color: '#36d399', style: 'dotted' },
+    anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
+  });
+  assert.notEqual(measurement.pathStyle.stroke, activePath.stroke);
+  assert.notEqual(measurement.pathStyle.anchors, activePath.anchors);
 });
 
 test('resizeMeasurementToLength halves a two-anchor Line and keeps the start anchor fixed', async () => {
@@ -192,6 +271,13 @@ test('convertFreehandMeasurementToLine preserves ordered freehand anchors and so
     lengthPx: 30,
     lengthInches: 15,
     labelT: 0.25,
+    pathTemplateId: 'template-security',
+    pathId: 'path-cat6',
+    pathName: 'Cat 6',
+    pathStyle: {
+      stroke: { color: '#ff4d7d', style: 'dashed' },
+      anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+    },
   };
 
   assert.equal(commands.convertFreehandMeasurementToLine(measurement, { pxPerInch: 2 }), true);
@@ -212,6 +298,13 @@ test('convertFreehandMeasurementToLine preserves ordered freehand anchors and so
     { x: 20, y: 0 },
   ]);
   assert.deepEqual(JSON.parse(JSON.stringify(measurement.shape.previousFreehand.segments[0].c1)), { x: 4, y: 14 });
+  assert.equal(measurement.pathTemplateId, 'template-security');
+  assert.equal(measurement.pathId, 'path-cat6');
+  assert.equal(measurement.pathName, 'Cat 6');
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.pathStyle)), {
+    stroke: { color: '#ff4d7d', style: 'dashed' },
+    anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+  });
 });
 
 test('convertFreehandMeasurementToLine derives ordered anchors for legacy freehand geometry', async () => {
@@ -304,6 +397,13 @@ test('convertLineMeasurementToFreehand restores saved freehand geometry and pres
     lengthPx: 20,
     lengthInches: 10,
     labelT: 0.5,
+    pathTemplateId: 'template-power',
+    pathId: 'path-feeder',
+    pathName: 'Feeder',
+    pathStyle: {
+      stroke: { color: '#36d399', style: 'dotted' },
+      anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
+    },
   };
 
   assert.equal(commands.convertLineMeasurementToFreehand(measurement, { pxPerInch: 2 }), true);
@@ -325,6 +425,13 @@ test('convertLineMeasurementToFreehand restores saved freehand geometry and pres
 
   measurement.shape.previousLine.points[0].x = 99;
   assert.equal(measurement.shape.previousFreehand.points[0].x, 0);
+  assert.equal(measurement.pathTemplateId, 'template-power');
+  assert.equal(measurement.pathId, 'path-feeder');
+  assert.equal(measurement.pathName, 'Feeder');
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.pathStyle)), {
+    stroke: { color: '#36d399', style: 'dotted' },
+    anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
+  });
 });
 
 test('convertLineMeasurementToFreehand generates conservative freehand segments from pure line anchors', async () => {

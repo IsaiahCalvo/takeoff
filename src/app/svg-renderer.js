@@ -1,4 +1,6 @@
 (function () {
+  const pathStyleRenderer = window.TakeoffPathStyleRenderer;
+
   function svgNode(tag, attrs = {}) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
     for (const [key, value] of Object.entries(attrs)) {
@@ -174,6 +176,38 @@
   }
 
   function createMeasurementRenderer({ drawSvg, drawCtx, overlayPageSize }) {
+    function pathStrokeAttrs(opts, strokeWidth) {
+      if (opts.pathStyle && pathStyleRenderer?.pathStrokeAttributes) {
+        return pathStyleRenderer.pathStrokeAttributes(opts.pathStyle, {
+          strokeWidth,
+          dashScale: overlayPageSize(1),
+        });
+      }
+      return {
+        fill: 'none',
+        stroke: opts.color,
+        'stroke-width': strokeWidth,
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-dasharray': opts.dashed ? `${overlayPageSize(8)} ${overlayPageSize(6)}` : null,
+      };
+    }
+
+    function anchorCircleAttrs(opts, radius) {
+      if (opts.pathStyle && pathStyleRenderer?.anchorCircleAttributes) {
+        return pathStyleRenderer.anchorCircleAttributes(opts.pathStyle, {
+          radius,
+          strokeWidth: overlayPageSize(2),
+        });
+      }
+      return {
+        r: radius,
+        fill: opts.emphasizeDots ? opts.color : '#0b0d0e',
+        stroke: opts.emphasizeDots ? '#0b0d0e' : opts.color,
+        'stroke-width': overlayPageSize(2),
+      };
+    }
+
     const geometry = window.TakeoffGeometry;
     const measurements = window.TakeoffMeasurements;
 
@@ -282,11 +316,13 @@
       drawSvg.appendChild(group);
       const strokeWidth = overlayPageSize(opts.width || 2);
       const d = buildBezierPath(segments);
+      const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
+      const strokeColor = strokeAttrs.stroke || opts.color;
       if (opts.glow) {
         group.appendChild(svgNode('path', {
           d,
           fill: 'none',
-          stroke: opts.color,
+          stroke: strokeColor,
           'stroke-width': strokeWidth + overlayPageSize(8),
           'stroke-linecap': 'round',
           'stroke-linejoin': 'round',
@@ -295,25 +331,18 @@
       }
       group.appendChild(svgNode('path', {
         d,
-        fill: 'none',
-        stroke: opts.color,
-        'stroke-width': strokeWidth,
-        'stroke-linecap': 'round',
-        'stroke-linejoin': 'round',
-        'stroke-dasharray': opts.dashed ? `${overlayPageSize(8)} ${overlayPageSize(6)}` : null,
+        ...strokeAttrs,
       }));
 
       const anchors = measurements.anchorsFromSegments(segments);
       if (opts.dots) {
         const r = overlayPageSize(opts.emphasizeDots ? 6 : 4);
+        const anchorAttrs = anchorCircleAttrs(opts, r);
         for (const point of anchors) {
           group.appendChild(svgNode('circle', {
             cx: point.x,
             cy: point.y,
-            r,
-            fill: opts.emphasizeDots ? opts.color : '#0b0d0e',
-            stroke: opts.emphasizeDots ? '#0b0d0e' : opts.color,
-            'stroke-width': overlayPageSize(2),
+            ...anchorAttrs,
           }));
         }
       }
@@ -326,7 +355,7 @@
             y1: segment.from.y,
             x2: segment.c1.x,
             y2: segment.c1.y,
-            stroke: opts.color,
+            stroke: strokeColor,
             'stroke-width': overlayPageSize(1),
             'stroke-dasharray': `${overlayPageSize(4)} ${overlayPageSize(4)}`,
             opacity: '0.72',
@@ -336,7 +365,7 @@
             y1: segment.to.y,
             x2: segment.c2.x,
             y2: segment.c2.y,
-            stroke: opts.color,
+            stroke: strokeColor,
             'stroke-width': overlayPageSize(1),
             'stroke-dasharray': `${overlayPageSize(4)} ${overlayPageSize(4)}`,
             opacity: '0.72',
@@ -347,7 +376,7 @@
               cy: point.y,
               r: handleR,
               fill: '#111619',
-              stroke: opts.color,
+              stroke: strokeColor,
               'stroke-width': overlayPageSize(1.6),
             }));
           }
@@ -383,6 +412,8 @@
       const group = svgNode('g');
       drawSvg.appendChild(group);
       const strokeWidth = overlayPageSize(opts.width || 2);
+      const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
+      const strokeColor = strokeAttrs.stroke || opts.color;
 
       if (points.length >= 2) {
         const d = buildPolylinePath(points);
@@ -390,7 +421,7 @@
           group.appendChild(svgNode('path', {
             d,
             fill: 'none',
-            stroke: opts.color,
+            stroke: strokeColor,
             'stroke-width': strokeWidth + overlayPageSize(8),
             'stroke-linecap': 'round',
             'stroke-linejoin': 'round',
@@ -399,37 +430,19 @@
         }
         group.appendChild(svgNode('path', {
           d,
-          fill: 'none',
-          stroke: opts.color,
-          'stroke-width': strokeWidth,
-          'stroke-linecap': 'round',
-          'stroke-linejoin': 'round',
-          'stroke-dasharray': opts.dashed ? `${overlayPageSize(8)} ${overlayPageSize(6)}` : null,
+          ...strokeAttrs,
         }));
       }
 
       if (opts.dots) {
         const r = overlayPageSize(opts.emphasizeDots ? 6 : 4);
+        const anchorAttrs = anchorCircleAttrs(opts, r);
         for (const point of points) {
-          if (opts.emphasizeDots) {
-            group.appendChild(svgNode('circle', {
-              cx: point.x,
-              cy: point.y,
-              r,
-              fill: opts.color,
-              stroke: '#0b0d0e',
-              'stroke-width': overlayPageSize(2),
-            }));
-          } else {
-            group.appendChild(svgNode('circle', {
-              cx: point.x,
-              cy: point.y,
-              r,
-              fill: '#0b0d0e',
-              stroke: opts.color,
-              'stroke-width': overlayPageSize(2),
-            }));
-          }
+          group.appendChild(svgNode('circle', {
+            cx: point.x,
+            cy: point.y,
+            ...anchorAttrs,
+          }));
         }
       }
 

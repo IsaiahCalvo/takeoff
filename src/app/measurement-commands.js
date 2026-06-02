@@ -54,6 +54,28 @@
     return JSON.parse(JSON.stringify(style));
   }
 
+  function selectedPathSnapshot(activePath) {
+    if (!activePath || typeof activePath !== 'object') return null;
+    const pathTemplateId = activePath.templateId || activePath.pathTemplateId || null;
+    const pathId = activePath.id || activePath.pathId || null;
+    if (!pathTemplateId && !pathId) return null;
+    const styleSource = activePath.pathStyle || {
+      stroke: activePath.stroke,
+      anchors: activePath.anchors,
+    };
+    const pathStyle = clonePathStyle(styleSource);
+    return {
+      pathTemplateId,
+      pathId,
+      pathName: activePath.name || activePath.pathName || 'Path',
+      pathStyle,
+    };
+  }
+
+  function colorFromPathSnapshot(snapshot, fallback) {
+    return snapshot?.pathStyle?.stroke?.color || fallback;
+  }
+
   function translateShapeGeometry(shape, dx, dy) {
     return measurementModel.transformShapeGeometry(shape, point => ({ x: point.x + dx, y: point.y + dy }));
   }
@@ -101,13 +123,16 @@
     return (total - anchorClearancePx) / total;
   }
 
-  function createLineMeasurement({ id, points, existingMeasurements, palette, page, pxPerInch }) {
+  function createLineMeasurement({ id, points, existingMeasurements, palette, page, pxPerInch, activePath }) {
     const clonedPoints = clonePoints(points);
     const lengthPx = geometry.polylineLengthPx(clonedPoints);
+    const pathSnapshot = selectedPathSnapshot(activePath);
+    const color = colorFromPathSnapshot(pathSnapshot, nextMeasurementColor(existingMeasurements, palette));
     return {
       id,
       name: `Run ${(existingMeasurements || []).length + 1}`,
-      color: nextMeasurementColor(existingMeasurements, palette),
+      color,
+      ...(pathSnapshot || {}),
       drawType: 'line',
       shape: measurementModel.createShapeMetadata('line'),
       points: clonedPoints,
@@ -126,6 +151,7 @@
     page,
     pxPerInch,
     constrainGeometry,
+    activePath,
   }) {
     const raw = rawPoints || [];
     if (raw.length < 2 || geometry.polylineLengthPx(raw) < 2) return null;
@@ -138,10 +164,13 @@
       segments = constrained.segments || segments;
     }
     const lengthPx = measurementModel.measurementLengthPx({ segments });
+    const pathSnapshot = selectedPathSnapshot(activePath);
+    const color = colorFromPathSnapshot(pathSnapshot, nextMeasurementColor(existingMeasurements, palette));
     return {
       id,
       name: `Run ${(existingMeasurements || []).length + 1}`,
-      color: nextMeasurementColor(existingMeasurements, palette),
+      color,
+      ...(pathSnapshot || {}),
       drawType: 'freehand',
       shape: measurementModel.createShapeMetadata('freehand'),
       points: clonePoints(points),
