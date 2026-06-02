@@ -269,6 +269,77 @@ test('createFreehandMeasurement snapshots selected path metadata and style', asy
   assert.notEqual(measurement.pathStyle.anchors, activePath.anchors);
 });
 
+test('new Line and Freehand runs use the draft Path captured before selection changes', async () => {
+  const commands = await loadCommands();
+  const pathA = {
+    templateId: 'template-rough-in',
+    id: 'path-a',
+    name: 'Path A',
+    geometry: 'line',
+    stroke: { color: '#ff4d7d', style: 'dashed' },
+    anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+  };
+  const pathB = {
+    templateId: 'template-rough-in',
+    id: 'path-b',
+    name: 'Path B',
+    geometry: 'freehand',
+    stroke: { color: '#36d399', style: 'dotted' },
+    anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
+  };
+  const lineDraft = { activePath: pathA };
+  const freehandDraft = { activePath: pathB };
+  const currentSelectionAfterLineStart = pathB;
+  const currentSelectionAfterFreehandStart = pathA;
+
+  const line = commands.createLineMeasurement({
+    id: 22,
+    points: [{ x: 0, y: 0 }, { x: 30, y: 40 }],
+    existingMeasurements: [],
+    palette: ['cyan'],
+    page: 1,
+    pxPerInch: 10,
+    activePath: lineDraft.activePath,
+  });
+  const freehand = commands.createFreehandMeasurement({
+    id: 23,
+    rawPoints: [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 40, y: 20 },
+      { x: 60, y: 20 },
+    ],
+    existingMeasurements: [line],
+    palette: ['cyan'],
+    page: 1,
+    pxPerInch: 10,
+    activePath: freehandDraft.activePath,
+  });
+
+  assert.equal(currentSelectionAfterLineStart.id, 'path-b');
+  assert.equal(currentSelectionAfterFreehandStart.id, 'path-a');
+  assert.equal(lineDraft.activePath.geometry, 'line');
+  assert.equal(line.drawType, 'line');
+  assert.equal(line.color, '#ff4d7d');
+  assert.equal(line.pathTemplateId, 'template-rough-in');
+  assert.equal(line.pathId, 'path-a');
+  assert.equal(line.pathName, 'Path A');
+  assert.deepEqual(plain(line.pathStyle), {
+    stroke: { color: '#ff4d7d', style: 'dashed' },
+    anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+  });
+  assert.equal(freehandDraft.activePath.geometry, 'freehand');
+  assert.equal(freehand.drawType, 'freehand');
+  assert.equal(freehand.color, '#36d399');
+  assert.equal(freehand.pathTemplateId, 'template-rough-in');
+  assert.equal(freehand.pathId, 'path-b');
+  assert.equal(freehand.pathName, 'Path B');
+  assert.deepEqual(plain(freehand.pathStyle), {
+    stroke: { color: '#36d399', style: 'dotted' },
+    anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
+  });
+});
+
 test('resizeMeasurementToLength halves a two-anchor Line and keeps the start anchor fixed', async () => {
   const commands = await loadCommands();
   const measurement = {
