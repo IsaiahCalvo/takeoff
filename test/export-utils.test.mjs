@@ -4,18 +4,23 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadUtils() {
-  const source = await readFile(new URL('../src/export-utils.js', import.meta.url), 'utf8');
+  const [pathAggregation, source] = await Promise.all([
+    readFile(new URL('../src/app/path-aggregation.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/export-utils.js', import.meta.url), 'utf8'),
+  ]);
   const sandbox = { window: {}, Blob, TextEncoder, TextDecoder };
   vm.createContext(sandbox);
+  vm.runInContext(pathAggregation, sandbox, { filename: 'path-aggregation.js' });
   vm.runInContext(source, sandbox, { filename: 'export-utils.js' });
   return sandbox.window.TakeoffExportUtils;
 }
 
 async function loadConversionExportModules() {
-  const [geometry, measurements, commands, exportUtils] = await Promise.all([
+  const [geometry, measurements, commands, pathAggregation, exportUtils] = await Promise.all([
     readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/measurement-commands.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/path-aggregation.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/export-utils.js', import.meta.url), 'utf8'),
   ]);
   const sandbox = { window: {}, Blob, TextEncoder, TextDecoder };
@@ -23,11 +28,16 @@ async function loadConversionExportModules() {
   vm.runInContext(geometry, sandbox, { filename: 'geometry.js' });
   vm.runInContext(measurements, sandbox, { filename: 'measurements.js' });
   vm.runInContext(commands, sandbox, { filename: 'measurement-commands.js' });
+  vm.runInContext(pathAggregation, sandbox, { filename: 'path-aggregation.js' });
   vm.runInContext(exportUtils, sandbox, { filename: 'export-utils.js' });
   return {
     commands: sandbox.window.TakeoffMeasurementCommands,
     utils: sandbox.window.TakeoffExportUtils,
   };
+}
+
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 const measurements = [
@@ -47,6 +57,12 @@ test('buildExportRows creates Excel-ready rows with scaled flags', async () => {
     length: 42.35,
     unit: 'ft',
     scaled: 'Y',
+    path: 'Legacy measurements',
+    category: 'Legacy measurements',
+    groupRunCount: 2,
+    groupTotal: 60.45,
+    groupUnit: 'ft',
+    visible: 'Y',
   });
   assert.deepEqual(JSON.parse(JSON.stringify(rows[2])), {
     page: 2,
@@ -55,6 +71,12 @@ test('buildExportRows creates Excel-ready rows with scaled flags', async () => {
     length: null,
     unit: 'ft',
     scaled: 'N',
+    path: 'Legacy measurements',
+    category: 'Legacy measurements',
+    groupRunCount: 1,
+    groupTotal: 0,
+    groupUnit: 'ft',
+    visible: 'Y',
   });
 });
 
@@ -108,20 +130,232 @@ test('generateCsv emits compact title-cased columns and blank unscaled length', 
   const csv = utils.generateCsv(utils.buildExportRows(measurements, { unit: 'ft' }));
 
   assert.equal(csv, [
-    'Page,Name,Type,Length,Unit,Scaled',
-    '1,Main corridor,line,42.35,ft,Y',
-    '1,Lobby return,freehand,18.10,ft,Y',
-    '2,Future camera path,line,,ft,N',
+    'Page,Name,Type,Length,Unit,Scaled,Path,Category,Group Run Count,Group Total,Group Unit,Visible',
+    '1,Main corridor,line,42.35,ft,Y,Legacy measurements,Legacy measurements,2,60.45,ft,Y',
+    '1,Lobby return,freehand,18.10,ft,Y,Legacy measurements,Legacy measurements,2,60.45,ft,Y',
+    '2,Future camera path,line,,ft,N,Legacy measurements,Legacy measurements,1,0.00,ft,Y',
   ].join('\r\n'));
 });
 
-test('generateSummary groups by page and excludes unscaled measurements from totals', async () => {
+test('generateSummary groups by page and grouped Path/category breakdowns', async () => {
   const utils = await loadUtils();
   const summary = utils.generateSummary(utils.buildExportRows(measurements, { unit: 'ft' }));
 
-  assert.match(summary, /Page 1\n- Main corridor: 42\.35 ft\n- Lobby return: 18\.10 ft\nPage total: 60\.45 ft/);
-  assert.match(summary, /Page 2\n- Future camera path: Unscaled\nPage total: 0\.00 ft/);
+  assert.match(summary, /Page 1\nPath: Legacy measurements \| Category: Legacy measurements \| Runs: 2 \| Total: 60\.45 ft\n- Main corridor: 42\.35 ft\n- Lobby return: 18\.10 ft\nPage total: 60\.45 ft/);
+  assert.match(summary, /Page 2\nPath: Legacy measurements \| Category: Legacy measurements \| Runs: 1 \| Total: 0\.00 ft\n- Future camera path: Unscaled\nPage total: 0\.00 ft/);
   assert.match(summary, /Grand total: 60\.45 ft\nUnscaled measurements: 1/);
+});
+
+test('buildExportRows includes Path/category group breakdowns while retaining hidden measurements', async () => {
+  const utils = await loadUtils();
+  const rows = utils.buildExportRows([
+    {
+      id: 'cat6-a',
+      page: 1,
+      name: 'Cat 6 page 1 A',
+      lengthInches: 120,
+      pathTemplateId: 'template-security',
+      pathId: 'path-cat6',
+      pathName: 'Cat 6',
+      pathCategoryId: 'low-voltage',
+      pathCategoryName: 'Low Voltage',
+    },
+    {
+      id: 'cat6-b',
+      page: 1,
+      name: 'Cat 6 page 1 B',
+      lengthInches: 60,
+      pathTemplateId: 'template-security',
+      pathId: 'path-cat6',
+      pathName: 'Cat 6',
+      pathCategoryId: 'low-voltage',
+      pathCategoryName: 'Low Voltage',
+    },
+    {
+      id: 'cat6-c',
+      page: 2,
+      name: 'Cat 6 page 2',
+      lengthInches: 36,
+      pathTemplateId: 'template-security',
+      pathId: 'path-cat6',
+      pathName: 'Cat 6',
+      pathCategoryId: 'low-voltage',
+      pathCategoryName: 'Low Voltage',
+    },
+    {
+      id: 'feeder-a',
+      page: 1,
+      name: 'Feeder page 1',
+      lengthInches: 24,
+      pathTemplateId: 'template-power',
+      pathId: 'path-feeder',
+      pathName: 'Feeder',
+      pathCategoryId: 'power',
+      pathCategoryName: 'Power',
+    },
+    {
+      id: 'legacy-a',
+      page: 1,
+      name: 'Legacy no scale',
+      lengthInches: null,
+    },
+  ], {
+    unit: 'ft',
+    pathCategoryVisibility: { 'category:low-voltage': false },
+  });
+
+  assert.equal(rows.length, 5);
+  assert.deepEqual(plain(rows.map(row => ({
+    page: row.page,
+    name: row.name,
+    path: row.path,
+    category: row.category,
+    length: row.length,
+    scaled: row.scaled,
+    groupRunCount: row.groupRunCount,
+    groupTotal: row.groupTotal,
+    groupUnit: row.groupUnit,
+    visible: row.visible,
+  }))), [
+    {
+      page: 1,
+      name: 'Cat 6 page 1 A',
+      path: 'Cat 6',
+      category: 'Low Voltage',
+      length: 10,
+      scaled: 'Y',
+      groupRunCount: 2,
+      groupTotal: 15,
+      groupUnit: 'ft',
+      visible: 'N',
+    },
+    {
+      page: 1,
+      name: 'Cat 6 page 1 B',
+      path: 'Cat 6',
+      category: 'Low Voltage',
+      length: 5,
+      scaled: 'Y',
+      groupRunCount: 2,
+      groupTotal: 15,
+      groupUnit: 'ft',
+      visible: 'N',
+    },
+    {
+      page: 1,
+      name: 'Feeder page 1',
+      path: 'Feeder',
+      category: 'Power',
+      length: 2,
+      scaled: 'Y',
+      groupRunCount: 1,
+      groupTotal: 2,
+      groupUnit: 'ft',
+      visible: 'Y',
+    },
+    {
+      page: 1,
+      name: 'Legacy no scale',
+      path: 'Legacy measurements',
+      category: 'Legacy measurements',
+      length: null,
+      scaled: 'N',
+      groupRunCount: 1,
+      groupTotal: 0,
+      groupUnit: 'ft',
+      visible: 'Y',
+    },
+    {
+      page: 2,
+      name: 'Cat 6 page 2',
+      path: 'Cat 6',
+      category: 'Low Voltage',
+      length: 3,
+      scaled: 'Y',
+      groupRunCount: 1,
+      groupTotal: 3,
+      groupUnit: 'ft',
+      visible: 'N',
+    },
+  ]);
+});
+
+test('buildExportRows computes grouped mixed-unit totals in the selected export unit', async () => {
+  const utils = await loadUtils();
+  const rows = utils.buildExportRows([
+    {
+      id: 'metric-a',
+      page: 1,
+      name: 'Metric A',
+      lengthInches: 39.3700787,
+      pathTemplateId: 'template-metric',
+      pathId: 'path-metric',
+      pathName: 'Metric Path',
+      pathCategoryName: 'Metric',
+    },
+    {
+      id: 'metric-b',
+      page: 1,
+      name: 'Metric B',
+      lengthInches: 39.3700787,
+      pathTemplateId: 'template-metric',
+      pathId: 'path-metric',
+      pathName: 'Metric Path',
+      pathCategoryName: 'Metric',
+    },
+  ], { unit: 'm' });
+
+  assert.deepEqual(plain(rows.map(row => ({
+    length: row.length,
+    unit: row.unit,
+    groupRunCount: row.groupRunCount,
+    groupTotal: row.groupTotal,
+    groupUnit: row.groupUnit,
+  }))), [
+    { length: 1, unit: 'm', groupRunCount: 2, groupTotal: 2, groupUnit: 'm' },
+    { length: 1, unit: 'm', groupRunCount: 2, groupTotal: 2, groupUnit: 'm' },
+  ]);
+});
+
+test('generateSummary keeps same-named distinct Paths grouped separately', async () => {
+  const utils = await loadUtils();
+  const rows = utils.buildExportRows([
+    {
+      id: 'conduit-a',
+      page: 1,
+      name: 'Conduit A',
+      lengthInches: 120,
+      pathTemplateId: 'template-power',
+      pathId: 'path-a',
+      pathName: 'Conduit',
+      pathCategoryName: 'Power',
+    },
+    {
+      id: 'conduit-b',
+      page: 1,
+      name: 'Conduit B',
+      lengthInches: 60,
+      pathTemplateId: 'template-power',
+      pathId: 'path-b',
+      pathName: 'Conduit',
+      pathCategoryName: 'Power',
+    },
+  ], { unit: 'ft' });
+
+  assert.deepEqual(plain(rows.map(row => ({
+    name: row.name,
+    path: row.path,
+    category: row.category,
+    groupRunCount: row.groupRunCount,
+    groupTotal: row.groupTotal,
+  }))), [
+    { name: 'Conduit A', path: 'Conduit', category: 'Power', groupRunCount: 1, groupTotal: 10 },
+    { name: 'Conduit B', path: 'Conduit', category: 'Power', groupRunCount: 1, groupTotal: 5 },
+  ]);
+
+  const summary = utils.generateSummary(rows);
+  assert.match(summary, /Path: Conduit \| Category: Power \| Runs: 1 \| Total: 10\.00 ft\n- Conduit A: 10\.00 ft/);
+  assert.match(summary, /Path: Conduit \| Category: Power \| Runs: 1 \| Total: 5\.00 ft\n- Conduit B: 5\.00 ft/);
 });
 
 test('generateXlsxPackage includes Excel table and conditional formatting metadata', async () => {
@@ -137,6 +371,10 @@ test('generateXlsxPackage includes Excel table and conditional formatting metada
   assert.match(text, /<dxf><fill><patternFill patternType="solid"><bgColor rgb="FFCEEED0"\/><\/patternFill><\/fill><\/dxf>/);
   assert.match(text, /<dxf><fill><patternFill patternType="solid"><bgColor rgb="FFF6C9CE"\/><\/patternFill><\/fill><\/dxf>/);
   assert.match(text, /<tableParts count="1">/);
+  assert.match(text, /<dimension ref="A1:L4"\/>/);
+  assert.match(text, /<tableColumns count="12">/);
+  assert.match(text, /<tableColumn id="7" name="Path"\/>/);
+  assert.match(text, /<tableColumn id="12" name="Visible"\/>/);
   assert.match(text, /<fonts count="1">/);
   assert.match(text, /<fills count="2">/);
   assert.doesNotMatch(text, /FF4472C4/);
