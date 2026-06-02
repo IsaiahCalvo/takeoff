@@ -61,6 +61,120 @@ test('createFreehandMeasurement builds explicit freehand shape metadata', async 
   assert.ok(measurement.segments.length > 0);
 });
 
+test('resizeMeasurementToLength halves a two-anchor Line and keeps the start anchor fixed', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 40,
+    drawType: 'line',
+    shape: { active: 'line' },
+    points: [{ x: 10, y: 20 }, { x: 34, y: 20 }],
+    lengthPx: 24,
+    lengthInches: 24,
+    labelT: 0.5,
+  };
+
+  assert.equal(commands.resizeMeasurementToLength(measurement, { targetLengthInches: 12, pxPerInch: 1 }), true);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 10, y: 20 },
+    { x: 22, y: 20 },
+  ]);
+  assert.equal(measurement.lengthPx, 12);
+  assert.equal(measurement.lengthInches, 12);
+});
+
+test('resizeMeasurementToLength scales a multi-segment Line uniformly', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 41,
+    drawType: 'line',
+    shape: {
+      active: 'line',
+      previousFreehand: {
+        points: [{ x: 0, y: 0 }, { x: 60, y: 0 }],
+        segments: [{
+          type: 'cubic',
+          from: { x: 0, y: 0 },
+          c1: { x: 20, y: 0 },
+          c2: { x: 40, y: 0 },
+          to: { x: 60, y: 0 },
+        }],
+      },
+    },
+    points: [{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 30, y: 40 }],
+    lengthPx: 70,
+    lengthInches: 70,
+    labelT: 0.5,
+  };
+
+  assert.equal(commands.resizeMeasurementToLength(measurement, { targetLengthInches: 35, pxPerInch: 1 }), true);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 0, y: 0 },
+    { x: 15, y: 0 },
+    { x: 15, y: 20 },
+  ]);
+  assert.equal(measurement.lengthPx, 35);
+  assert.equal(measurement.lengthInches, 35);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.shape.previousFreehand.segments[0].c1)), { x: 10, y: 0 });
+});
+
+test('resizeMeasurementToLength scales Freehand curve anchors and controls uniformly', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 42,
+    drawType: 'freehand',
+    shape: { active: 'freehand' },
+    points: [{ x: 5, y: 5 }, { x: 45, y: 5 }],
+    segments: [{
+      type: 'cubic',
+      from: { x: 5, y: 5 },
+      c1: { x: 15, y: -15 },
+      c2: { x: 35, y: 25 },
+      to: { x: 45, y: 5 },
+    }],
+    labelT: 0.5,
+  };
+  const originalLength = commands.finalizeMeasurementGeometry(measurement, { pxPerInch: 1 }) && measurement.lengthInches;
+
+  assert.equal(commands.resizeMeasurementToLength(measurement, { targetLengthInches: originalLength / 2, pxPerInch: 1 }), true);
+
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.segments[0])), {
+    type: 'cubic',
+    from: { x: 5, y: 5 },
+    c1: { x: 10, y: -5 },
+    c2: { x: 20, y: 15 },
+    to: { x: 25, y: 5 },
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+    { x: 5, y: 5 },
+    { x: 25, y: 5 },
+  ]);
+  assert.ok(Math.abs(measurement.lengthInches - originalLength / 2) < 0.0001);
+});
+
+test('resizeMeasurementToLength rejects invalid target lengths without changing geometry', async () => {
+  const commands = await loadCommands();
+  for (const targetLengthInches of ['', 0, -1, Number.NaN]) {
+    const measurement = {
+      id: 43,
+      drawType: 'line',
+      shape: { active: 'line' },
+      points: [{ x: 0, y: 0 }, { x: 24, y: 0 }],
+      lengthPx: 24,
+      lengthInches: 24,
+    };
+
+    assert.equal(commands.resizeMeasurementToLength(measurement, { targetLengthInches, pxPerInch: 1 }), false);
+    assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [
+      { x: 0, y: 0 },
+      { x: 24, y: 0 },
+    ]);
+    assert.equal(measurement.lengthPx, 24);
+    assert.equal(measurement.lengthInches, 24);
+  }
+});
+
 test('convertFreehandMeasurementToLine preserves ordered freehand anchors and source metadata', async () => {
   const commands = await loadCommands();
   const measurement = {

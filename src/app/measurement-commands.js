@@ -60,6 +60,14 @@
     }));
   }
 
+  function measurementStartAnchor(measurement) {
+    if (!measurement) return null;
+    if (measurementModel.isCurveMeasurement(measurement)) {
+      return measurement.segments?.[0]?.from || null;
+    }
+    return measurement.points?.[0] || null;
+  }
+
   function nextMeasurementColor(existingMeasurements, palette) {
     const colors = palette || [];
     const usedColors = new Set((existingMeasurements || []).map(measurement => measurement.color));
@@ -395,6 +403,28 @@
     return finalizeMeasurementGeometry(measurement, { pxPerInch, preservedLabelPoint });
   }
 
+  function resizeMeasurementToLength(measurement, { targetLengthInches, pxPerInch } = {}) {
+    const targetInches = Number(targetLengthInches);
+    if (!measurement || !Number.isFinite(targetInches) || targetInches <= 0) return false;
+    if (!Number.isFinite(pxPerInch) || pxPerInch <= 0) return false;
+    const currentLengthPx = measurementModel.measurementLengthPx(measurement);
+    const targetLengthPx = targetInches * pxPerInch;
+    if (!Number.isFinite(currentLengthPx) || currentLengthPx <= 0) return false;
+    if (!Number.isFinite(targetLengthPx) || targetLengthPx <= 0) return false;
+    const startAnchor = measurementStartAnchor(measurement);
+    if (!startAnchor) return false;
+    const scale = targetLengthPx / currentLengthPx;
+
+    if (measurementModel.isCurveMeasurement(measurement)) {
+      measurement.segments = geometry.scaleSegmentsAround(measurement.segments, startAnchor, scale);
+      measurementModel.updateCurveAnchors(measurement);
+    } else {
+      measurement.points = geometry.scalePointsAround(measurement.points || [], startAnchor, scale);
+    }
+    if (measurement.shape) measurement.shape = scaleShapeGeometryAround(measurement.shape, startAnchor, scale);
+    return finalizeMeasurementGeometry(measurement, { pxPerInch });
+  }
+
   function finalizeMeasurementGeometry(measurement, { pxPerInch, preservedLabelPoint } = {}) {
     if (!measurement) return false;
     if (measurementModel.isCurveMeasurement(measurement)) measurementModel.updateCurveAnchors(measurement);
@@ -508,6 +538,7 @@
     measurementLabelPoint,
     convertFreehandMeasurementToLine,
     convertLineMeasurementToFreehand,
+    resizeMeasurementToLength,
     finalizeMeasurementGeometry,
     updateMeasurementLabelFromPoint,
     shouldAskPasteMode,

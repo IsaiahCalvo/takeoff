@@ -39,6 +39,8 @@
     const name = cleanMeasurementName(measurement.name, measurement);
     const isUnscaled = measurement.lengthInches == null;
     const onOtherPage = measurement.page !== currentPage;
+    const lengthValue = isUnscaled ? 'unscaled' : formatLength(measurement.lengthInches);
+    const lengthUnit = isUnscaled ? '' : unitLabel(unit);
     return {
       color: measurement.color,
       name,
@@ -46,7 +48,9 @@
       page: measurement.page,
       onOtherPage,
       isUnscaled,
-      lengthHtml: isUnscaled ? 'unscaled' : `${formatLength(measurement.lengthInches)} <span class="unit">${unitLabel(unit)}</span>`,
+      lengthValue,
+      lengthUnit,
+      lengthHtml: isUnscaled ? 'unscaled' : `${lengthValue} <span class="unit">${lengthUnit}</span>`,
       measurementId: measurement.id,
       className: measurementItemClass({
         selected: selectedId === measurement.id,
@@ -55,10 +59,73 @@
     };
   }
 
+  function createEditableLengthInput({ input, currentValue, commit, cancel } = {}) {
+    function end() {
+      input.setAttribute('readonly', '');
+      if (input.setSelectionRange) input.setSelectionRange(0, 0);
+    }
+
+    function resetToCurrent() {
+      input.value = currentValue ? currentValue() : input.value;
+    }
+
+    function start() {
+      const value = currentValue ? currentValue() : input.value;
+      input.dataset.originalLength = value;
+      input.value = value;
+      input.removeAttribute('readonly');
+      input.focus();
+      if (input.select) input.select();
+    }
+
+    function commitValue() {
+      const accepted = commit ? commit(input.value) : true;
+      if (!accepted) resetToCurrent();
+      end();
+      return !!accepted;
+    }
+
+    function cancelEdit() {
+      const original = input.dataset.originalLength ?? (currentValue ? currentValue() : input.value);
+      input.value = original;
+      if (cancel) cancel(original);
+      end();
+    }
+
+    function handleKeyDown(event) {
+      if (input.hasAttribute('readonly')) return;
+      if (event.key === 'Escape') {
+        cancelEdit();
+        input.blur();
+        event.stopPropagation();
+        event.preventDefault();
+      } else if (event.key === 'Enter') {
+        commitValue();
+        input.blur();
+        event.stopPropagation();
+        event.preventDefault();
+      }
+    }
+
+    function handleBlur() {
+      if (input.hasAttribute('readonly')) return;
+      commitValue();
+    }
+
+    return {
+      start,
+      commitValue,
+      cancelEdit,
+      handleKeyDown,
+      handleBlur,
+    };
+  }
+
   window.TakeoffSidebarController = {
     applyScopeChrome,
     applyPageGroupCollapsedState,
     setPageInfoOpen,
     buildMeasurementItemViewModel,
+    createEditableLengthInput,
   };
 })();

@@ -1,8 +1,8 @@
 import './export-utils.js';
 import './calibration-utils.js';
-import './app/sidebar.js';
-import './app/sidebar-view.js';
+import './app/sidebar.js'; import './app/sidebar-view.js';
 import './app/sidebar-controller.js';
+import './app/length-edit-controller.js';
 import './app/state.js';
 import './app/geometry.js';
 import './app/measurements.js';
@@ -183,8 +183,8 @@ const statusEl = $('status');
 const measList = $('measList');
 const toolTip = $('toolTip');
 const contextMenu = $('contextMenu');
-const rotationPill = $('rotationPill');
-const rotationInput = $('rotationInput');
+const rotationPill = $('rotationPill'), rotationInput = $('rotationInput');
+const lengthEditPill = $('lengthEditPill'), lengthEditInput = $('lengthEditInput');
 const undoButton = $('undoButton');
 const redoButton = $('redoButton');
 const exportWrap = $('exportWrap');
@@ -513,6 +513,13 @@ const performanceController = window.TakeoffPerformanceController.createPerforma
 function scaleForPage(page) { return state.pageScales[page] || (page === currentPage() ? state.pxPerInch : null); }
 function pxToInches(px, page = currentPage()) { return unitModel.pxToInches(px, scaleForPage(page)); }
 function formatLen(inches) { return unitModel.formatLengthInUnit(inches, state.unit); }
+const lengthEditController = window.TakeoffLengthEditController.createLengthEditController({
+  state, input: lengthEditInput, pill: lengthEditPill, stage, sidebarController, scaleForPage, formatLength: formatLen,
+  parseLengthInUnit: value => unitModel.parseLengthInUnit(value, state.unit),
+  resizeMeasurementToLength: (measurement, options) => measurementCommands.resizeMeasurementToLength(measurement, options),
+  createHistorySnapshot, recordHistory, renderList, redraw, showStatus, syncSidebarSelection,
+  finishPointerDrag, clearActiveFitMode, setSelectionMode: () => setMode('selection'), imageToScreen, endRotateMode,
+});
 
 function constrainDeltaToPage(bounds, dx, dy, page = currentPage()) {
   const size = continuousMeasurements.pageSize(state, page);
@@ -1032,7 +1039,7 @@ stage.addEventListener('wheel', (e) => {
 
 // ------- Mouse interactions -------
 document.addEventListener('pointerdown', (e) => {
-  blurActiveMeasurementName(e.target);
+  lengthEditController.blurActiveInlineInput(e.target);
 }, true);
 
 stage.addEventListener('contextmenu', (e) => {
@@ -1389,6 +1396,10 @@ window.addEventListener('pointerup', finishPointerDrag);
 window.addEventListener('blur', finishPointerDrag);
 
 stage.addEventListener('dblclick', (e) => {
+  if (state.baseW) {
+    const labelHit = findLabelHit(screenToImage(e.clientX, e.clientY));
+    if (labelHit) { e.preventDefault(); e.stopPropagation(); lengthEditController.openCanvasLengthEdit(labelHit); return; }
+  }
   if (state.mode === 'measure' && state.inProgress && state.inProgress.points.length >= 2) {
     finishMeasurement();
   }
@@ -1655,15 +1666,6 @@ function recomputeMeasurementLength(m) {
     pxPerInch: scaleForPage(m.page),
     measureLengthPx: measurementLengthPx,
   });
-}
-
-function blurActiveMeasurementName(target) {
-  const active = document.activeElement;
-  if (!active || !active.classList || !active.classList.contains('name')) return;
-  if (active === target) return;
-  if (target && target.closest && target.closest('input.name')) return;
-  if (active.setSelectionRange) active.setSelectionRange(0, 0);
-  active.blur();
 }
 
 function copySelectedMeasurement() {
@@ -2352,6 +2354,7 @@ function buildMeasItem(m) {
   });
   nameInput.addEventListener('blur', commitNameEdit);
   item.startNameEdit = startNameEdit;
+  lengthEditController.bindSidebarLengthInput(item, m);
   item.querySelector('.del').addEventListener('click', (e) => {
     e.stopPropagation();
     const historyBefore = createHistorySnapshot();
