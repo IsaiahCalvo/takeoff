@@ -570,6 +570,67 @@ test('createPastedMeasurement can preserve real length across page scales', asyn
   assert.notEqual(pasted.shape.previousFreehand, source.shape.previousFreehand);
 });
 
+test('createPastedMeasurement preserves copied path color and style snapshot', async () => {
+  const commands = await loadCommands();
+  const source = {
+    id: 1,
+    name: 'Red path',
+    page: 1,
+    color: '#ff4d7d',
+    pathTemplateId: 'template-security',
+    pathId: 'path-cat6',
+    pathName: 'Cat 6',
+    pathStyle: {
+      stroke: { color: '#ff4d7d', style: 'dashed' },
+      anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+    },
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    segments: null,
+    labelT: 0.5,
+    sourcePage: 1,
+    sourceScale: 2,
+    sourceLengthInches: 10,
+    sourceLengthPx: 20,
+    shape: {
+      active: 'line',
+      previousFreehand: {
+        points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+        segments: [{
+          type: 'cubic',
+          from: { x: 0, y: 0 },
+          c1: { x: 5, y: 0 },
+          c2: { x: 15, y: 0 },
+          to: { x: 20, y: 0 },
+        }],
+      },
+    },
+  };
+
+  const clipboard = commands.cloneMeasurementForClipboard(source, { 1: 2 });
+  source.pathStyle.stroke.color = '#36d399';
+  source.pathStyle.anchors.border = '#36d399';
+
+  const pasted = commands.createPastedMeasurement({
+    source: clipboard,
+    id: 12,
+    existingMeasurements: [{ color: '#ff4d7d' }],
+    palette: ['#ff4d7d', '#36d399'],
+    pasteAt: { x: 100, y: 100 },
+    currentPage: 1,
+    pxPerInch: 2,
+  });
+
+  assert.equal(pasted.color, '#ff4d7d');
+  assert.equal(pasted.pathTemplateId, 'template-security');
+  assert.equal(pasted.pathId, 'path-cat6');
+  assert.equal(pasted.pathName, 'Cat 6');
+  assert.deepEqual(JSON.parse(JSON.stringify(pasted.pathStyle)), {
+    stroke: { color: '#ff4d7d', style: 'dashed' },
+    anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+  });
+  assert.notEqual(pasted.pathStyle, clipboard.pathStyle);
+});
+
 test('createPastedMeasurement centers freehand paste by visual curve bounds', async () => {
   const commands = await loadCommands();
   const source = {
