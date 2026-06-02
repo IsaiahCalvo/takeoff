@@ -15,6 +15,10 @@
     return value && typeof value === 'object' ? value : {};
   }
 
+  function hasOwn(source, key) {
+    return Object.prototype.hasOwnProperty.call(source, key);
+  }
+
   function cleanString(value, fallback) {
     return cleanOptionalString(value) || fallback;
   }
@@ -54,6 +58,22 @@
     };
   }
 
+  function normalizePathCategory(source) {
+    const pathCategory = sourceObject(source.pathCategory);
+    const category = sourceObject(source.category);
+    const id = cleanOptionalString(source.pathCategoryId)
+      || cleanOptionalString(source.categoryId)
+      || cleanOptionalString(pathCategory.id)
+      || cleanOptionalString(category.id);
+    const name = cleanOptionalString(source.pathCategoryName)
+      || cleanOptionalString(source.categoryName)
+      || (typeof source.pathCategory === 'string' ? cleanOptionalString(source.pathCategory) : '')
+      || (typeof source.category === 'string' ? cleanOptionalString(source.category) : '')
+      || cleanOptionalString(pathCategory.name)
+      || cleanOptionalString(category.name);
+    return { id, name };
+  }
+
   function normalizeOrder(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
@@ -82,7 +102,8 @@
     const source = sourceObject(path);
     const templateId = cleanString(options.templateId || source.templateId, DEFAULT_TEMPLATE_ID);
     const stroke = normalizeStroke(source.stroke);
-    return {
+    const category = normalizePathCategory(source);
+    const normalized = {
       id: cleanOptionalString(source.id) || options.id || createId('path'),
       templateId,
       name: cleanString(source.name, options.nameFallback || 'Untitled path'),
@@ -91,6 +112,11 @@
       anchors: normalizeAnchors(source.anchors, stroke),
       order: normalizeOrder(source.order, options.order || 0),
     };
+    if (category.id || category.name) {
+      if (category.id) normalized.pathCategoryId = category.id;
+      if (category.name) normalized.pathCategoryName = category.name;
+    }
+    return normalized;
   }
 
   function createPath(input = {}, options = {}) {
@@ -234,6 +260,44 @@
     }));
   }
 
+  function updatePathSettings(state, templateId, pathId, settings = {}) {
+    const patch = sourceObject(settings);
+    const stylePatch = sourceObject(patch.pathStyle);
+    const strokePatch = sourceObject(stylePatch.stroke || patch.stroke);
+    const anchorPatch = sourceObject(stylePatch.anchors || patch.anchors);
+    const hasCategory = hasOwn(patch, 'pathCategoryId')
+      || hasOwn(patch, 'pathCategoryName')
+      || hasOwn(patch, 'categoryId')
+      || hasOwn(patch, 'categoryName')
+      || hasOwn(patch, 'pathCategory')
+      || hasOwn(patch, 'category');
+    return mapTemplate(state, templateId, template => ({
+      ...template,
+      paths: template.paths.map((path) => {
+        if (path.id !== pathId) return path;
+        const next = {
+          ...path,
+          name: hasOwn(patch, 'pathName') ? cleanString(patch.pathName, path.name) : path.name,
+          geometry: patch.geometry || path.geometry,
+          stroke: { ...path.stroke, ...strokePatch },
+          anchors: { ...path.anchors, ...anchorPatch },
+        };
+        if (hasCategory) {
+          delete next.pathCategoryId;
+          delete next.pathCategoryName;
+          delete next.pathCategory;
+          delete next.categoryId;
+          delete next.categoryName;
+          delete next.category;
+          const category = normalizePathCategory(patch);
+          if (category.id) next.pathCategoryId = category.id;
+          if (category.name) next.pathCategoryName = category.name;
+        }
+        return normalizePath(next, { templateId: template.id, order: path.order });
+      }),
+    }));
+  }
+
   function deletePath(state, templateId, pathId) {
     const current = normalizePathTemplateState(state);
     let replacementPathId = current.activePathId;
@@ -298,6 +362,7 @@
     addPath,
     renamePath,
     updatePathStyle,
+    updatePathSettings,
     deletePath,
     selectPathTemplate,
     selectPath,

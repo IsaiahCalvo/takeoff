@@ -52,6 +52,8 @@ test('createLineMeasurement snapshots selected path metadata and style', async (
     name: 'Cat 6',
     stroke: { color: '#ff4d7d', style: 'dashed' },
     anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
   };
   const measurement = commands.createLineMeasurement({
     id: 11,
@@ -69,6 +71,8 @@ test('createLineMeasurement snapshots selected path metadata and style', async (
   assert.equal(measurement.pathTemplateId, 'template-security');
   assert.equal(measurement.pathId, 'path-cat6');
   assert.equal(measurement.pathName, 'Cat 6');
+  assert.equal(measurement.pathCategoryId, 'low-voltage');
+  assert.equal(measurement.pathCategoryName, 'Low Voltage');
   assert.deepEqual(JSON.parse(JSON.stringify(measurement.pathStyle)), {
     stroke: { color: '#ff4d7d', style: 'dashed' },
     anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
@@ -110,6 +114,8 @@ test('createFreehandMeasurement snapshots selected path metadata and style', asy
     name: 'Feeder',
     stroke: { color: '#36d399', style: 'dotted' },
     anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
+    categoryId: 'power',
+    categoryName: 'Power',
   };
   const measurement = commands.createFreehandMeasurement({
     id: 21,
@@ -132,6 +138,8 @@ test('createFreehandMeasurement snapshots selected path metadata and style', asy
   assert.equal(measurement.pathTemplateId, 'template-power');
   assert.equal(measurement.pathId, 'path-feeder');
   assert.equal(measurement.pathName, 'Feeder');
+  assert.equal(measurement.pathCategoryId, 'power');
+  assert.equal(measurement.pathCategoryName, 'Power');
   assert.deepEqual(JSON.parse(JSON.stringify(measurement.pathStyle)), {
     stroke: { color: '#36d399', style: 'dotted' },
     anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
@@ -274,6 +282,8 @@ test('convertFreehandMeasurementToLine preserves ordered freehand anchors and so
     pathTemplateId: 'template-security',
     pathId: 'path-cat6',
     pathName: 'Cat 6',
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
     pathStyle: {
       stroke: { color: '#ff4d7d', style: 'dashed' },
       anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
@@ -301,6 +311,8 @@ test('convertFreehandMeasurementToLine preserves ordered freehand anchors and so
   assert.equal(measurement.pathTemplateId, 'template-security');
   assert.equal(measurement.pathId, 'path-cat6');
   assert.equal(measurement.pathName, 'Cat 6');
+  assert.equal(measurement.pathCategoryId, 'low-voltage');
+  assert.equal(measurement.pathCategoryName, 'Low Voltage');
   assert.deepEqual(JSON.parse(JSON.stringify(measurement.pathStyle)), {
     stroke: { color: '#ff4d7d', style: 'dashed' },
     anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
@@ -400,6 +412,8 @@ test('convertLineMeasurementToFreehand restores saved freehand geometry and pres
     pathTemplateId: 'template-power',
     pathId: 'path-feeder',
     pathName: 'Feeder',
+    pathCategoryId: 'power',
+    pathCategoryName: 'Power',
     pathStyle: {
       stroke: { color: '#36d399', style: 'dotted' },
       anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
@@ -428,6 +442,8 @@ test('convertLineMeasurementToFreehand restores saved freehand geometry and pres
   assert.equal(measurement.pathTemplateId, 'template-power');
   assert.equal(measurement.pathId, 'path-feeder');
   assert.equal(measurement.pathName, 'Feeder');
+  assert.equal(measurement.pathCategoryId, 'power');
+  assert.equal(measurement.pathCategoryName, 'Power');
   assert.deepEqual(JSON.parse(JSON.stringify(measurement.pathStyle)), {
     stroke: { color: '#36d399', style: 'dotted' },
     anchors: { fill: '#f7fbfc', border: '#111619', borderMatchesStroke: false },
@@ -687,6 +703,8 @@ test('createPastedMeasurement preserves copied path color and style snapshot', a
     pathTemplateId: 'template-security',
     pathId: 'path-cat6',
     pathName: 'Cat 6',
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
     pathStyle: {
       stroke: { color: '#ff4d7d', style: 'dashed' },
       anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
@@ -731,11 +749,62 @@ test('createPastedMeasurement preserves copied path color and style snapshot', a
   assert.equal(pasted.pathTemplateId, 'template-security');
   assert.equal(pasted.pathId, 'path-cat6');
   assert.equal(pasted.pathName, 'Cat 6');
+  assert.equal(pasted.pathCategoryId, 'low-voltage');
+  assert.equal(pasted.pathCategoryName, 'Low Voltage');
   assert.deepEqual(JSON.parse(JSON.stringify(pasted.pathStyle)), {
     stroke: { color: '#ff4d7d', style: 'dashed' },
     anchors: { fill: '#101820', border: '#ff4d7d', borderMatchesStroke: true },
   });
   assert.notEqual(pasted.pathStyle, clipboard.pathStyle);
+});
+
+test('copy/paste and Line/Freehand conversion preserve Path metadata after settings changes', async () => {
+  const commands = await loadCommands();
+  const measurement = {
+    id: 91,
+    name: 'Run 1',
+    page: 1,
+    drawType: 'line',
+    shape: { active: 'line' },
+    points: [{ x: 0, y: 0 }, { x: 20, y: 0 }],
+    segments: null,
+    lengthPx: 20,
+    lengthInches: 10,
+    labelT: 0.5,
+    color: '#ff9b3c',
+    pathTemplateId: 'template-security',
+    pathId: 'path-cat6',
+    pathName: 'Cat 6 Revised',
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
+    pathStyle: {
+      stroke: { color: '#ff9b3c', style: 'dotted' },
+      anchors: { fill: '#101820', border: '#f7fbfc', borderMatchesStroke: false },
+    },
+  };
+
+  assert.equal(commands.convertLineMeasurementToFreehand(measurement, { pxPerInch: 2 }), true);
+  assert.equal(commands.convertFreehandMeasurementToLine(measurement, { pxPerInch: 2 }), true);
+  const clipboard = commands.cloneMeasurementForClipboard(measurement, { 1: 2 });
+  const pasted = commands.createPastedMeasurement({
+    source: clipboard,
+    id: 92,
+    existingMeasurements: [],
+    palette: ['#b6ff3c'],
+    pasteAt: { x: 100, y: 100 },
+    currentPage: 2,
+    pxPerInch: 2,
+  });
+
+  assert.equal(pasted.pathTemplateId, 'template-security');
+  assert.equal(pasted.pathId, 'path-cat6');
+  assert.equal(pasted.pathName, 'Cat 6 Revised');
+  assert.equal(pasted.pathCategoryId, 'low-voltage');
+  assert.equal(pasted.pathCategoryName, 'Low Voltage');
+  assert.deepEqual(JSON.parse(JSON.stringify(pasted.pathStyle)), {
+    stroke: { color: '#ff9b3c', style: 'dotted' },
+    anchors: { fill: '#101820', border: '#f7fbfc', borderMatchesStroke: false },
+  });
 });
 
 test('createPastedMeasurement centers freehand paste by visual curve bounds', async () => {

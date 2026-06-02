@@ -178,11 +178,22 @@
     });
   }
 
+  function bindPathGroupSettingsControls({ root, openSettings }) {
+    root.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-path-settings-action="open"]');
+      if (!button || !root.contains(button)) return;
+      event.stopPropagation();
+      event.preventDefault();
+      if (openSettings) openSettings(button.dataset.pathGroupId || null, button);
+    });
+  }
+
   window.TakeoffSidebarController = {
     applyScopeChrome,
     buildMeasurementItemViewModel,
     createEditableLengthInput,
     categoryVisibilityKeys,
     bindCategoryVisibilityControls,
+    bindPathGroupSettingsControls,
   };
 })();

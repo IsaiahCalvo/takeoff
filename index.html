@@ -301,6 +301,44 @@
   </div>
 </div>
 
+<div class="modal-bg" id="pathSettingsModal">
+  <div class="modal path-settings-modal" role="dialog" aria-labelledby="pathSettingsTitle" aria-modal="true">
+    <h3 id="pathSettingsTitle">Path Settings</h3>
+    <p id="pathSettingsSummary">Update this Path.</p>
+    <div id="pathSettingsPreview" class="path-settings-preview" aria-hidden="true"></div>
+    <label class="path-settings-field path-settings-field-full"><span>Path name</span><input id="pathSettingsName" type="text" autocomplete="off" /></label>
+    <div class="path-settings-grid">
+      <label class="path-settings-field"><span>Category</span><select id="pathSettingsCategory"></select></label>
+      <label id="pathSettingsNewCategoryField" class="path-settings-field" hidden><span>New category</span><input id="pathSettingsNewCategory" type="text" autocomplete="off" /></label>
+      <label class="path-settings-field path-settings-field-full">
+        <span>Apply</span>
+        <select id="pathSettingsScope"><option value="run">Current run</option><option value="page">Current page</option><option value="document">Same Path across document</option><option value="template">Future template default</option></select>
+      </label>
+    </div>
+    <div class="path-settings-sections">
+      <section class="path-settings-section" aria-label="Line styling">
+        <h4>Line</h4>
+        <div class="path-settings-grid">
+          <label class="path-settings-field"><span>Line color</span><input id="pathSettingsLineColor" type="color" /></label>
+          <label class="path-settings-field">
+            <span>Line style</span>
+            <select id="pathSettingsLineStyle"><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option></select>
+          </label>
+        </div>
+      </section>
+      <section class="path-settings-section" aria-label="Anchor styling">
+        <h4>Anchor</h4>
+        <div class="path-settings-grid">
+          <label class="path-settings-field"><span>Anchor fill</span><input id="pathSettingsAnchorFill" type="color" /></label>
+          <label class="path-settings-field"><span>Anchor border</span><input id="pathSettingsAnchorBorder" type="color" /></label>
+          <label class="path-settings-check path-settings-field-full"><input id="pathSettingsAnchorBorderMatches" type="checkbox" /><span>Match anchor border to Line color</span></label>
+        </div>
+      </section>
+    </div>
+    <div class="actions"><button id="pathSettingsCancel" type="button">Cancel</button><button id="pathSettingsApply" class="primary" type="button">Apply</button></div>
+  </div>
+</div>
+
 <script type="module" src="./src/main.js"></script>
 </body>
 </html>

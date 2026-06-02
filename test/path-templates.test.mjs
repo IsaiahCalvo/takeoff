@@ -184,3 +184,50 @@ test('renames, deletes, and updates path styling without mutating the source sta
   assert.deepEqual(plain(deleted.pathTemplates[0].paths.map(path => path.id)), ['path-2']);
   assert.equal(deleted.activePathId, 'path-2');
 });
+
+test('updates Path settings including category without mutating the source state', async () => {
+  const pathTemplates = await loadPathTemplates();
+  const initial = pathTemplates.addPath(
+    pathTemplates.createInitialPathTemplateState(),
+    'default-path-template',
+    {
+      id: 'path-2',
+      name: 'Branch',
+      stroke: { color: '#4cd6ff', style: 'dashed' },
+      anchors: { fill: '#111827', border: '#4cd6ff', borderMatchesStroke: true },
+      pathCategoryId: 'rough-in',
+      pathCategoryName: 'Rough-in',
+      order: 1,
+    },
+  );
+
+  const updated = pathTemplates.updatePathSettings(initial, 'default-path-template', 'path-2', {
+    pathName: 'Branch revised',
+    pathStyle: {
+      stroke: { color: '#ff9b3c', style: 'dotted' },
+      anchors: { fill: '#f7fbfc', border: '#222222', borderMatchesStroke: false },
+    },
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
+  });
+  const cleared = pathTemplates.updatePathSettings(updated, 'default-path-template', 'path-2', {
+    pathCategoryId: null,
+    pathCategoryName: null,
+  });
+
+  assert.equal(initial.pathTemplates[0].paths[1].name, 'Branch');
+  assert.equal(initial.pathTemplates[0].paths[1].pathCategoryName, 'Rough-in');
+  assert.deepEqual(plain(updated.pathTemplates[0].paths[1]), {
+    id: 'path-2',
+    templateId: 'default-path-template',
+    name: 'Branch revised',
+    geometry: 'line',
+    stroke: { color: '#ff9b3c', style: 'dotted' },
+    anchors: { fill: '#f7fbfc', border: '#222222', borderMatchesStroke: false },
+    order: 1,
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
+  });
+  assert.equal(cleared.pathTemplates[0].paths[1].pathCategoryId, undefined);
+  assert.equal(cleared.pathTemplates[0].paths[1].pathCategoryName, undefined);
+});

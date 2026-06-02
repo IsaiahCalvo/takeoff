@@ -56,6 +56,8 @@ test('buildPathGroupMarkup renders Path summary, category, coverage, and total s
     pageCoverageText: 'P 1-3',
     totalText: '12.50',
     totalUnitText: 'ft',
+    settingsAvailable: true,
+    settingsLabel: 'Path Settings for Cat 6 <A>',
   });
 
   assert.match(markup, /class="path-group-marker"/);
@@ -66,6 +68,10 @@ test('buildPathGroupMarkup renders Path summary, category, coverage, and total s
   assert.match(markup, /P 1-3/);
   assert.match(markup, /1 unscaled excluded/);
   assert.match(markup, /<strong>12\.50<\/strong><span>ft<\/span>/);
+  assert.match(markup, /class="path-group-settings"/);
+  assert.match(markup, /data-path-settings-action="open"/);
+  assert.match(markup, /aria-label="Path Settings for Cat 6 &lt;A&gt;"/);
+  assert.doesNotMatch(markup, /title="Path Settings"/);
 });
 
 test('buildCategoryHeaderMarkup renders category label and summary safely', async () => {
