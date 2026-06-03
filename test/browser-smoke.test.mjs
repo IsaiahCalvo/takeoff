@@ -14,7 +14,7 @@ test('served app shell and critical assets load through HTTP', async () => {
 
     assert.match(html, /Takeoff — Plan Measurement Tool/);
     assert.match(html, /href="\.\/app\/styles\.css"/);
-    assert.match(html, /src="\.\/src\/main\.js"/);
+    assert.match(html, /src="\.\/src\/main\.js(?:\?[^"]+)?"/);
 
     const [styles, main, pointerController, sidebarView] = await Promise.all([
       fetchText(`${baseUrl}/app/styles.css`),
