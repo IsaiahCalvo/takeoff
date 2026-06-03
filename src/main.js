@@ -345,7 +345,7 @@ function setMode(m, opts = {}) {
   updateStatus();
 }
 
-function syncPageScaleAndMode(page) { stateStore.syncCurrentPageScale(state, page); if (!state.pxPerInch) setMode('pan'); }
+function syncPageScaleAndMode(page, opts = {}) { stateStore.syncCurrentPageScale(state, page); if (!state.pxPerInch && !opts.preserveMode) setMode('pan'); }
 
 function updateStatus() {
   if (state.baseW || state.onboardingStatusSeen) {
@@ -862,7 +862,7 @@ function onPageReady({ fit = true, resetInteraction = true } = {}) {
   setDocumentLoaded(true);
   empty.style.display = 'none';
   if (resetInteraction) state.inProgress = null;
-  syncPageScaleAndMode(currentPage());
+  syncPageScaleAndMode(currentPage(), { preserveMode: !resetInteraction });
   $('prevPage').disabled = currentPage() <= 1; $('nextPage').disabled = currentPage() >= totalPages();
   updatePageLabel(); updateScaleLabel(); renderList();
   if (fit) {
@@ -987,8 +987,8 @@ document.querySelector('header').addEventListener('scroll', () => { closeMeasure
 $('btn-pan').classList.add('active');
 
 // ------- Zoom buttons -------
-$('zoomIn').addEventListener('click', () => zoomAt(stageCenter(), 1.25, 'button'));
-$('zoomOut').addEventListener('click', () => zoomAt(stageCenter(), 0.8, 'button'));
+$('zoomIn').addEventListener('click', (e) => { e.stopPropagation(); zoomAt(stageCenter(), 1.25, 'button'); });
+$('zoomOut').addEventListener('click', (e) => { e.stopPropagation(); zoomAt(stageCenter(), 0.8, 'button'); });
 function syncSnapToggle() { snapToggle.setAttribute('aria-pressed', state.snapToPaths ? 'true' : 'false'); snapToggle.classList.remove('active'); }
 snapToggle.addEventListener('click', () => { state.snapToPaths = !state.snapToPaths; state.snapFeedback = null; syncSnapToggle(); redrawActivePreview(); });
 syncSnapToggle();

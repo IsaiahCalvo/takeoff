@@ -326,6 +326,17 @@ test('Measure mode mounts a bottom-center Path Dock with upward menus', async ()
   assert.doesNotMatch(html, /\bnode\b/i);
 });
 
+test('zoom controls do not bubble into tool dismissal handlers', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const zoomInHandler = main.split('\n').find(line => line.includes("$('zoomIn').addEventListener('click'")) || '';
+  const zoomOutHandler = main.split('\n').find(line => line.includes("$('zoomOut').addEventListener('click'")) || '';
+
+  assert.match(zoomInHandler, /e\.stopPropagation\(\)/);
+  assert.match(zoomInHandler, /zoomAt\(stageCenter\(\),\s*1\.25,\s*'button'\)/);
+  assert.match(zoomOutHandler, /e\.stopPropagation\(\)/);
+  assert.match(zoomOutHandler, /zoomAt\(stageCenter\(\),\s*0\.8,\s*'button'\)/);
+});
+
 test('freehand completion keeps the app in measure mode', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const finishFreehand = main.match(/function finishFreehandMeasurement\(\) \{[\s\S]*?\n\}/)?.[0] || '';
@@ -355,8 +366,8 @@ test('page changes default uncalibrated pages to pan mode', async () => {
   const continuousPageBranch = main.match(/if \(state\.continuousScrollMode && state\.continuousPageLayout\) \{[\s\S]*?\n    return;\n  \}/)?.[0] || '';
 
   assert.match(helper, /stateStore\.syncCurrentPageScale\(state,\s*page\)/);
-  assert.match(helper, /if \(!state\.pxPerInch\) setMode\('pan'\)/);
-  assert.match(onPageReady, /syncPageScaleAndMode\(currentPage\(\)\)/);
+  assert.match(helper, /if \(!state\.pxPerInch && !opts\.preserveMode\) setMode\('pan'\)/);
+  assert.match(onPageReady, /syncPageScaleAndMode\(currentPage\(\),\s*\{\s*preserveMode:\s*!resetInteraction\s*\}\)/);
   assert.match(continuousPageBranch, /syncPageScaleAndMode\(n\)/);
 });
 
