@@ -24,7 +24,7 @@ test('served app shell and critical assets load through HTTP', async () => {
     ]);
 
     assert.match(styles, /body\.no-document/);
-    assert.match(main, /import "\/src\/app\/pointer-controller\.js";/);
+    assert.match(main, /TakeoffPathTemplateView/);
     assert.match(pointerController, /TakeoffPointerController/);
     assert.match(sidebarView, /TakeoffSidebarView/);
   });
