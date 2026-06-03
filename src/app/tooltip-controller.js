@@ -11,6 +11,13 @@
         transform: 'translate(0, -50%)',
       };
     }
+    if (placement === 'above') {
+      return {
+        left: targetRect.left + targetRect.width / 2,
+        top: targetRect.top - 8,
+        transform: 'translate(-50%, -100%)',
+      };
+    }
     return {
       left: targetRect.left + targetRect.width / 2,
       top: targetRect.bottom + 8,
@@ -25,7 +32,7 @@
       if (!nextTarget) return;
       const pos = computeTooltipPosition({
         targetRect: nextTarget.getBoundingClientRect(),
-        placement: railEl && railEl.contains(nextTarget) ? 'rail' : 'below',
+        placement: nextTarget.dataset.tooltipPlacement || (railEl && railEl.contains(nextTarget) ? 'rail' : 'below'),
         viewportHeight: viewport.innerHeight,
       });
       tooltipEl.style.transform = pos.transform;

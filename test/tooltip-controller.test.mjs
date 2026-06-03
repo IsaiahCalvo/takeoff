@@ -43,3 +43,14 @@ test('computeTooltipPosition centers non-rail tooltips under their target', asyn
     viewportHeight: 200,
   })), { left: 120, top: 52, transform: 'translate(-50%, 0)' });
 });
+
+test('computeTooltipPosition can place HUD tooltips above their target', async () => {
+  const tooltip = await loadTooltipController();
+
+  assert.deepEqual(plain(tooltip.computeTooltipPosition({
+    targetRect: { left: 100, right: 140, top: 160, bottom: 184, width: 40, height: 24 },
+    placement: 'above',
+    viewportWidth: 300,
+    viewportHeight: 200,
+  })), { left: 120, top: 152, transform: 'translate(-50%, -100%)' });
+});
