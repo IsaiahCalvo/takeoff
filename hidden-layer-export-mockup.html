@@ -1,0 +1,2075 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Takeoff Hidden Layer Export Mockup</title>
+  <style>
+    :root {
+      --bg: #080c0e;
+      --app: #101518;
+      --panel: #111719;
+      --panel-2: #151d20;
+      --line: #283238;
+      --line-soft: #20282d;
+      --text: #e8eef0;
+      --muted: #819099;
+      --accent: #b6ff3c;
+      --accent-soft: rgba(182, 255, 60, 0.13);
+      --blue: #59d6ff;
+      --orange: #ffb13c;
+      --hidden: #8c99a1;
+      --paper: #f8faf8;
+      --ink: #172027;
+      --sheet-line: #b9c5cc;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(89, 214, 255, 0.08), transparent 30%),
+        linear-gradient(140deg, #070a0c, #101719 58%, #080b0d);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1420px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 36px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 17px;
+    }
+
+    .brand-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(182, 255, 60, 0.62);
+    }
+
+    .mock-controls {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid #344047;
+      background: #151b1f;
+      color: var(--text);
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    button.active {
+      border-color: #3f4b52;
+      color: #d7dee2;
+      background: rgba(255, 255, 255, 0.055);
+    }
+
+    .app-frame {
+      min-height: 720px;
+      display: grid;
+      grid-template-columns: 58px minmax(0, 1fr) 360px;
+      border: 1px solid #263039;
+      background: var(--app);
+      box-shadow: 0 28px 90px rgba(0, 0, 0, 0.52);
+    }
+
+    .tools {
+      display: grid;
+      grid-template-rows: repeat(8, 42px) 1fr repeat(4, 36px);
+      justify-items: center;
+      padding: 16px 0;
+      border-right: 1px solid var(--line);
+      background: #0d1214;
+    }
+
+    .tool {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 6px;
+      color: #78868d;
+      font-size: 14px;
+    }
+
+    .tool.measure {
+      color: var(--accent);
+      background: rgba(182, 255, 60, 0.08);
+    }
+
+    .zoom {
+      align-self: end;
+      font: 700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: var(--muted);
+    }
+
+    .stage {
+      min-width: 0;
+      overflow: hidden;
+      background: #0b1012;
+      display: grid;
+      place-items: center;
+      border-right: 1px solid var(--line);
+      position: relative;
+    }
+
+    .page {
+      width: min(760px, calc(100% - 54px));
+      aspect-ratio: 8.5 / 11;
+      background: var(--paper);
+      color: var(--ink);
+      position: relative;
+      box-shadow: 0 18px 52px rgba(0, 0, 0, 0.35);
+      overflow: hidden;
+    }
+
+    .doc-text {
+      position: absolute;
+      inset: 52px 56px;
+      font-size: clamp(12px, 1.45vw, 19px);
+      line-height: 1.42;
+      color: #111;
+    }
+
+    .doc-text p {
+      margin: 0 0 18px;
+    }
+
+    .checkbox-line {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 10px;
+      margin: 10px 0;
+    }
+
+    .checkbox {
+      width: 12px;
+      height: 12px;
+      margin-top: 6px;
+      border: 1px solid #777;
+    }
+
+    svg.overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .path {
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: opacity 160ms ease;
+    }
+
+    .path.cat6 { stroke: var(--accent); stroke-width: 4.2; }
+    .path.av { stroke: var(--blue); stroke-width: 4.2; }
+    .path.generic { stroke: var(--blue); stroke-width: 4.2; }
+    .path.hidden-path { opacity: 0; }
+
+    .anchor {
+      stroke-width: 3;
+      fill: #0b1012;
+      transition: opacity 160ms ease;
+    }
+
+    .anchor.cat6 { stroke: var(--accent); }
+    .anchor.av { stroke: var(--blue); }
+    .anchor.generic { stroke: var(--blue); }
+    .anchor.hidden-path { opacity: 0; }
+
+    .label {
+      paint-order: stroke;
+      stroke: #0a0d0f;
+      stroke-width: 6;
+      fill: white;
+      font: 800 18px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      transition: opacity 160ms ease;
+    }
+
+    .label.hidden-path { opacity: 0; }
+
+    .scale-pill {
+      position: absolute;
+      left: 16px;
+      bottom: 16px;
+      padding: 7px 10px;
+      border-radius: 9px;
+      background: rgba(17, 23, 25, 0.92);
+      color: #c8d0d4;
+      font: 700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .side {
+      min-height: 0;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      background: var(--panel);
+    }
+
+    .total-card {
+      position: relative;
+      min-height: 138px;
+      padding: 18px 20px 16px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+
+    .eyebrow {
+      font: 800 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.32em;
+      color: #7d8991;
+    }
+
+    .total-line {
+      margin-top: 24px;
+      display: flex;
+      align-items: baseline;
+      gap: 7px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .total-value {
+      font-size: 31px;
+      font-weight: 900;
+      letter-spacing: 0;
+      color: #f2f6f7;
+    }
+
+    .unit {
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .run-count {
+      margin-top: 6px;
+      color: var(--muted);
+      font: 700 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .entire-total {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      display: none;
+      align-items: center;
+      gap: 7px;
+      padding: 0;
+      border: 0;
+      color: var(--muted);
+      background: transparent;
+      font: 900 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .entire-total.visible { display: inline-flex; }
+
+    .entire-total span {
+      color: #aab3b8;
+      letter-spacing: 0;
+    }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .tab {
+      appearance: none;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
+      min-height: 38px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+      font: 850 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+    }
+
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .groups {
+      overflow: auto;
+      padding: 12px;
+    }
+
+    .groups.hidden-view { display: none; }
+
+    .page-group {
+      border: 1px solid #27333a;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      background: rgba(255, 255, 255, 0.018);
+    }
+
+    .page-header,
+    .path-header {
+      min-height: 34px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 0 10px;
+    }
+
+    .page-header {
+      border-bottom: 1px solid #27333a;
+      background: #141b1f;
+    }
+
+    .path-header {
+      grid-template-columns: auto 1fr auto auto;
+      min-height: 46px;
+      border-bottom: 1px solid #20282d;
+    }
+
+    .path-row:last-child .path-header { border-bottom: 0; }
+
+    .chev {
+      color: #a8b2b7;
+      font-size: 13px;
+    }
+
+    .name {
+      font: 850 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      color: #cbd4d8;
+    }
+
+    .path-copy {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+
+    .path-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font: 850 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      color: #e1e8eb;
+    }
+
+    .path-category {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--muted);
+      font: 750 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0.06em;
+    }
+
+    .page-total,
+    .path-total {
+      color: var(--accent);
+      border: 1px solid rgba(182, 255, 60, 0.24);
+      background: rgba(182, 255, 60, 0.06);
+      border-radius: 5px;
+      padding: 3px 5px;
+      font: 850 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: nowrap;
+    }
+
+    .path-total.hidden {
+      color: #8a979d;
+      border-color: #354148;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .path-marker {
+      appearance: none;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 1px solid currentColor;
+      border-radius: 6px;
+      color: var(--accent);
+      background: rgba(182, 255, 60, 0.05);
+      cursor: pointer;
+    }
+
+    .path-marker:focus-visible {
+      outline: 2px solid rgba(89, 214, 255, 0.85);
+      outline-offset: 2px;
+    }
+
+    .path-marker svg {
+      width: 29px;
+      height: 29px;
+      display: block;
+      overflow: visible;
+    }
+
+    .path-marker .tail {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 8;
+      stroke-linecap: round;
+    }
+
+    .path-marker .anchor-dot {
+      fill: #0b1012;
+      stroke: currentColor;
+      stroke-width: 5;
+    }
+
+    .path-marker.av-marker {
+      color: var(--blue);
+      background: rgba(89, 214, 255, 0.06);
+    }
+
+    .path-marker.fire-marker {
+      color: var(--orange);
+      background: rgba(255, 177, 60, 0.06);
+    }
+
+    .path-marker.dashed-icon .tail {
+      stroke-dasharray: 18 13;
+    }
+
+    .path-marker.dotted-icon .tail {
+      stroke-dasharray: 1 16;
+    }
+
+    .path-marker.generic-marker {
+      color: var(--blue);
+      border-color: transparent;
+      background: transparent;
+    }
+
+    .path-marker.generic-marker::before {
+      content: "";
+      width: 15px;
+      height: 15px;
+      border-radius: 4px;
+      background: currentColor;
+      box-shadow:
+        0 0 16px currentColor,
+        0 0 0 1px rgba(255, 255, 255, 0.18) inset;
+    }
+
+    .path-marker.hidden-marker {
+      border-color: #3c474e;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      place-items: center;
+      padding: 22px;
+      background: rgba(3, 6, 8, 0.62);
+      backdrop-filter: blur(6px);
+    }
+
+    .modal-backdrop.open {
+      display: grid;
+    }
+
+    .modal-backdrop.scope-backdrop {
+      z-index: 30;
+      background: rgba(3, 6, 8, 0.48);
+      backdrop-filter: blur(3px);
+    }
+
+    .path-modal {
+      width: min(520px, calc(100vw - 36px));
+      border: 1px solid #334047;
+      border-radius: 8px;
+      background: #111719;
+      color: var(--text);
+      box-shadow: 0 26px 80px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+    }
+
+    .scope-modal {
+      width: min(430px, calc(100vw - 36px));
+      border: 1px solid #334047;
+      border-radius: 8px;
+      background: #111719;
+      color: var(--text);
+      box-shadow: 0 26px 80px rgba(0, 0, 0, 0.56);
+      overflow: hidden;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 14px 16px;
+      border-bottom: 1px solid #27333a;
+      background: #141b1f;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .modal-close {
+      width: 32px;
+      min-height: 32px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      border-color: #344047;
+      background: #101619;
+      color: #d9e2e6;
+    }
+
+    .modal-body {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .modal-current {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+    }
+
+    .modal-marker {
+      width: 40px;
+      height: 40px;
+      color: var(--preview-line, var(--accent));
+    }
+
+    .modal-marker svg {
+      width: 36px;
+      height: 36px;
+    }
+
+    .modal-marker .tail {
+      stroke: var(--preview-line, currentColor);
+    }
+
+    .modal-marker .anchor-dot {
+      fill: var(--preview-anchor-fill, #0b1012);
+      stroke: var(--preview-anchor-border, currentColor);
+    }
+
+    .modal-path-name {
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font: 900 14px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+    }
+
+    .modal-path-category {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font: 750 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .modal-tabs {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid #27333a;
+      border-radius: 7px;
+      overflow: hidden;
+    }
+
+    .modal-tab {
+      border: 0;
+      border-radius: 0;
+      background: #101619;
+      color: var(--muted);
+      min-height: 36px;
+      font: 850 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .modal-tab.active {
+      background: rgba(182, 255, 60, 0.08);
+      color: var(--accent);
+    }
+
+    .style-panel {
+      display: grid;
+      gap: 12px;
+      min-height: 106px;
+    }
+
+    .style-panel.hidden-view {
+      display: none;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .checkbox-field {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-height: 30px;
+      color: #cbd4d8;
+      font: 800 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      letter-spacing: 0.04em;
+    }
+
+    .checkbox-field input {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--accent);
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .field label,
+    .field-title {
+      color: var(--muted);
+      font: 800 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .color-input,
+    .text-input,
+    .select-input {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid #303b42;
+      border-radius: 6px;
+      background: #0e1417;
+      color: #edf4f6;
+      padding: 0 10px;
+      font: 800 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .color-input {
+      padding: 4px;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 1px solid #303b42;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .segment {
+      border: 0;
+      border-radius: 0;
+      min-height: 36px;
+      background: #0e1417;
+      color: var(--muted);
+      font: 850 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .segment.active {
+      background: rgba(89, 214, 255, 0.09);
+      color: #dff7ff;
+    }
+
+    .category-editor {
+      display: grid;
+      gap: 10px;
+      padding-top: 12px;
+      border-top: 1px solid #27333a;
+    }
+
+    .category-actions {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 14px 16px;
+      border-top: 1px solid #27333a;
+      background: #101619;
+    }
+
+    .scope-body {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .scope-question {
+      margin: 0;
+      color: #dce5e9;
+      font-size: 14px;
+      font-weight: 750;
+    }
+
+    .scope-options {
+      display: grid;
+      gap: 10px;
+    }
+
+    .scope-option {
+      width: 100%;
+      min-height: 68px;
+      display: grid;
+      gap: 4px;
+      justify-items: start;
+      align-content: center;
+      padding: 11px 12px;
+      border: 1px solid #2d3940;
+      background: #12191c;
+      text-align: left;
+    }
+
+    .scope-option:hover:not(:disabled),
+    .scope-option:focus-visible {
+      border-color: rgba(182, 255, 60, 0.58);
+      background: rgba(182, 255, 60, 0.065);
+    }
+
+    .scope-option:disabled {
+      cursor: not-allowed;
+      border-color: #293238;
+      background: rgba(255, 255, 255, 0.025);
+      color: var(--muted);
+    }
+
+    .scope-option:disabled .scope-option-title,
+    .scope-option:disabled .scope-option-sub {
+      color: var(--muted);
+    }
+
+    .scope-option-title {
+      color: #edf4f6;
+      font: 900 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .scope-option-sub {
+      color: var(--muted);
+      font: 750 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .category-card {
+      border: 1px solid #27333a;
+      border-radius: 7px;
+      margin-bottom: 10px;
+      background: rgba(255, 255, 255, 0.018);
+      overflow: hidden;
+    }
+
+    .category-row {
+      width: 100%;
+      min-height: 62px;
+      display: grid;
+      grid-template-columns: 44px 1fr auto;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      background: #12191c;
+      color: inherit;
+      text-align: left;
+    }
+
+    .category-icon {
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      border-radius: 7px;
+      border: 1px solid currentColor;
+      color: var(--accent);
+      background: rgba(182, 255, 60, 0.08);
+    }
+
+    .category-icon svg {
+      width: 32px;
+      height: 32px;
+      display: block;
+      overflow: visible;
+    }
+
+    .category-icon .tail {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 8;
+      stroke-linecap: round;
+    }
+
+    .category-icon .anchor-dot {
+      fill: #0b1012;
+      stroke: currentColor;
+      stroke-width: 5;
+    }
+
+    .category-icon.dashed-icon .tail {
+      stroke-dasharray: 18 13;
+    }
+
+    .category-icon.dotted-icon .tail {
+      stroke-dasharray: 1 16;
+    }
+
+    .category-icon.av-icon {
+      color: var(--blue);
+      background: rgba(89, 214, 255, 0.08);
+    }
+
+    .category-icon.fire-icon {
+      color: var(--orange);
+      background: rgba(255, 177, 60, 0.08);
+    }
+
+    .category-icon.hidden-icon {
+      border-color: #5a666e;
+      background: #242a2e;
+      box-shadow: inset 0 0 0 1px #343e45;
+    }
+
+    .category-copy {
+      min-width: 0;
+    }
+
+    .category-title {
+      display: block;
+      font: 900 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: #d8e1e5;
+    }
+
+    .category-sub {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font: 700 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .category-status {
+      justify-self: end;
+      color: var(--accent);
+      border: 1px solid rgba(182, 255, 60, 0.24);
+      background: rgba(182, 255, 60, 0.06);
+      border-radius: 5px;
+      padding: 4px 6px;
+      font: 850 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: nowrap;
+    }
+
+    .category-status.off {
+      color: var(--hidden);
+      border-color: #3c474e;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .path-meta {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      color: var(--muted);
+      font: 700 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: nowrap;
+    }
+
+    .footer {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+    }
+
+    .select,
+    .clear {
+      min-height: 40px;
+      border: 1px solid #2d3840;
+      border-radius: 6px;
+      background: #151d20;
+      color: #dce5e8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .select {
+      justify-content: space-between;
+      padding: 0 12px;
+    }
+
+    .export-card {
+      margin-top: 18px;
+      border: 1px solid #263039;
+      background: #f4f6f8;
+      color: #172027;
+      box-shadow: 0 20px 70px rgba(0, 0, 0, 0.35);
+    }
+
+    .export-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: end;
+      padding: 20px 22px;
+      border-bottom: 1px solid #c6ccd2;
+      background: #fff;
+    }
+
+    .export-title {
+      margin: 0;
+      font-size: 24px;
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .export-meta {
+      text-align: right;
+      color: #596771;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px 16px;
+    }
+
+    .summary-box {
+      border: 1px solid #c8d1d7;
+      background: white;
+      padding: 12px;
+    }
+
+    .summary-box .label {
+      display: block;
+      color: #5e6b74;
+      font: 800 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      paint-order: normal;
+      stroke: none;
+    }
+
+    .summary-box .value {
+      margin-top: 7px;
+      font: 900 23px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #172027;
+    }
+
+    .table-wrap {
+      padding: 0 16px 18px;
+      overflow: auto;
+    }
+
+    table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      table-layout: fixed;
+      background: white;
+      font-family: Calibri, Arial, sans-serif;
+      font-size: 15px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--sheet-line);
+      padding: 9px 10px;
+      vertical-align: middle;
+      overflow-wrap: anywhere;
+    }
+
+    th {
+      background: #4472c4;
+      color: white;
+      font-weight: 800;
+      text-align: left;
+    }
+
+    tbody tr:nth-child(odd) { background: #d9e2f3; }
+
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.center { text-align: center; }
+
+    .included {
+      color: #006100;
+      font-weight: 800;
+    }
+
+    .hidden-note {
+      color: #596771;
+      font-weight: 800;
+    }
+
+    @media (max-width: 980px) {
+      main { width: min(100vw - 18px, 720px); }
+      .topbar { align-items: flex-start; flex-direction: column; }
+      .mock-controls { justify-content: flex-start; }
+      .app-frame {
+        grid-template-columns: 44px minmax(0, 1fr);
+        grid-template-rows: minmax(520px, 64vh) 520px;
+      }
+      .side {
+        grid-column: 1 / -1;
+        border-top: 1px solid var(--line);
+      }
+      .tools { grid-row: 1; }
+      .stage { grid-row: 1; border-right: 0; }
+      .summary-strip { grid-template-columns: 1fr; }
+      .export-head { align-items: flex-start; flex-direction: column; }
+      .export-meta { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <div class="brand"><span class="brand-dot"></span>Takeoff totals and export mockup</div>
+      <div class="mock-controls">
+        <button id="hideToggle" type="button">Hide AV Path</button>
+        <button id="resetToggle" type="button">Show All</button>
+      </div>
+    </div>
+
+    <section class="app-frame" aria-label="Takeoff app mockup">
+      <aside class="tools" aria-label="Tool rail">
+        <div class="tool">H</div>
+        <div class="tool">P</div>
+        <div class="tool">-</div>
+        <div class="tool measure">M</div>
+        <div class="tool">E</div>
+        <div></div>
+        <div></div>
+        <div></div>
+        <div class="zoom">185%</div>
+        <div class="tool">+</div>
+        <div class="tool">-</div>
+        <div class="tool">1</div>
+        <div class="tool">8</div>
+      </aside>
+
+      <section class="stage" aria-label="Drawing canvas">
+        <div class="page">
+          <div class="doc-text">
+            <p>Submittal should clearly state that either:</p>
+            <div class="checkbox-line"><span class="checkbox"></span><span><strong>"C"</strong> - The submittal is in direct conformance with the specification and contract documents.</span></div>
+            <div class="checkbox-line"><span class="checkbox"></span><span>This submittal deviates from the above. Please include:</span></div>
+            <div class="checkbox-line"><span class="checkbox"></span><span>Fully detailed side by side comparison of the submitted product and the specified product.</span></div>
+            <div class="checkbox-line"><span class="checkbox"></span><span>With the submittal, provide mark ups in the margins showing the deviations or exceptions.</span></div>
+            <div class="checkbox-line"><span class="checkbox"></span><span><strong>"D"</strong> - Comply with deviations. For each deviation, provide a numbered footnote with reasons.</span></div>
+            <div class="checkbox-line"><span class="checkbox"></span><span><strong>"E"</strong> - Exception do not comply. Provide possible alternatives.</span></div>
+          </div>
+
+          <svg class="overlay" viewBox="0 0 760 984" role="img" aria-label="Measurement paths">
+            <polyline id="cat6Path" class="path cat6" points="440,575 560,575 505,705 382,705 460,580" />
+            <polyline id="cat6Path2" class="path cat6" points="520,555 545,335 620,345 575,430 650,440 665,565" />
+            <polyline id="avPath" class="path av" points="240,545 355,545 430,625 470,625" />
+            <polyline id="genericPath" class="path generic" points="192,690 250,666 312,686" />
+
+            <circle class="anchor cat6" cx="440" cy="575" r="6" />
+            <circle class="anchor cat6" cx="560" cy="575" r="6" />
+            <circle class="anchor cat6" cx="505" cy="705" r="6" />
+            <circle class="anchor cat6" cx="382" cy="705" r="6" />
+            <circle class="anchor cat6" cx="520" cy="555" r="6" />
+            <circle class="anchor cat6" cx="545" cy="335" r="6" />
+            <circle class="anchor cat6" cx="620" cy="345" r="6" />
+            <circle class="anchor cat6" cx="575" cy="430" r="6" />
+            <circle class="anchor cat6" cx="650" cy="440" r="6" />
+            <circle class="anchor cat6" cx="665" cy="565" r="6" />
+
+            <circle class="anchor av av-anchor" cx="240" cy="545" r="6" />
+            <circle class="anchor av av-anchor" cx="355" cy="545" r="6" />
+            <circle class="anchor av av-anchor" cx="430" cy="625" r="6" />
+            <circle class="anchor av av-anchor" cx="470" cy="625" r="6" />
+
+            <circle class="anchor generic" cx="192" cy="690" r="6" />
+            <circle class="anchor generic" cx="250" cy="666" r="6" />
+            <circle class="anchor generic" cx="312" cy="686" r="6" />
+
+            <text id="catLabel" class="label" x="420" y="674">33.16 ft</text>
+            <text id="avLabel" class="label" x="292" y="522">18.98 ft</text>
+          </svg>
+
+          <div class="scale-pill">scale: 1 ft = 24.01 px &nbsp; x: 670 &nbsp; y: 342</div>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="Totals panel">
+        <section class="total-card">
+          <div class="eyebrow" id="totalLabel">Grand Total</div>
+          <div class="total-line">
+            <span id="mainTotal" class="total-value">99.74</span>
+            <span class="unit">ft</span>
+          </div>
+          <div id="runCount" class="run-count">6 runs</div>
+          <div id="entireTotal" class="entire-total">Entire Total <span>99.74 ft</span></div>
+        </section>
+
+        <nav class="tabs" aria-label="Panel tabs">
+          <button class="tab" type="button" data-tab="thisPage">This Page</button>
+          <button class="tab active" type="button" data-tab="categories">Categories</button>
+          <button class="tab" type="button" data-tab="allPages">All Pages</button>
+        </nav>
+
+        <section id="thisPagePanel" class="groups hidden-view" aria-label="This page path totals">
+          <div class="page-group">
+            <div class="page-header">
+              <span class="chev">v</span>
+              <span class="name">Page 1</span>
+              <span id="thisPageTotal" class="page-total">58.34 ft</span>
+            </div>
+            <div class="path-row">
+              <div class="path-header">
+                <span id="cat6MarkerPage" class="path-marker" role="button" tabindex="0" data-path-settings="cat6" aria-label="Edit West wall data path">
+                  <svg viewBox="-3 -42 170 170" focusable="false">
+                    <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+                    <circle class="anchor-dot" cx="20" cy="52" r="13" />
+                    <circle class="anchor-dot" cx="144" cy="43" r="13" />
+                  </svg>
+                </span>
+                <span class="path-copy"><span class="path-name">West wall data</span><span class="path-category">Cat 6</span></span>
+                <span class="path-meta">2 runs</span>
+                <span id="cat6PanelTotalPage" class="path-total">33.16 ft</span>
+              </div>
+            </div>
+            <div class="path-row">
+              <div class="path-header">
+                <span id="avMarkerPage" class="path-marker av-marker dashed-icon" role="button" tabindex="0" data-path-settings="av" aria-label="Edit Conference AV pull path">
+                  <svg viewBox="-3 -42 170 170" focusable="false">
+                    <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+                    <circle class="anchor-dot" cx="20" cy="52" r="13" />
+                    <circle class="anchor-dot" cx="144" cy="43" r="13" />
+                  </svg>
+                </span>
+                <span class="path-copy"><span class="path-name">Conference AV pull</span><span class="path-category">AV</span></span>
+                <span class="path-meta">1 run</span>
+                <span id="avPanelTotalPage" class="path-total">18.98 ft</span>
+              </div>
+            </div>
+            <div class="path-row">
+              <div class="path-header">
+                <span class="path-marker generic-marker" role="button" tabindex="0" data-path-settings="manual" aria-label="Edit Manual field path"></span>
+                <span class="path-copy"><span class="path-name">Manual field path</span></span>
+                <span class="path-meta">1 run</span>
+                <span class="path-total">6.20 ft</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="categoriesPanel" class="groups" aria-label="Project categories">
+          <div class="category-card">
+            <button id="cat6Category" class="category-row" type="button" data-category="cat6">
+              <span class="category-icon" aria-hidden="true">
+                <svg viewBox="-3 -42 170 170" focusable="false">
+                  <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+                  <circle class="anchor-dot" cx="20" cy="52" r="13" />
+                  <circle class="anchor-dot" cx="144" cy="43" r="13" />
+                </svg>
+              </span>
+              <span class="category-copy">
+                <span class="category-title">Cat 6</span>
+                <span class="category-sub">3 runs · 57.16 ft</span>
+              </span>
+              <span id="cat6CategoryStatus" class="category-status">Visible</span>
+            </button>
+          </div>
+          <div class="category-card">
+            <button id="avCategory" class="category-row" type="button" data-category="av">
+              <span class="category-icon av-icon dashed-icon" aria-hidden="true">
+                <svg viewBox="-3 -42 170 170" focusable="false">
+                  <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+                  <circle class="anchor-dot" cx="20" cy="52" r="13" />
+                  <circle class="anchor-dot" cx="144" cy="43" r="13" />
+                </svg>
+              </span>
+              <span class="category-copy">
+                <span class="category-title">AV</span>
+                <span class="category-sub">1 run · 18.98 ft</span>
+              </span>
+              <span id="avCategoryStatus" class="category-status">Visible</span>
+            </button>
+          </div>
+          <div class="category-card">
+            <button id="fireCategory" class="category-row" type="button" data-category="fire">
+              <span class="category-icon fire-icon dotted-icon" aria-hidden="true">
+                <svg viewBox="-3 -42 170 170" focusable="false">
+                  <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+                  <circle class="anchor-dot" cx="20" cy="52" r="13" />
+                  <circle class="anchor-dot" cx="144" cy="43" r="13" />
+                </svg>
+              </span>
+              <span class="category-copy">
+                <span class="category-title">Fire Alarm</span>
+                <span class="category-sub">1 run · 17.40 ft</span>
+              </span>
+              <span id="fireCategoryStatus" class="category-status">Visible</span>
+            </button>
+          </div>
+        </section>
+
+        <section id="allPagesPanel" class="groups hidden-view" aria-label="All pages grouped path totals">
+          <div class="page-group">
+            <div class="page-header">
+              <span class="chev">v</span>
+              <span class="name">Page 1</span>
+              <span id="page1Total" class="page-total">58.34 ft</span>
+            </div>
+            <div class="path-row">
+              <div class="path-header">
+                <span id="cat6MarkerAllPage1" class="path-marker" role="button" tabindex="0" data-path-settings="cat6" aria-label="Edit West wall data path">
+                  <svg viewBox="-3 -42 170 170" focusable="false">
+                    <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+                    <circle class="anchor-dot" cx="20" cy="52" r="13" />
+                    <circle class="anchor-dot" cx="144" cy="43" r="13" />
+                  </svg>
+                </span>
+                <span class="path-copy"><span class="path-name">West wall data</span><span class="path-category">Cat 6</span></span>
+                <span class="path-meta">2 runs</span>
+                <span id="cat6PanelTotalAllPage1" class="path-total">33.16 ft</span>
+              </div>
+            </div>
+            <div class="path-row">
+              <div class="path-header">
+                <span id="avMarkerAll" class="path-marker av-marker dashed-icon" role="button" tabindex="0" data-path-settings="av" aria-label="Edit Conference AV pull path">
+                  <svg viewBox="-3 -42 170 170" focusable="false">
+                    <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+                    <circle class="anchor-dot" cx="20" cy="52" r="13" />
+                    <circle class="anchor-dot" cx="144" cy="43" r="13" />
+                  </svg>
+                </span>
+                <span class="path-copy"><span class="path-name">Conference AV pull</span><span class="path-category">AV</span></span>
+                <span class="path-meta">1 run</span>
+                <span id="avPanelTotalAll" class="path-total">18.98 ft</span>
+              </div>
+            </div>
+            <div class="path-row">
+              <div class="path-header">
+                <span class="path-marker generic-marker" role="button" tabindex="0" data-path-settings="manual" aria-label="Edit Manual field path"></span>
+                <span class="path-copy"><span class="path-name">Manual field path</span></span>
+                <span class="path-meta">1 run</span>
+                <span class="path-total">6.20 ft</span>
+              </div>
+            </div>
+          </div>
+          <div class="page-group">
+            <div class="page-header">
+              <span class="chev">v</span>
+              <span class="name">Page 2</span>
+              <span id="page2Total" class="page-total">41.40 ft</span>
+            </div>
+            <div class="path-row">
+              <div class="path-header">
+                <span id="cat6MarkerAllPage2" class="path-marker" role="button" tabindex="0" data-path-settings="cat6Back" aria-label="Edit Back office data path">
+                  <svg viewBox="-3 -42 170 170" focusable="false">
+                    <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+                    <circle class="anchor-dot" cx="20" cy="52" r="13" />
+                    <circle class="anchor-dot" cx="144" cy="43" r="13" />
+                  </svg>
+                </span>
+                <span class="path-copy"><span class="path-name">Back office data</span><span class="path-category">Cat 6</span></span>
+                <span class="path-meta">1 run</span>
+                <span id="cat6PanelTotalAllPage2" class="path-total">24.00 ft</span>
+              </div>
+            </div>
+            <div class="path-row">
+              <div class="path-header">
+                <span id="fireMarkerAll" class="path-marker fire-marker dotted-icon" role="button" tabindex="0" data-path-settings="fire" aria-label="Edit Alarm branch path">
+                  <svg viewBox="-3 -42 170 170" focusable="false">
+                    <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+                    <circle class="anchor-dot" cx="20" cy="52" r="13" />
+                    <circle class="anchor-dot" cx="144" cy="43" r="13" />
+                  </svg>
+                </span>
+                <span class="path-copy"><span class="path-name">Alarm branch</span><span class="path-category">Fire Alarm</span></span>
+                <span class="path-meta">1 run</span>
+                <span id="firePanelTotalAll" class="path-total">17.40 ft</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="footer">
+          <div class="select">feet (ft) <span>v</span></div>
+          <div class="clear">Clear All</div>
+        </footer>
+      </aside>
+    </section>
+
+    <section class="export-card" aria-label="Export preview">
+      <div class="export-head">
+        <h1 class="export-title">Export Preview</h1>
+        <div class="export-meta">
+          Package 2 - Rev 4 - IC.pdf<br />
+          Totals grouped by page and Path/category
+        </div>
+      </div>
+
+      <div class="summary-strip">
+        <div class="summary-box">
+          <span class="label">Entire Total</span>
+          <div class="value">99.74 ft</div>
+        </div>
+        <div class="summary-box">
+          <span class="label" id="exportVisibleLabel">Visible Total</span>
+          <div id="exportVisibleTotal" class="value">99.74 ft</div>
+        </div>
+        <div class="summary-box">
+          <span class="label">Unit</span>
+          <div class="value">feet</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 10%;">Page</th>
+              <th style="width: 24%;">Path Name</th>
+              <th style="width: 18%;">Category</th>
+              <th style="width: 9%;">Runs</th>
+              <th style="width: 13%;">Total</th>
+              <th style="width: 8%;">Unit</th>
+              <th style="width: 18%;">Exported</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Page 1</td>
+              <td>West wall data</td>
+              <td>Cat 6</td>
+              <td class="center">2</td>
+              <td class="num">33.16</td>
+              <td>ft</td>
+              <td id="cat6ExportStatusPage1" class="included">Included</td>
+            </tr>
+            <tr id="avExportRow">
+              <td>Page 1</td>
+              <td>Conference AV pull</td>
+              <td>AV</td>
+              <td class="center">1</td>
+              <td class="num">18.98</td>
+              <td>ft</td>
+              <td id="avExportStatus" class="included">Included</td>
+            </tr>
+            <tr>
+              <td>Page 1</td>
+              <td>Manual field path</td>
+              <td></td>
+              <td class="center">1</td>
+              <td class="num">6.20</td>
+              <td>ft</td>
+              <td class="included">Included</td>
+            </tr>
+            <tr>
+              <td>Page 2</td>
+              <td>Back office data</td>
+              <td>Cat 6</td>
+              <td class="center">1</td>
+              <td class="num">24.00</td>
+              <td>ft</td>
+              <td id="cat6ExportStatusPage2" class="included">Included</td>
+            </tr>
+            <tr>
+              <td>Page 2</td>
+              <td>Alarm branch</td>
+              <td>Fire Alarm</td>
+              <td class="center">1</td>
+              <td class="num">17.40</td>
+              <td>ft</td>
+              <td id="fireExportStatus" class="included">Included</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div id="pathModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <section class="path-modal" role="dialog" aria-modal="true" aria-labelledby="pathModalTitle">
+      <header class="modal-head">
+        <h2 id="pathModalTitle" class="modal-title">Path Settings</h2>
+        <button id="pathModalClose" class="modal-close" type="button" aria-label="Close path settings">x</button>
+      </header>
+
+      <div class="modal-body">
+        <div class="modal-current">
+          <span id="modalMarkerPreview" class="path-marker modal-marker" aria-hidden="true"></span>
+          <div>
+            <h3 id="modalPathName" class="modal-path-name">Manual field path</h3>
+            <p id="modalPathCategory" class="modal-path-category">No category</p>
+          </div>
+        </div>
+
+        <div class="modal-tabs" aria-label="Path style tabs">
+          <button class="modal-tab active" type="button" data-style-tab="line">Line</button>
+          <button class="modal-tab" type="button" data-style-tab="anchor">Anchor</button>
+        </div>
+
+        <section id="lineStylePanel" class="style-panel" aria-label="Line style controls">
+          <div class="field">
+            <span class="field-title">Line Style</span>
+            <div class="segmented" aria-label="Line style">
+              <button class="segment active" type="button" data-line-style="solid">Solid</button>
+              <button class="segment" type="button" data-line-style="dashed">Dashed</button>
+              <button class="segment" type="button" data-line-style="dotted">Dotted</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="lineColorInput">Line Color</label>
+            <input id="lineColorInput" class="color-input" type="color" value="#59d6ff" />
+          </div>
+        </section>
+
+        <section id="anchorStylePanel" class="style-panel hidden-view" aria-label="Anchor style controls">
+          <div class="control-grid">
+            <div class="field">
+              <label for="anchorFillInput">Anchor Fill</label>
+              <input id="anchorFillInput" class="color-input" type="color" value="#0b1012" />
+            </div>
+            <div class="field">
+              <label for="anchorBorderInput">Anchor Border</label>
+              <input id="anchorBorderInput" class="color-input" type="color" value="#59d6ff" />
+            </div>
+          </div>
+          <label class="checkbox-field" for="matchAnchorBorderInput">
+            <input id="matchAnchorBorderInput" type="checkbox" checked />
+            Match anchor border to line color
+          </label>
+        </section>
+
+        <section class="category-editor" aria-label="Category controls">
+          <div class="field">
+            <label for="categorySelect">Category</label>
+            <select id="categorySelect" class="select-input">
+              <option value="">No category</option>
+              <option value="Cat 6">Cat 6</option>
+              <option value="AV">AV</option>
+              <option value="Fire Alarm">Fire Alarm</option>
+            </select>
+          </div>
+          <div class="category-actions">
+            <input id="newCategoryInput" class="text-input" type="text" placeholder="New category name" />
+            <button id="createCategoryButton" type="button">Create</button>
+          </div>
+        </section>
+      </div>
+
+      <footer class="modal-actions">
+        <button id="pathModalCancel" class="secondary" type="button">Cancel</button>
+        <button id="pathModalApply" type="button">Apply</button>
+      </footer>
+    </section>
+  </div>
+
+  <div id="scopeModalBackdrop" class="modal-backdrop scope-backdrop" aria-hidden="true">
+    <section class="scope-modal" role="dialog" aria-modal="true" aria-labelledby="scopeModalTitle">
+      <header class="modal-head">
+        <h2 id="scopeModalTitle" class="modal-title">Apply Changes</h2>
+        <button id="scopeModalClose" class="modal-close" type="button" aria-label="Close apply changes">x</button>
+      </header>
+
+      <div class="scope-body">
+        <p class="scope-question">Apply these path settings to:</p>
+        <div class="scope-options">
+          <button id="scopePathOnly" class="scope-option" type="button">
+            <span class="scope-option-title">This path only</span>
+            <span id="scopePathSub" class="scope-option-sub">Only this path changes.</span>
+          </button>
+          <button id="scopeCategory" class="scope-option" type="button">
+            <span class="scope-option-title">All paths in this category</span>
+            <span id="scopeCategorySub" class="scope-option-sub">All category paths use these settings.</span>
+          </button>
+        </div>
+      </div>
+
+      <footer class="modal-actions">
+        <button id="scopeModalCancel" class="secondary" type="button">Cancel</button>
+      </footer>
+    </section>
+  </div>
+
+  <script>
+    const state = {
+      activeTab: 'categories',
+      activeStyleTab: 'line',
+      activePathKey: null,
+      draftPathSettings: null,
+      hidden: {
+        cat6: false,
+        av: false,
+        fire: false
+      }
+    };
+
+    const categories = {
+      cat6: { label: 'Cat 6', total: 57.16, page1: 33.16, page2: 24.00, runs: 3 },
+      av: { label: 'AV', total: 18.98, page1: 18.98, page2: 0, runs: 1 },
+      fire: { label: 'Fire Alarm', total: 17.40, page1: 0, page2: 17.40, runs: 1 }
+    };
+
+    const genericPath = { label: 'Manual Path', total: 6.20, page1: 6.20, page2: 0, runs: 1 };
+
+    const pathSettings = {
+      cat6: {
+        name: 'West wall data',
+        category: 'Cat 6',
+        type: 'template',
+        lineStyle: 'solid',
+        lineColor: '#b6ff3c',
+        anchorFill: '#0b1012',
+        anchorBorder: '#b6ff3c',
+        matchAnchorBorder: true
+      },
+      cat6Back: {
+        name: 'Back office data',
+        category: 'Cat 6',
+        type: 'template',
+        lineStyle: 'solid',
+        lineColor: '#b6ff3c',
+        anchorFill: '#0b1012',
+        anchorBorder: '#b6ff3c',
+        matchAnchorBorder: true
+      },
+      av: {
+        name: 'Conference AV pull',
+        category: 'AV',
+        type: 'template',
+        lineStyle: 'dashed',
+        lineColor: '#59d6ff',
+        anchorFill: '#0b1012',
+        anchorBorder: '#59d6ff',
+        matchAnchorBorder: true
+      },
+      fire: {
+        name: 'Alarm branch',
+        category: 'Fire Alarm',
+        type: 'template',
+        lineStyle: 'dotted',
+        lineColor: '#ffb13c',
+        anchorFill: '#0b1012',
+        anchorBorder: '#ffb13c',
+        matchAnchorBorder: true
+      },
+      manual: {
+        name: 'Manual field path',
+        category: '',
+        type: 'generic',
+        lineStyle: 'solid',
+        lineColor: '#59d6ff',
+        anchorFill: '#0b1012',
+        anchorBorder: '#59d6ff',
+        matchAnchorBorder: true
+      }
+    };
+
+    const totals = {
+      all: 99.74,
+      page1: 58.34,
+      page2: 41.40,
+      runs: 6
+    };
+
+    const hideToggle = document.getElementById('hideToggle');
+    const resetToggle = document.getElementById('resetToggle');
+    const tabButtons = document.querySelectorAll('.tab');
+    const panels = {
+      thisPage: document.getElementById('thisPagePanel'),
+      categories: document.getElementById('categoriesPanel'),
+      allPages: document.getElementById('allPagesPanel')
+    };
+    const totalLabel = document.getElementById('totalLabel');
+    const mainTotal = document.getElementById('mainTotal');
+    const runCount = document.getElementById('runCount');
+    const entireTotal = document.getElementById('entireTotal');
+    const thisPageTotal = document.getElementById('thisPageTotal');
+    const page1Total = document.getElementById('page1Total');
+    const page2Total = document.getElementById('page2Total');
+    const exportVisibleLabel = document.getElementById('exportVisibleLabel');
+    const exportVisibleTotal = document.getElementById('exportVisibleTotal');
+    const cat6Parts = document.querySelectorAll('.path.cat6, .anchor.cat6, #catLabel');
+    const avParts = document.querySelectorAll('.path.av, .anchor.av, #avLabel');
+    const pathModalBackdrop = document.getElementById('pathModalBackdrop');
+    const pathModalClose = document.getElementById('pathModalClose');
+    const pathModalCancel = document.getElementById('pathModalCancel');
+    const pathModalApply = document.getElementById('pathModalApply');
+    const scopeModalBackdrop = document.getElementById('scopeModalBackdrop');
+    const scopeModalClose = document.getElementById('scopeModalClose');
+    const scopeModalCancel = document.getElementById('scopeModalCancel');
+    const scopePathOnly = document.getElementById('scopePathOnly');
+    const scopeCategory = document.getElementById('scopeCategory');
+    const scopePathSub = document.getElementById('scopePathSub');
+    const scopeCategorySub = document.getElementById('scopeCategorySub');
+    const modalMarkerPreview = document.getElementById('modalMarkerPreview');
+    const modalPathName = document.getElementById('modalPathName');
+    const modalPathCategory = document.getElementById('modalPathCategory');
+    const modalTabs = document.querySelectorAll('.modal-tab');
+    const lineStylePanel = document.getElementById('lineStylePanel');
+    const anchorStylePanel = document.getElementById('anchorStylePanel');
+    const lineColorInput = document.getElementById('lineColorInput');
+    const anchorFillInput = document.getElementById('anchorFillInput');
+    const anchorBorderInput = document.getElementById('anchorBorderInput');
+    const matchAnchorBorderInput = document.getElementById('matchAnchorBorderInput');
+    const categorySelect = document.getElementById('categorySelect');
+    const newCategoryInput = document.getElementById('newCategoryInput');
+    const createCategoryButton = document.getElementById('createCategoryButton');
+    const lineStyleButtons = document.querySelectorAll('[data-line-style]');
+
+    const ui = {
+      cat6: {
+        category: document.getElementById('cat6Category'),
+        icon: document.querySelector('#cat6Category .category-icon'),
+        status: document.getElementById('cat6CategoryStatus'),
+        markers: [
+          document.getElementById('cat6MarkerPage'),
+          document.getElementById('cat6MarkerAllPage1'),
+          document.getElementById('cat6MarkerAllPage2')
+        ],
+        totals: [
+          document.getElementById('cat6PanelTotalPage'),
+          document.getElementById('cat6PanelTotalAllPage1'),
+          document.getElementById('cat6PanelTotalAllPage2')
+        ],
+        exports: [
+          document.getElementById('cat6ExportStatusPage1'),
+          document.getElementById('cat6ExportStatusPage2')
+        ],
+        parts: cat6Parts
+      },
+      av: {
+        category: document.getElementById('avCategory'),
+        icon: document.querySelector('#avCategory .category-icon'),
+        status: document.getElementById('avCategoryStatus'),
+        markers: [
+          document.getElementById('avMarkerPage'),
+          document.getElementById('avMarkerAll')
+        ],
+        totals: [
+          document.getElementById('avPanelTotalPage'),
+          document.getElementById('avPanelTotalAll')
+        ],
+        exports: [document.getElementById('avExportStatus')],
+        parts: avParts
+      },
+      fire: {
+        category: document.getElementById('fireCategory'),
+        icon: document.querySelector('#fireCategory .category-icon'),
+        status: document.getElementById('fireCategoryStatus'),
+        markers: [document.getElementById('fireMarkerAll')],
+        totals: [document.getElementById('firePanelTotalAll')],
+        exports: [document.getElementById('fireExportStatus')],
+        parts: []
+      }
+    };
+
+    function format(value) {
+      return value.toFixed(2);
+    }
+
+    function hiddenCount() {
+      return Object.values(state.hidden).filter(Boolean).length;
+    }
+
+    function visibleTotal(scope) {
+      return Object.entries(categories).reduce((sum, [key, category]) => {
+        return state.hidden[key] ? sum : sum + category[scope];
+      }, genericPath[scope]);
+    }
+
+    function visibleRuns() {
+      return Object.entries(categories).reduce((sum, [key, category]) => {
+        return state.hidden[key] ? sum : sum + category.runs;
+      }, genericPath.runs);
+    }
+
+    function setExportStatus(cell, isHidden) {
+      cell.textContent = isHidden ? 'Included, hidden in view' : 'Included';
+      cell.className = isHidden ? 'hidden-note' : 'included';
+    }
+
+    function setPathUi(key, category) {
+      const isHidden = state.hidden[key];
+      const nodes = ui[key];
+
+      nodes.icon.classList.toggle('hidden-icon', isHidden);
+      nodes.status.classList.toggle('off', isHidden);
+      nodes.status.textContent = isHidden ? 'Hidden' : 'Visible';
+
+      nodes.markers.forEach((marker) => {
+        marker.classList.toggle('hidden-marker', isHidden);
+      });
+
+      nodes.totals.forEach((totalEl) => {
+        totalEl.classList.toggle('hidden', isHidden);
+      });
+
+      if (key === 'cat6') {
+        nodes.totals[0].textContent = isHidden ? '33.16 ft hidden' : '33.16 ft';
+        nodes.totals[1].textContent = isHidden ? '33.16 ft hidden' : '33.16 ft';
+        nodes.totals[2].textContent = isHidden ? '24.00 ft hidden' : '24.00 ft';
+      } else if (key === 'av') {
+        nodes.totals.forEach((totalEl) => {
+          totalEl.textContent = isHidden ? '18.98 ft hidden' : '18.98 ft';
+        });
+      } else {
+        nodes.totals[0].textContent = isHidden ? '17.40 ft hidden' : '17.40 ft';
+      }
+
+      nodes.parts.forEach((part) => part.classList.toggle('hidden-path', isHidden));
+      nodes.exports.forEach((cell) => setExportStatus(cell, isHidden));
+    }
+
+    function templateIconSvg() {
+      return `
+        <svg viewBox="-3 -42 170 170" focusable="false">
+          <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
+          <circle class="anchor-dot" cx="20" cy="52" r="13" />
+          <circle class="anchor-dot" cx="144" cy="43" r="13" />
+        </svg>
+      `;
+    }
+
+    function setModalOpen(open) {
+      pathModalBackdrop.classList.toggle('open', open);
+      pathModalBackdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+
+    function setScopeModalOpen(open) {
+      scopeModalBackdrop.classList.toggle('open', open);
+      scopeModalBackdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+
+    function activeModalSettings() {
+      return state.draftPathSettings || pathSettings[state.activePathKey];
+    }
+
+    function categoryPathCount(categoryName) {
+      const category = Object.values(categories).find((item) => item.label === categoryName);
+      if (category) return category.runs;
+      return Object.values(pathSettings).filter((path) => path.category === categoryName).length;
+    }
+
+    function openScopeModal() {
+      const settings = activeModalSettings();
+      if (!settings) return;
+
+      const categoryCount = categoryPathCount(settings.category);
+      const categorySubtext = categoryCount === 1
+        ? `The 1 ${settings.category} path uses these settings.`
+        : `All ${categoryCount} ${settings.category} paths use these settings.`;
+
+      scopePathSub.textContent = `Only ${settings.name} changes.`;
+      scopeCategory.disabled = !settings.category;
+      scopeCategorySub.textContent = settings.category
+        ? categorySubtext
+        : 'Assign a category first to use this option.';
+      setScopeModalOpen(true);
+    }
+
+    function closeScopeModal() {
+      setScopeModalOpen(false);
+    }
+
+    function applyScope(scope) {
+      const settings = activeModalSettings();
+      if (!settings) return;
+
+      Object.assign(pathSettings[state.activePathKey], settings);
+
+      if (scope === 'category' && settings.category) {
+        Object.entries(pathSettings).forEach(([key, path]) => {
+          if (key === state.activePathKey) return;
+          if (path.category !== settings.category) return;
+          Object.assign(path, {
+            lineStyle: settings.lineStyle,
+            lineColor: settings.lineColor,
+            anchorFill: settings.anchorFill,
+            anchorBorder: settings.anchorBorder,
+            matchAnchorBorder: settings.matchAnchorBorder
+          });
+        });
+      }
+
+      closeScopeModal();
+      closePathModal();
+      render();
+    }
+
+    function syncCategoryOptions(activeCategory) {
+      const categoriesSeen = ['', activeCategory || '', ...Object.values(pathSettings).map((path) => path.category).filter(Boolean)];
+      const unique = [...new Set(categoriesSeen)];
+      categorySelect.innerHTML = unique.map((category) => {
+        const label = category || 'No category';
+        return `<option value="${category}">${label}</option>`;
+      }).join('');
+      categorySelect.value = activeCategory || '';
+    }
+
+    function renderModal() {
+      const settings = activeModalSettings();
+      if (!settings) return;
+
+      modalPathName.textContent = settings.name;
+      modalPathCategory.textContent = settings.category || 'No category';
+      modalMarkerPreview.className = `path-marker modal-marker ${settings.type === 'generic' ? 'generic-marker' : ''} ${settings.lineStyle === 'dashed' ? 'dashed-icon' : ''} ${settings.lineStyle === 'dotted' ? 'dotted-icon' : ''}`;
+      modalMarkerPreview.innerHTML = settings.type === 'generic' ? '' : templateIconSvg();
+      modalMarkerPreview.style.setProperty('--preview-line', settings.lineColor);
+      modalMarkerPreview.style.setProperty('--preview-anchor-fill', settings.anchorFill);
+      modalMarkerPreview.style.setProperty('--preview-anchor-border', settings.anchorBorder);
+
+      lineColorInput.value = settings.lineColor;
+      anchorFillInput.value = settings.anchorFill;
+      anchorBorderInput.value = settings.anchorBorder;
+      matchAnchorBorderInput.checked = settings.matchAnchorBorder;
+      anchorBorderInput.disabled = settings.matchAnchorBorder;
+      syncCategoryOptions(settings.category);
+
+      modalTabs.forEach((tab) => tab.classList.toggle('active', tab.dataset.styleTab === state.activeStyleTab));
+      lineStylePanel.classList.toggle('hidden-view', state.activeStyleTab !== 'line');
+      anchorStylePanel.classList.toggle('hidden-view', state.activeStyleTab !== 'anchor');
+      lineStyleButtons.forEach((button) => button.classList.toggle('active', button.dataset.lineStyle === settings.lineStyle));
+    }
+
+    function openPathModal(pathKey) {
+      state.activePathKey = pathKey;
+      state.activeStyleTab = 'line';
+      state.draftPathSettings = { ...pathSettings[pathKey] };
+      newCategoryInput.value = '';
+      renderModal();
+      setModalOpen(true);
+    }
+
+    function closePathModal() {
+      closeScopeModal();
+      setModalOpen(false);
+      state.activePathKey = null;
+      state.draftPathSettings = null;
+    }
+
+    function updateActivePath(patch) {
+      const settings = activeModalSettings();
+      if (!settings) return;
+      Object.assign(settings, patch);
+      renderModal();
+    }
+
+    function render() {
+      const hasHidden = hiddenCount() > 0;
+      const visibleAll = visibleTotal('total');
+      const visiblePage1 = visibleTotal('page1');
+      const visiblePage2 = visibleTotal('page2');
+
+      tabButtons.forEach((button) => {
+        const isActive = button.dataset.tab === state.activeTab;
+        button.classList.toggle('active', isActive);
+      });
+
+      Object.entries(panels).forEach(([key, panel]) => {
+        panel.classList.toggle('hidden-view', key !== state.activeTab);
+      });
+
+      hideToggle.classList.toggle('active', state.hidden.av);
+      hideToggle.textContent = state.hidden.av ? 'AV Icon Hidden' : 'Hide AV Icon';
+
+      totalLabel.textContent = hasHidden ? 'Visible Total' : 'Grand Total';
+      mainTotal.textContent = hasHidden ? format(visibleAll) : format(totals.all);
+      runCount.textContent = hasHidden ? `${visibleRuns()} visible runs` : `${totals.runs} runs`;
+      entireTotal.classList.toggle('visible', hasHidden);
+      entireTotal.querySelector('span').textContent = `${format(totals.all)} ft`;
+
+      thisPageTotal.textContent = hasHidden ? `${format(visiblePage1)} ft visible` : `${format(totals.page1)} ft`;
+      page1Total.textContent = hasHidden ? `${format(visiblePage1)} ft visible` : `${format(totals.page1)} ft`;
+      page2Total.textContent = hasHidden ? `${format(visiblePage2)} ft visible` : `${format(totals.page2)} ft`;
+
+      Object.entries(categories).forEach(([key, category]) => setPathUi(key, category));
+
+      exportVisibleLabel.textContent = hasHidden ? 'Visible Total' : 'Visible Total';
+      exportVisibleTotal.textContent = hasHidden ? `${format(visibleAll)} ft` : `${format(totals.all)} ft`;
+    }
+
+    hideToggle.addEventListener('click', () => {
+      state.hidden.av = !state.hidden.av;
+      render();
+    });
+
+    resetToggle.addEventListener('click', () => {
+      Object.keys(state.hidden).forEach((key) => {
+        state.hidden[key] = false;
+      });
+      render();
+    });
+
+    tabButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        state.activeTab = button.dataset.tab;
+        render();
+      });
+    });
+
+    Object.keys(ui).forEach((key) => {
+      ui[key].category.addEventListener('click', () => {
+        state.hidden[key] = !state.hidden[key];
+        render();
+      });
+    });
+
+    document.querySelectorAll('[data-path-settings]').forEach((marker) => {
+      marker.addEventListener('click', (event) => {
+        event.stopPropagation();
+        openPathModal(marker.dataset.pathSettings);
+      });
+      marker.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        openPathModal(marker.dataset.pathSettings);
+      });
+    });
+
+    modalTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        state.activeStyleTab = tab.dataset.styleTab;
+        renderModal();
+      });
+    });
+
+    lineStyleButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        updateActivePath({ lineStyle: button.dataset.lineStyle });
+      });
+    });
+
+    lineColorInput.addEventListener('input', (event) => {
+      const settings = activeModalSettings();
+      updateActivePath({
+        lineColor: event.target.value,
+        ...(settings?.matchAnchorBorder ? { anchorBorder: event.target.value } : {})
+      });
+    });
+
+    anchorFillInput.addEventListener('input', (event) => {
+      updateActivePath({ anchorFill: event.target.value });
+    });
+
+    anchorBorderInput.addEventListener('input', (event) => {
+      updateActivePath({ anchorBorder: event.target.value });
+    });
+
+    matchAnchorBorderInput.addEventListener('change', (event) => {
+      const settings = activeModalSettings();
+      updateActivePath({
+        matchAnchorBorder: event.target.checked,
+        ...(event.target.checked && settings ? { anchorBorder: settings.lineColor } : {})
+      });
+    });
+
+    categorySelect.addEventListener('change', (event) => {
+      updateActivePath({ category: event.target.value });
+    });
+
+    createCategoryButton.addEventListener('click', () => {
+      const category = newCategoryInput.value.trim();
+      if (!category) return;
+      updateActivePath({ category });
+      newCategoryInput.value = '';
+    });
+
+    [pathModalClose, pathModalCancel].forEach((button) => {
+      button.addEventListener('click', closePathModal);
+    });
+
+    pathModalApply.addEventListener('click', openScopeModal);
+
+    pathModalBackdrop.addEventListener('click', (event) => {
+      if (event.target === pathModalBackdrop) closePathModal();
+    });
+
+    [scopeModalClose, scopeModalCancel].forEach((button) => {
+      button.addEventListener('click', closeScopeModal);
+    });
+
+    scopePathOnly.addEventListener('click', () => applyScope('path'));
+    scopeCategory.addEventListener('click', () => applyScope('category'));
+
+    scopeModalBackdrop.addEventListener('click', (event) => {
+      if (event.target === scopeModalBackdrop) closeScopeModal();
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape') return;
+      if (scopeModalBackdrop.classList.contains('open')) {
+        closeScopeModal();
+        return;
+      }
+      if (pathModalBackdrop.classList.contains('open')) closePathModal();
+    });
+
+    render();
+  </script>
+</body>
+</html>

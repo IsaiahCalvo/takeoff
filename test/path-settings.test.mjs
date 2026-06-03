@@ -118,6 +118,8 @@ function createPathSettingsFixture() {
     'pathSettingsSummary',
     'pathSettingsName',
     'pathSettingsLineColor',
+    'pathSettingsLineBorder',
+    'pathSettingsLineBorderMatches',
     'pathSettingsLineStyle',
     'pathSettingsAnchorFill',
     'pathSettingsAnchorBorder',
@@ -142,6 +144,8 @@ function createPathSettingsFixture() {
   }
   scope.value = 'document';
   elements.get('pathSettingsLineColor').value = '#b6ff3c';
+  elements.get('pathSettingsLineBorder').value = '#b6ff3c';
+  elements.get('pathSettingsLineBorderMatches').checked = true;
   elements.get('pathSettingsLineStyle').value = 'solid';
   elements.get('pathSettingsAnchorFill').value = '#ffffff';
   elements.get('pathSettingsAnchorBorder').value = '#b6ff3c';
@@ -150,7 +154,7 @@ function createPathSettingsFixture() {
 }
 
 const lineStyle = {
-  stroke: { color: '#ff9b3c', style: 'dotted' },
+  stroke: { color: '#ff9b3c', style: 'dotted', border: '#111619', borderMatchesFill: false },
   anchors: { fill: '#101820', border: '#f7fbfc', borderMatchesStroke: false },
 };
 

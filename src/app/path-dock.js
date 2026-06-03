@@ -44,6 +44,8 @@
       stroke: {
         color: '#b6ff3c',
         style: 'solid',
+        border: '#b6ff3c',
+        borderMatchesFill: true,
       },
       anchors: {
         fill: '#ffffff',

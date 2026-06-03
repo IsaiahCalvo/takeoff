@@ -40,7 +40,13 @@
     const source = sourceObject(stroke);
     const color = cleanString(source.color, DEFAULT_STROKE_COLOR);
     const style = VALID_STROKE_STYLES.has(source.style) ? source.style : 'solid';
-    return { color, style };
+    const borderMatchesFill = typeof source.borderMatchesFill === 'boolean'
+      ? source.borderMatchesFill
+      : true;
+    const border = borderMatchesFill
+      ? color
+      : cleanString(source.border, color);
+    return { color, style, border, borderMatchesFill };
   }
 
   function normalizeAnchors(anchors, stroke) {
@@ -88,6 +94,8 @@
       stroke: {
         color: DEFAULT_STROKE_COLOR,
         style: 'solid',
+        border: DEFAULT_STROKE_COLOR,
+        borderMatchesFill: true,
       },
       anchors: {
         fill: DEFAULT_ANCHOR_FILL,

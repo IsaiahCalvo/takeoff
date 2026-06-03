@@ -8,6 +8,7 @@
     dashed: 'Dashed',
     dotted: 'Dotted',
   });
+  const PRESET_COLORS = Object.freeze(['#b6ff3c', '#ffffff', '#4cd6ff', '#ffb020', '#ff5f6d', '#7c5cff', '#18a058', '#d7dde1']);
 
   function sourceObject(value) {
     return value && typeof value === 'object' ? value : {};
@@ -75,6 +76,15 @@
     });
   }
 
+  function renderDetailPreviewHtml(path, renderer = window.TakeoffPathStyleRenderer) {
+    if (!path) return '';
+    const render = renderer?.renderPathStyleDetailPreviewSvg || renderer?.renderPathStylePreviewSvg;
+    if (!render) return '';
+    return render(pathStyleForPreview(path), {
+      ariaLabel: `${path.name || 'Path'} preview`,
+    });
+  }
+
   function stylePatchFromFormField(field, value, path = {}) {
     if (field === 'geometry') {
       return { geometry: value === 'freehand' ? 'freehand' : 'line' };
@@ -84,6 +94,18 @@
     }
     if (field === 'stroke.style') {
       return { stroke: { style: Object.hasOwn(STROKE_STYLE_LABELS, value) ? value : 'solid' } };
+    }
+    if (field === 'stroke.border') {
+      return { stroke: { border: value, borderMatchesFill: false } };
+    }
+    if (field === 'stroke.borderMatchesFill') {
+      const checked = value === true || value === 'true' || value === 'on';
+      return {
+        stroke: {
+          borderMatchesFill: checked,
+          ...(checked ? { border: path.stroke?.color } : {}),
+        },
+      };
     }
     if (field === 'anchors.fill') {
       return { anchors: { fill: value } };
@@ -133,10 +155,30 @@
             ${renderPathPreviewHtml(path, renderer)}
           </span>
           <span class="path-template-path-name">${escapeText(path.name)}</span>
-          <span class="path-template-path-meta">${geometryLabel(path.geometry)} / ${strokeStyleLabel(path.stroke.style)}</span>
+          <span class="path-template-path-meta">${strokeStyleLabel(path.stroke.style)}</span>
         </button>
       `;
     }).join('');
+  }
+
+  function renderColorEditor(field, value, options = {}) {
+    const fallback = options.fallback || '#b6ff3c';
+    const activeColor = safeColor(value, fallback);
+    const disabled = options.disabled ? ' disabled' : '';
+    const swatches = PRESET_COLORS.map((color) => `
+      <button class="path-template-swatch${activeColor === color ? ' active' : ''}" type="button" data-action="style-field" data-field="${escapeAttribute(field)}" data-value="${escapeAttribute(color)}" aria-label="${escapeAttribute(color)}" title="${escapeAttribute(color)}"${disabled}>
+        <span style="background:${escapeAttribute(color)}"></span>
+      </button>
+    `).join('');
+    return `
+      <div class="path-template-color-editor">
+        <div class="path-template-swatches">${swatches}</div>
+        <label class="path-template-color-custom" title="Custom color">
+          <input type="color" value="${activeColor}" data-action="style-input" data-field="${escapeAttribute(field)}"${disabled} />
+          <span>Custom</span>
+        </label>
+      </div>
+    `;
   }
 
   function renderSegmentedButtons(groupName, values, activeValue, field) {
@@ -147,81 +189,155 @@
     `).join('');
   }
 
-  function renderStyleEditor(model, renderer) {
-    const path = model.activePath;
-    if (!path) {
-      return '<div class="path-template-empty-editor">Add a path to edit its style.</div>';
-    }
-    const anchors = path.anchors;
+  function renderLineEditor(path) {
+    const stroke = path.stroke;
+    const borderEditor = stroke.borderMatchesFill ? '' : `
+      <div class="path-template-field path-template-field-full">
+        <span>Line border</span>
+        ${renderColorEditor('stroke.border', stroke.border)}
+      </div>
+    `;
     return `
-      <div class="path-template-style-editor">
-        <div class="path-template-preview" data-preview>
-          ${renderPathPreviewHtml(path, renderer)}
+      <div class="path-template-field path-template-field-full">
+        <span>Line fill</span>
+        ${renderColorEditor('stroke.color', stroke.color)}
+      </div>
+      ${borderEditor}
+      <label class="path-template-check path-template-field-full">
+        <input type="checkbox" data-action="style-check" data-field="stroke.borderMatchesFill" ${stroke.borderMatchesFill ? 'checked' : ''} />
+        <span>Match line border to fill</span>
+      </label>
+      <div class="path-template-field path-template-field-full">
+        <span>Line style</span>
+        <div class="path-template-segmented" role="group" aria-label="Line style">
+          ${renderSegmentedButtons('stroke', ['solid', 'dashed', 'dotted'], stroke.style, 'stroke.style')}
         </div>
-        <label class="path-template-field path-template-field-full">
-          <span>Path name</span>
-          <input type="text" value="${escapeAttribute(path.name)}" data-action="path-name" autocomplete="off" />
-        </label>
-        <div class="path-template-field path-template-field-full">
-          <span>Geometry</span>
-          <div class="path-template-segmented" role="group" aria-label="Geometry">
-            ${renderSegmentedButtons('geometry', ['line', 'freehand'], path.geometry, 'geometry')}
-          </div>
-        </div>
-        <label class="path-template-field">
-          <span>Stroke color</span>
-          <input type="color" value="${safeColor(path.stroke.color)}" data-action="style-input" data-field="stroke.color" />
-        </label>
-        <div class="path-template-field">
-          <span>Stroke style</span>
-          <div class="path-template-segmented" role="group" aria-label="Stroke style">
-            ${renderSegmentedButtons('stroke', ['solid', 'dashed', 'dotted'], path.stroke.style, 'stroke.style')}
-          </div>
-        </div>
-        <label class="path-template-field">
-          <span>Anchor fill</span>
-          <input type="color" value="${safeColor(anchors.fill, '#ffffff')}" data-action="style-input" data-field="anchors.fill" />
-        </label>
-        <label class="path-template-field">
-          <span>Anchor border</span>
-          <input type="color" value="${safeColor(anchors.border)}" data-action="style-input" data-field="anchors.border" ${anchors.borderMatchesStroke ? 'disabled' : ''} />
-        </label>
-        <label class="path-template-check path-template-field-full">
-          <input type="checkbox" data-action="style-check" data-field="anchors.borderMatchesStroke" ${anchors.borderMatchesStroke ? 'checked' : ''} />
-          <span>Match anchor border to line color</span>
-        </label>
       </div>
     `;
   }
 
-  function renderHome(model, renderer) {
+  function renderAnchorEditor(path) {
+    const anchors = path.anchors;
+    const borderEditor = anchors.borderMatchesStroke ? '' : `
+      <div class="path-template-field path-template-field-full">
+        <span>Anchor border</span>
+        ${renderColorEditor('anchors.border', anchors.border)}
+      </div>
+    `;
+    return `
+      <div class="path-template-field path-template-field-full">
+        <span>Anchor fill</span>
+        ${renderColorEditor('anchors.fill', anchors.fill, { fallback: '#ffffff' })}
+      </div>
+      ${borderEditor}
+      <label class="path-template-check path-template-field-full">
+        <input type="checkbox" data-action="style-check" data-field="anchors.borderMatchesStroke" ${anchors.borderMatchesStroke ? 'checked' : ''} />
+        <span>Match anchor border to line color</span>
+      </label>
+    `;
+  }
+
+  function renderStyleEditor(model, renderer, activeStyleTab = 'line') {
+    const path = model.activePath;
+    if (!path) {
+      return `
+        <section class="path-template-appearance-panel">
+          <div class="path-template-empty-editor">Add a path to edit line and anchor styling.</div>
+        </section>
+        <section class="path-template-preview-panel" aria-label="Template preview"></section>
+      `;
+    }
+    const activeTab = activeStyleTab === 'anchor' ? 'anchor' : 'line';
+    return `
+      <section class="path-template-appearance-panel" aria-label="Path style">
+        <div class="path-template-appearance-card">
+          <div class="path-template-appearance-header">
+            <span class="path-template-mini-preview" aria-hidden="true">
+              ${renderPathPreviewHtml(path, renderer)}
+            </span>
+            <label class="path-template-name-inline">
+              <span>Path style</span>
+              <input type="text" value="${escapeAttribute(path.name)}" data-action="path-name" autocomplete="off" />
+            </label>
+          </div>
+          <div class="path-template-style-tabs" role="tablist" aria-label="Style layers">
+            <button class="path-template-style-tab${activeTab === 'line' ? ' active' : ''}" type="button" data-action="style-tab" data-tab="line" role="tab" aria-selected="${activeTab === 'line' ? 'true' : 'false'}">Line</button>
+            <button class="path-template-style-tab${activeTab === 'anchor' ? ' active' : ''}" type="button" data-action="style-tab" data-tab="anchor" role="tab" aria-selected="${activeTab === 'anchor' ? 'true' : 'false'}">Anchor</button>
+          </div>
+          <div class="path-template-style-editor" data-style-panel="line" ${activeTab === 'line' ? '' : 'hidden'}>
+            ${renderLineEditor(path)}
+          </div>
+          <div class="path-template-style-editor" data-style-panel="anchor" ${activeTab === 'anchor' ? '' : 'hidden'}>
+            ${renderAnchorEditor(path)}
+          </div>
+        </div>
+      </section>
+      <section class="path-template-preview-panel" aria-label="Template preview">
+        <div class="path-template-preview-card">
+          <p>Preview</p>
+          <div class="path-template-preview" data-preview>
+            <span class="path-template-preview-grid" aria-hidden="true"></span>
+            <span class="path-template-preview-line" aria-hidden="true"></span>
+            <span class="path-template-preview-room" aria-hidden="true"></span>
+            <span class="path-template-preview-svg">
+              ${renderDetailPreviewHtml(path, renderer)}
+            </span>
+          </div>
+          <div class="path-template-preview-meta">
+            <span>${escapeText(path.name)}</span>
+            <span>${strokeStyleLabel(path.stroke.style)}</span>
+          </div>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderHome(model, renderer, activeStyleTab = 'line') {
     const title = model.activeTemplate?.title || '';
+    const pathCount = model.activeTemplate?.paths.length || 0;
     return `
       <div class="path-template-home-header">
         <div>
-          <h2>Path Templates</h2>
-          <p>${escapeText(model.templateCountLabel)}</p>
+          <p>Templates · ${model.templateCount}</p>
+          <h2>Templates</h2>
+          <span>Reusable paths. Pick a kit before measuring to keep line and anchor styling consistent.</span>
         </div>
-        <button class="path-template-new" type="button" data-action="new-template">New</button>
+        <button class="path-template-new" type="button" data-action="new-template">New template</button>
       </div>
       <div class="path-template-layout">
-        <div class="path-template-sidebar" aria-label="Path Template list">
-          ${renderTemplateList(model)}
-        </div>
-        <div class="path-template-editor">
-          <label class="path-template-title-field">
-            <span>Template name</span>
-            <input type="text" value="${escapeAttribute(title)}" data-action="template-title" autocomplete="off" />
-          </label>
-          <div class="path-template-paths-header">
-            <span>Paths</span>
-            <button type="button" data-action="add-path">Add path</button>
+        <section class="path-template-sidebar" aria-label="Path Template list">
+          <p>Templates</p>
+          <div class="path-template-nav-list">
+            ${renderTemplateList(model)}
           </div>
-          <div class="path-template-path-grid">
-            ${renderPathGrid(model, renderer)}
+        </section>
+        <section class="path-template-editor">
+          <div class="path-template-editor-header">
+            <div>
+              <p>Editing kit</p>
+              <label class="path-template-title-field">
+                <span class="sr-only">Template name</span>
+                <input type="text" value="${escapeAttribute(title)}" data-action="template-title" autocomplete="off" />
+              </label>
+            </div>
+            <div class="path-template-editor-count">${pathCount} ${pathCount === 1 ? 'path' : 'paths'}</div>
           </div>
-          ${renderStyleEditor(model, renderer)}
-        </div>
+          <div class="path-template-detail-grid">
+            <section class="path-template-category-panel" aria-label="Template paths">
+              <div class="path-template-category-header">
+                <p>Paths</p>
+              </div>
+              <div class="path-template-path-grid">
+                ${renderPathGrid(model, renderer)}
+                <button class="path-template-add-category" type="button" data-action="add-path">
+                  <span>+</span>
+                  Add path
+                </button>
+              </div>
+            </section>
+            ${renderStyleEditor(model, renderer, activeStyleTab)}
+          </div>
+        </section>
       </div>
     `;
   }
@@ -235,15 +351,30 @@
     if (!root || !state || !pathTemplates) {
       return { render() {}, destroy() {} };
     }
+    let activeStyleTab = 'line';
 
     function save() {
       if (store?.save) store.save(state);
     }
 
-    function setTemplateState(nextState) {
+    function scrollContainer() {
+      return root.closest?.('[data-home-panel]') || null;
+    }
+
+    function restoreScroll(scroller, scrollTop) {
+      if (!scroller) return;
+      scroller.scrollTop = scrollTop;
+      if (typeof window.requestAnimationFrame === 'function') {
+        window.requestAnimationFrame(() => {
+          scroller.scrollTop = scrollTop;
+        });
+      }
+    }
+
+    function setTemplateState(nextState, options = {}) {
       applyTemplateState(state, nextState);
       save();
-      render();
+      render(options);
     }
 
     function model() {
@@ -252,8 +383,11 @@
       return viewModel;
     }
 
-    function render() {
-      root.innerHTML = renderHome(model(), renderer);
+    function render(options = {}) {
+      const scroller = options.preserveScroll ? scrollContainer() : null;
+      const scrollTop = scroller?.scrollTop || 0;
+      root.innerHTML = renderHome(model(), renderer, activeStyleTab);
+      restoreScroll(scroller, scrollTop);
     }
 
     function activeIds() {
@@ -268,7 +402,7 @@
     function updateActivePathStyle(patch) {
       const ids = activeIds();
       if (!ids.templateId || !ids.pathId) return;
-      setTemplateState(pathTemplates.updatePathStyle(state, ids.templateId, ids.pathId, patch));
+      setTemplateState(pathTemplates.updatePathStyle(state, ids.templateId, ids.pathId, patch), { preserveScroll: true });
     }
 
     function handleClick(event) {
@@ -287,6 +421,9 @@
         if (ids.templateId) setTemplateState(pathTemplates.selectPath(state, ids.templateId, target.dataset.pathId));
       } else if (action === 'style-field') {
         updateActivePathStyle(stylePatchFromFormField(target.dataset.field, target.dataset.value, activeIds().path));
+      } else if (action === 'style-tab') {
+        activeStyleTab = target.dataset.tab === 'anchor' ? 'anchor' : 'line';
+        render({ preserveScroll: true });
       }
     }
 

@@ -425,6 +425,40 @@ test('drawPolyline applies stored path style snapshot attributes', async () => {
   ]);
 });
 
+test('drawPolyline paints an explicit line border under the line fill', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawPolyline([{ x: 0, y: 0 }, { x: 10, y: 5 }], {
+    color: '#ffffff',
+    dots: false,
+    width: 2,
+    pathStyle: {
+      stroke: { color: '#ffffff', style: 'solid', border: '#111619', borderMatchesFill: false },
+      anchors: { fill: '#101820', border: '#36d399', borderMatchesStroke: false },
+    },
+  });
+
+  const children = drawSvg.children[0].children;
+  assert.equal(children.length, 2);
+  assert.equal(children[0].tag, 'path');
+  assert.equal(children[0].attrs.stroke, '#111619');
+  assert.equal(Number(children[0].attrs['stroke-width']) > Number(children[1].attrs['stroke-width']), true);
+  assert.equal(children[1].tag, 'path');
+  assert.equal(children[1].attrs.stroke, '#ffffff');
+});
+
 test('drawBezierSegments applies stored path style snapshot attributes', async () => {
   const renderer = await loadRenderer();
   const drawSvg = {

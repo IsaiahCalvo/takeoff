@@ -361,7 +361,12 @@
   }
 
   function categoryDisplayName(run) {
-    return cleanName(run.categoryName, run.isLegacy ? LEGACY_PATH_DISPLAY_NAME : 'Uncategorized');
+    if (run.categoryKey) {
+      return cleanString(run.categoryName) || cleanString(run.categoryId) || 'Uncategorized';
+    }
+    return cleanString(run.categoryName)
+      || (!run.isLegacy ? cleanString(run.pathName) : null)
+      || 'Uncategorized';
   }
 
   function createCategorySummary(run) {

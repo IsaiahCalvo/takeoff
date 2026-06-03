@@ -9,14 +9,19 @@
     }[char]));
   }
 
-  function measurementItemClass({ selected = false, isUnscaled = false } = {}) {
-    return ['meas-item', selected ? 'selected' : '', isUnscaled ? 'unscaled' : '']
+  function sourceObject(value) {
+    return value && typeof value === 'object' ? value : {};
+  }
+
+  function measurementItemClass({ selected = false, isUnscaled = false, pathVisibilityHidden = false, pathCategoryHidden = false } = {}) {
+    const visibilityHidden = pathVisibilityHidden || pathCategoryHidden;
+    return ['meas-item', selected ? 'selected' : '', isUnscaled ? 'unscaled' : '', visibilityHidden ? 'visibility-hidden' : '']
       .filter(Boolean)
       .join(' ');
   }
 
   function buildMeasurementItemMarkup({
-    color,
+    color = '#7d8a91',
     name,
     pointCount,
     page,
@@ -27,6 +32,8 @@
     lengthUnit = '',
     measurementId,
     detailsPresent = false,
+    pathCategorySubtitle = '',
+    pathStyle = null,
   } = {}) {
     const pointTitle = `${pointCount} anchors${onOtherPage ? ' · page ' + page : ''}`;
     const lengthTitle = isUnscaled ? 'No page scale; excluded from totals.' : '';
@@ -35,10 +42,16 @@
     const lengthErrorId = `length-error-${escapeHtml(measurementId)}`;
     const detailsClass = detailsPresent ? 'run-details-action has-details' : 'run-details-action';
     const detailsLabel = detailsPresent ? 'Edit Run Details. Details saved.' : 'Add Run Details';
+    const categoryMarkup = pathCategorySubtitle
+      ? `<span class="measurement-category">${escapeHtml(pathCategorySubtitle)}</span>`
+      : '';
     return `
     <div class="row head">
-      <div class="swatch" style="background:${escapeHtml(color)}; color:${escapeHtml(color)}"></div>
-      <input class="name" value="${escapeHtml(name)}" readonly title="Double-click to rename" />
+      <span class="measurement-path-icon" style="--path-color:${escapeHtml(color)}" aria-hidden="true">${measurementPathIconSvg({ color, pathStyle })}</span>
+      <span class="measurement-copy">
+        <input class="name" value="${escapeHtml(name)}" readonly title="Double-click to rename" />
+        ${categoryMarkup}
+      </span>
       <span class="point-count" title="${escapeHtml(pointTitle)}">${pointCount}</span>
       <span class="len" title="${escapeHtml(lengthTitle)}"><input class="length" value="${escapeHtml(lengthValue)}" readonly inputmode="decimal" aria-label="Length" title="${escapeHtml(lengthInputTitle)}" />${unitMarkup}<span class="length-error" id="${lengthErrorId}" role="alert" hidden></span></span>
       <button class="${detailsClass}" type="button" data-run-details-action="open" data-measurement-id="${escapeHtml(measurementId)}" aria-label="${escapeHtml(detailsLabel)}" title="${escapeHtml(detailsLabel)}">
@@ -79,8 +92,8 @@
       : '';
     return `
       <div class="path-group-summary">
-        <span class="path-group-marker" style="background:${escapeHtml(color)}; color:${escapeHtml(color)}" aria-hidden="true">
-          <svg viewBox="0 0 16 16" focusable="false"><path d="M3 12c3.8 0 2.2-8 6-8s2.2 8 4 8"/><circle cx="3" cy="12" r="1.7"/><circle cx="9" cy="4" r="1.7"/><circle cx="13" cy="12" r="1.7"/></svg>
+        <span class="path-group-marker" style="--path-color:${escapeHtml(color)}" aria-hidden="true">
+          ${angledPathIconSvg()}
         </span>
         <span class="path-group-copy">
           <span class="path-group-title">${escapeHtml(displayName)}</span>
@@ -98,29 +111,95 @@
     `;
   }
 
-  function visibilityIconMarkup(visible) {
-    if (visible) {
-      return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>';
-    }
-    return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6c1.5 0 2.8.3 4 .8"/><path d="M21.5 12s-3.5 6-9.5 6c-1.5 0-2.8-.3-4-.8"/><path d="m4 4 16 16"/><path d="M9.8 9.8a2.5 2.5 0 0 0 3.4 3.4"/></svg>';
+  function buildPageGroupMarkup({
+    page = 1,
+    title = 'Page 1',
+    runCountText = '0 runs',
+    unscaledText = '',
+    hiddenText = '',
+    totalText = '0.00',
+    totalUnitText = '',
+    collapsed = false,
+    runsId = `page-group-runs-${page}`,
+  } = {}) {
+    const unscaledMarkup = unscaledText
+      ? `<span class="path-group-chip path-group-chip-warn">${escapeHtml(unscaledText)}</span>`
+      : '';
+    const hiddenMarkup = hiddenText
+      ? `<span class="path-group-chip path-group-chip-muted">${escapeHtml(hiddenText)}</span>`
+      : '';
+    return `
+      <button class="page-group-toggle" type="button" data-page-group-toggle data-page-group-page="${escapeHtml(page)}" aria-expanded="${collapsed ? 'false' : 'true'}" aria-controls="${escapeHtml(runsId)}">
+        <span class="page-group-chevron" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M4.5 7.5 8 11l3.5-3.5"/></svg></span>
+        <span class="page-group-copy">
+          <span class="page-group-title">${escapeHtml(title)}</span>
+          <span class="path-group-meta page-group-meta">
+            <span class="path-group-chip">${escapeHtml(runCountText)}</span>
+            ${unscaledMarkup}
+            ${hiddenMarkup}
+          </span>
+        </span>
+        <span class="page-group-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
+      </button>
+    `;
+  }
+
+  function categoryBulbIconMarkup(visible) {
+    const boltMarkup = visible
+      ? '<path class="path-category-bulb-bolt" d="M12.7857 8.5L10.6429 11.5H13.6429L11.5 14.5" />'
+      : '';
+    return `<svg class="path-category-bulb" viewBox="0 0 24 24" focusable="false">
+        <path class="path-category-bulb-outline" d="M14.5 19.5H9.5M14.5 19.5C14.5 18.7865 14.5 18.4297 14.5381 18.193C14.6609 17.4296 14.6824 17.3815 15.1692 16.7807C15.3201 16.5945 15.8805 16.0927 17.0012 15.0892C18.5349 13.7159 19.5 11.7206 19.5 9.5C19.5 5.35786 16.1421 2 12 2C7.85786 2 4.5 5.35786 4.5 9.5C4.5 11.7206 5.4651 13.7159 6.99876 15.0892C8.11945 16.0927 8.67987 16.5945 8.83082 16.7807C9.31762 17.3815 9.3391 17.4296 9.46192 18.193C9.5 18.4297 9.5 18.7865 9.5 19.5M14.5 19.5C14.5 20.4346 14.5 20.9019 14.299 21.25C14.1674 21.478 13.978 21.6674 13.75 21.799C13.4019 22 12.9346 22 12 22C11.0654 22 10.5981 22 10.25 21.799C10.022 21.6674 9.83261 21.478 9.70096 21.25C9.5 20.9019 9.5 20.4346 9.5 19.5" />
+        ${boltMarkup}
+      </svg>`;
   }
 
   function templateCategoryIconSvg() {
+    return angledPathIconSvg();
+  }
+
+  function pathStyleForIcon(style, color) {
+    const source = sourceObject(style);
+    const stroke = sourceObject(source.stroke);
+    const anchors = sourceObject(source.anchors);
+    return {
+      stroke: {
+        ...stroke,
+        color: stroke.color || color,
+      },
+      anchors: {
+        ...anchors,
+        border: anchors.border || color,
+      },
+    };
+  }
+
+  function measurementPathIconSvg({ color = '#7d8a91', pathStyle = null } = {}) {
+    const renderer = window.TakeoffPathStyleRenderer;
+    if (renderer?.renderPathStylePreviewSvg) {
+      return renderer.renderPathStylePreviewSvg(pathStyleForIcon(pathStyle, color));
+    }
+    return angledPathIconSvg();
+  }
+
+  function angledPathIconSvg() {
     return `
-      <svg viewBox="-3 -42 170 170" focusable="false" aria-hidden="true">
-        <path class="tail" d="M130 43 C109 43 109 25 87 25 C64 25 64 61 42 61 C30 61 24 56 20 52" />
-        <circle class="anchor-dot" cx="20" cy="52" r="13" />
-        <circle class="anchor-dot" cx="144" cy="43" r="13" />
+      <svg viewBox="0 0 100 100" focusable="false" aria-hidden="true">
+        <g class="path-category-icon-diagonal">
+          <path class="tail" d="M18 74 C34 74 34 54 50 54 C66 54 66 26 82 26" />
+          <circle class="anchor-dot" cx="18" cy="74" r="12" />
+          <circle class="anchor-dot" cx="82" cy="26" r="12" />
+        </g>
       </svg>
     `;
   }
 
-  function categoryIconMarkup({ color = '#7d8a91', iconKind = 'template', hidden = false } = {}) {
+  function categoryIconMarkup({ color = '#7d8a91', iconKind = 'template', hidden = false, pathStyle = null } = {}) {
     const kind = iconKind === 'manual' ? 'manual' : 'template';
     const hiddenClass = hidden ? ' hidden-icon' : '';
     const artwork = kind === 'manual'
       ? '<span class="path-category-square" aria-hidden="true"></span>'
-      : templateCategoryIconSvg();
+      : (pathStyle ? measurementPathIconSvg({ color, pathStyle }) : templateCategoryIconSvg());
     return `<span class="path-category-icon path-category-icon-${kind}${hiddenClass}" style="--path-color:${escapeHtml(color)}" aria-hidden="true">${artwork}</span>`;
   }
 
@@ -134,6 +213,7 @@
     totalUnitText = '',
     color = '#7d8a91',
     iconKind = 'template',
+    pathStyle = null,
   } = {}) {
     const isVisible = categoryVisible !== false;
     const summaryMarkup = summaryText
@@ -145,7 +225,7 @@
     const actionText = isVisible ? 'Hide' : 'Show';
     return `
       <button class="path-category-row" type="button" data-path-category-key="${escapeHtml(key)}" data-next-visible="${isVisible ? 'false' : 'true'}" aria-pressed="${isVisible ? 'true' : 'false'}" aria-label="${actionText} ${escapeHtml(name)} category">
-        ${categoryIconMarkup({ color, iconKind, hidden: !isVisible })}
+        ${categoryIconMarkup({ color, iconKind, hidden: !isVisible, pathStyle })}
         <span class="path-category-copy">
           <span class="path-category-title">${escapeHtml(name)}</span>
           <span class="path-category-meta">
@@ -155,7 +235,7 @@
         </span>
         <span class="path-category-controls">
           <span class="path-category-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
-          <span class="path-category-status${isVisible ? '' : ' off'}">${isVisible ? 'Visible' : 'Hidden'}</span>
+          <span class="path-category-status${isVisible ? '' : ' off'}" aria-hidden="true">${categoryBulbIconMarkup(isVisible)}</span>
         </span>
       </button>
     `;
@@ -169,15 +249,16 @@
   } = {}) {
     if (!totalCount) return '';
     const status = hiddenCount ? `${hiddenCount} hidden` : 'All visible';
+    const allVisible = hiddenCount === 0;
+    const action = allVisible ? 'hide-all' : 'show-all';
+    const actionText = allVisible ? 'Hide all categories' : 'Show all categories';
+    const enabled = allVisible ? canHideAll : canShowAll;
     return `
       <div class="path-category-visibility-toolbar" aria-label="Category visibility controls">
         <span class="path-category-visibility-status">${escapeHtml(status)}</span>
         <div class="path-category-visibility-actions">
-          <button class="path-category-bulk-action" type="button" data-category-visibility-action="show-all" aria-label="Show all categories" title="Show all categories"${canShowAll ? '' : ' disabled'}>
-            ${visibilityIconMarkup(true)}
-          </button>
-          <button class="path-category-bulk-action" type="button" data-category-visibility-action="hide-all" aria-label="Hide all categories" title="Hide all categories"${canHideAll ? '' : ' disabled'}>
-            ${visibilityIconMarkup(false)}
+          <button class="path-category-bulk-toggle path-category-status${allVisible ? '' : ' off'}" type="button" data-category-visibility-action="${action}" aria-label="${actionText}" title="${actionText}" aria-pressed="${allVisible ? 'true' : 'false'}"${enabled ? '' : ' disabled'}>
+            ${categoryBulbIconMarkup(allVisible)}
           </button>
         </div>
       </div>
@@ -189,6 +270,7 @@
     measurementItemClass,
     buildMeasurementItemMarkup,
     buildPathGroupMarkup,
+    buildPageGroupMarkup,
     buildCategoryHeaderMarkup,
     buildCategoryVisibilityToolbarMarkup,
   };

@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Four-Anchor Zigzag Mockup</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0b0f11;
+    --panel: #13273a;
+    --panel-strong: #17314a;
+    --grid: rgba(167, 202, 229, 0.08);
+    --line: #2e536f;
+    --text: #e8f3ff;
+    --muted: #9db7cf;
+    --accent: #a7ff55;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 20% 8%, rgba(47, 140, 255, 0.12), transparent 26%),
+      linear-gradient(135deg, #071012 0%, #0d171b 52%, #071012 100%);
+    color: var(--text);
+    font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  main {
+    width: min(1180px, calc(100vw - 48px));
+    margin: 0 auto;
+    padding: 40px 0 48px;
+  }
+
+  header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 28px;
+    margin-bottom: 18px;
+  }
+
+  h1 {
+    margin: 0;
+    max-width: 720px;
+    font-size: clamp(28px, 4vw, 48px);
+    line-height: 1;
+    letter-spacing: 0;
+  }
+
+  header p {
+    margin: 12px 0 0;
+    max-width: 680px;
+    color: var(--muted);
+    font-size: 16px;
+  }
+
+  .scale-card {
+    flex: 0 0 auto;
+    min-width: 184px;
+    padding: 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: rgba(12, 27, 39, 0.84);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.32);
+  }
+
+  .scale-card strong {
+    display: block;
+    margin-bottom: 10px;
+    color: var(--muted);
+    font: 800 10px/1 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  .scale-row {
+    display: grid;
+    grid-template-columns: repeat(3, 42px);
+    gap: 8px;
+  }
+
+  .mini-button {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    border: 1px solid #315574;
+    border-radius: 7px;
+    background: #0d1d2a;
+  }
+
+  .mockup-sheet {
+    border: 1px solid #2f79b6;
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(22, 51, 77, 0.92), rgba(14, 32, 48, 0.92)),
+      #102536;
+    box-shadow:
+      0 24px 80px rgba(0, 0, 0, 0.42),
+      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    overflow: hidden;
+  }
+
+  .trio-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .card {
+    min-width: 0;
+    padding: 24px;
+    border-right: 1px solid rgba(105, 159, 205, 0.24);
+  }
+
+  .card:last-child {
+    border-right: 0;
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    min-height: 58px;
+    margin-bottom: 16px;
+  }
+
+  .label {
+    min-width: 0;
+  }
+
+  .label strong {
+    display: block;
+    margin-bottom: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 21px;
+    line-height: 1;
+  }
+
+  .label span {
+    color: var(--muted);
+    font: 800 11px/1.3 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+
+  .style-pill {
+    flex: 0 0 auto;
+    padding: 7px 10px;
+    border: 1px solid rgba(167, 255, 85, 0.36);
+    border-radius: 7px;
+    color: var(--accent);
+    background: rgba(167, 255, 85, 0.08);
+    font: 900 12px/1 "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-transform: uppercase;
+  }
+
+  .icon-box {
+    display: grid;
+    place-items: center;
+    height: 146px;
+    border: 1px solid #315574;
+    border-radius: 8px;
+    background:
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+      linear-gradient(0deg, var(--grid) 1px, transparent 1px),
+      #102d44;
+    background-size: 30px 30px;
+  }
+
+  .icon-box svg {
+    width: min(72%, 230px);
+    height: 120px;
+    overflow: visible;
+  }
+
+  .mini-button svg {
+    width: 34px;
+    height: 34px;
+    overflow: visible;
+  }
+
+  .meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 18px;
+  }
+
+  .swatch-row {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .swatch {
+    flex: 0 0 auto;
+    width: 20px;
+    height: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.38);
+    border-radius: 6px;
+  }
+
+  .line {
+    fill: none;
+    stroke-width: 9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .anchor {
+    stroke-width: 5;
+  }
+
+  .stroke-solid {
+    stroke-dasharray: none;
+  }
+
+  .stroke-dashed {
+    stroke-dasharray: 18 13;
+  }
+
+  .stroke-dotted {
+    stroke-dasharray: 1 16;
+    stroke-linecap: round;
+  }
+
+  .footnote {
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  @media (max-width: 980px) {
+    header {
+      display: block;
+    }
+
+    .scale-card {
+      width: max-content;
+      margin-top: 20px;
+    }
+
+    .trio-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .card {
+      border-right: 0;
+      border-bottom: 1px solid rgba(105, 159, 205, 0.24);
+    }
+
+    .card:last-child {
+      border-bottom: 0;
+    }
+  }
+
+  @media (max-width: 620px) {
+    main {
+      width: min(100vw - 28px, 1180px);
+      padding: 24px 0 32px;
+    }
+
+    .card {
+      padding: 18px;
+    }
+
+    .card-head {
+      align-items: start;
+      min-height: 0;
+    }
+
+    .label strong {
+      font-size: 19px;
+    }
+
+    .label span {
+      font-size: 10px;
+    }
+
+    .icon-box {
+      height: 124px;
+    }
+
+    .meta {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Four-Anchor Zigzag Trio</h1>
+      <p>Standalone mockup for the original wide custom-path icon, grouped as Cat 6, Fiber, and Composite with each template's stroke pattern and anchor colors.</p>
+    </div>
+    <div class="scale-card" aria-label="Button scale preview">
+      <strong>42px Button Scale</strong>
+      <div class="scale-row">
+        <div class="mini-button">
+          <svg viewBox="-10 -42 190 170" aria-hidden="true">
+            <path class="line stroke-solid" d="M24 62 L70 28 L116 54 L166 18" stroke="#2f8cff"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#ff3b66" stroke="#ffffff"/>
+          </svg>
+        </div>
+        <div class="mini-button">
+          <svg viewBox="-10 -42 190 170" aria-hidden="true">
+            <path class="line stroke-dashed" d="M24 62 L70 28 L116 54 L166 18" stroke="#36d399"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#0b0f11" stroke="#36d399"/>
+          </svg>
+        </div>
+        <div class="mini-button">
+          <svg viewBox="-10 -42 190 170" aria-hidden="true">
+            <path class="line stroke-dotted" d="M24 62 L70 28 L116 54 L166 18" stroke="#ffb13c"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#7c3cff" stroke="#ffd166"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <section class="mockup-sheet" aria-label="Four-anchor zigzag template cards">
+    <div class="trio-grid">
+      <article class="card">
+        <div class="card-head">
+          <div class="label">
+            <strong>Cat 6</strong>
+            <span>Blue line, red anchors</span>
+          </div>
+          <span class="style-pill">Solid</span>
+        </div>
+        <div class="icon-box">
+          <svg viewBox="-10 -42 190 170" aria-hidden="true">
+            <path class="line stroke-solid" d="M24 62 L70 28 L116 54 L166 18" stroke="#2f8cff"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#ff3b66" stroke="#ffffff"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#ff3b66" stroke="#ffffff"/>
+          </svg>
+        </div>
+        <div class="meta" aria-label="Cat 6 colors">
+          <span class="swatch-row"><i class="swatch" style="background:#2f8cff"></i>Stroke</span>
+          <span class="swatch-row"><i class="swatch" style="background:#ff3b66"></i>Fill</span>
+          <span class="swatch-row"><i class="swatch" style="background:#ffffff"></i>Border</span>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="label">
+            <strong>Fiber</strong>
+            <span>Green dashed, dark anchors</span>
+          </div>
+          <span class="style-pill">Dashed</span>
+        </div>
+        <div class="icon-box">
+          <svg viewBox="-10 -42 190 170" aria-hidden="true">
+            <path class="line stroke-dashed" d="M24 62 L70 28 L116 54 L166 18" stroke="#36d399"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#0b0f11" stroke="#36d399"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#0b0f11" stroke="#36d399"/>
+          </svg>
+        </div>
+        <div class="meta" aria-label="Fiber colors">
+          <span class="swatch-row"><i class="swatch" style="background:#36d399"></i>Stroke</span>
+          <span class="swatch-row"><i class="swatch" style="background:#0b0f11"></i>Fill</span>
+          <span class="swatch-row"><i class="swatch" style="background:#36d399"></i>Border</span>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head">
+          <div class="label">
+            <strong>Composite</strong>
+            <span>Orange dotted, purple anchors</span>
+          </div>
+          <span class="style-pill">Dotted</span>
+        </div>
+        <div class="icon-box">
+          <svg viewBox="-10 -42 190 170" aria-hidden="true">
+            <path class="line stroke-dotted" d="M24 62 L70 28 L116 54 L166 18" stroke="#ffb13c"/>
+            <circle class="anchor" cx="24" cy="62" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="70" cy="28" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="116" cy="54" r="8" fill="#7c3cff" stroke="#ffd166"/>
+            <circle class="anchor" cx="166" cy="18" r="8" fill="#7c3cff" stroke="#ffd166"/>
+          </svg>
+        </div>
+        <div class="meta" aria-label="Composite colors">
+          <span class="swatch-row"><i class="swatch" style="background:#ffb13c"></i>Stroke</span>
+          <span class="swatch-row"><i class="swatch" style="background:#7c3cff"></i>Fill</span>
+          <span class="swatch-row"><i class="swatch" style="background:#ffd166"></i>Border</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <p class="footnote">Visual mockup only. This file does not change the Takeoff app renderer.</p>
+</main>
+</body>
+</html>

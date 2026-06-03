@@ -44,6 +44,11 @@
       color: safeColor(strokeSource.color, '#b6ff3c'),
       style: normalizeStrokeStyle(strokeSource.style),
     };
+    const borderMatchesFill = typeof strokeSource.borderMatchesFill === 'boolean'
+      ? strokeSource.borderMatchesFill
+      : true;
+    stroke.border = borderMatchesFill ? stroke.color : safeColor(strokeSource.border, stroke.color);
+    stroke.borderMatchesFill = borderMatchesFill;
     const anchorSource = sourceObject(source.anchors);
     const borderMatchesStroke = typeof anchorSource.borderMatchesStroke === 'boolean'
       ? anchorSource.borderMatchesStroke
@@ -283,11 +288,14 @@
 
     function styleFromFields() {
       const lineColor = el('pathSettingsLineColor').value || '#b6ff3c';
+      const lineBorderMatchesFill = el('pathSettingsLineBorderMatches').checked;
       const borderMatchesStroke = el('pathSettingsAnchorBorderMatches').checked;
       return normalizePathStyle({
         stroke: {
           color: lineColor,
           style: el('pathSettingsLineStyle').value,
+          border: lineBorderMatchesFill ? lineColor : (el('pathSettingsLineBorder').value || lineColor),
+          borderMatchesFill: lineBorderMatchesFill,
         },
         anchors: {
           fill: el('pathSettingsAnchorFill').value || '#ffffff',
@@ -299,6 +307,9 @@
 
     function updatePreview() {
       const style = styleFromFields();
+      const lineBorderInput = el('pathSettingsLineBorder');
+      lineBorderInput.disabled = style.stroke.borderMatchesFill;
+      if (style.stroke.borderMatchesFill) lineBorderInput.value = style.stroke.color;
       const borderInput = el('pathSettingsAnchorBorder');
       borderInput.disabled = style.anchors.borderMatchesStroke;
       if (style.anchors.borderMatchesStroke) borderInput.value = style.stroke.color;
@@ -372,6 +383,8 @@
       el('pathSettingsSummary').textContent = `Choose where changes apply to ${settings.pathName}.`;
       el('pathSettingsName').value = settings.pathName;
       el('pathSettingsLineColor').value = settings.pathStyle.stroke.color;
+      el('pathSettingsLineBorder').value = settings.pathStyle.stroke.border;
+      el('pathSettingsLineBorderMatches').checked = settings.pathStyle.stroke.borderMatchesFill;
       el('pathSettingsLineStyle').value = settings.pathStyle.stroke.style;
       el('pathSettingsAnchorFill').value = settings.pathStyle.anchors.fill;
       el('pathSettingsAnchorBorder').value = settings.pathStyle.anchors.border;
@@ -459,7 +472,7 @@
     }
 
     function bind() {
-      for (const id of ['pathSettingsLineColor', 'pathSettingsLineStyle', 'pathSettingsAnchorFill', 'pathSettingsAnchorBorder', 'pathSettingsAnchorBorderMatches']) {
+      for (const id of ['pathSettingsLineColor', 'pathSettingsLineBorder', 'pathSettingsLineBorderMatches', 'pathSettingsLineStyle', 'pathSettingsAnchorFill', 'pathSettingsAnchorBorder', 'pathSettingsAnchorBorderMatches']) {
         el(id).addEventListener('input', updatePreview);
         el(id).addEventListener('change', updatePreview);
       }

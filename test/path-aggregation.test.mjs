@@ -375,6 +375,19 @@ test('derives stable category visibility keys from category or path identity', a
       isVisible: true,
     },
   ]);
+  assert.deepEqual(plain(result.categories.map(category => ({
+    key: category.key,
+    displayName: category.displayName,
+  }))), [
+    {
+      key: 'category-path:path%3Atemplate-security%3Apath-cat6',
+      displayName: 'Cat 6',
+    },
+    {
+      key: 'category-path:legacy%3Apath',
+      displayName: 'Uncategorized',
+    },
+  ]);
 });
 
 test('builds sorted page coverage ranges from numeric pages', async () => {

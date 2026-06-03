@@ -228,6 +228,17 @@
       };
     }
 
+    function pathBorderAttrs(opts, strokeWidth) {
+      if (opts.pathStyle && pathStyleRenderer?.pathBorderAttributes) {
+        return pathStyleRenderer.pathBorderAttributes(opts.pathStyle, {
+          strokeWidth,
+          borderWidth: overlayPageSize(1),
+          dashScale: overlayPageSize(1),
+        });
+      }
+      return null;
+    }
+
     function anchorCircleAttrs(opts, radius) {
       if (opts.pathStyle && pathStyleRenderer?.anchorCircleAttributes) {
         return pathStyleRenderer.anchorCircleAttributes(opts.pathStyle, {
@@ -367,6 +378,7 @@
       const strokeWidth = overlayPageSize(opts.width || 2);
       const d = buildBezierPath(segments);
       const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
+      const borderAttrs = pathBorderAttrs(opts, strokeWidth);
       const strokeColor = strokeAttrs.stroke || opts.color;
       if (opts.glow) {
         group.appendChild(svgNode('path', {
@@ -377,6 +389,12 @@
           'stroke-linecap': 'round',
           'stroke-linejoin': 'round',
           opacity: '0.18',
+        }));
+      }
+      if (borderAttrs) {
+        group.appendChild(svgNode('path', {
+          d,
+          ...borderAttrs,
         }));
       }
       group.appendChild(svgNode('path', {
@@ -463,6 +481,7 @@
       drawSvg.appendChild(group);
       const strokeWidth = overlayPageSize(opts.width || 2);
       const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
+      const borderAttrs = pathBorderAttrs(opts, strokeWidth);
       const strokeColor = strokeAttrs.stroke || opts.color;
 
       for (const source of sources) {
@@ -480,6 +499,12 @@
             'stroke-linecap': 'round',
             'stroke-linejoin': 'round',
             opacity: '0.18',
+          }));
+        }
+        if (borderAttrs) {
+          group.appendChild(svgNode('path', {
+            d,
+            ...borderAttrs,
           }));
         }
         group.appendChild(svgNode('path', {
@@ -537,6 +562,7 @@
       drawSvg.appendChild(group);
       const strokeWidth = overlayPageSize(opts.width || 2);
       const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
+      const borderAttrs = pathBorderAttrs(opts, strokeWidth);
       const strokeColor = strokeAttrs.stroke || opts.color;
 
       if (points.length >= 2) {
@@ -550,6 +576,12 @@
             'stroke-linecap': 'round',
             'stroke-linejoin': 'round',
             opacity: '0.18',
+          }));
+        }
+        if (borderAttrs) {
+          group.appendChild(svgNode('path', {
+            d,
+            ...borderAttrs,
           }));
         }
         group.appendChild(svgNode('path', {

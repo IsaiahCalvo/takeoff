@@ -380,7 +380,12 @@ test('controller selection feeds the next run and does not mutate an active draf
   const nextRunPath = pathTemplates.activePathForState(state);
   assert.equal(nextRunPath.id, 'path-b');
   assert.equal(nextRunPath.geometry, 'freehand');
-  assert.deepEqual(plain(nextRunPath.stroke), { color: '#36d399', style: 'dotted' });
+  assert.deepEqual(plain(nextRunPath.stroke), {
+    color: '#36d399',
+    style: 'dotted',
+    border: '#36d399',
+    borderMatchesFill: true,
+  });
   assert.deepEqual(plain(nextRunPath.anchors), {
     fill: '#f7fbfc',
     border: '#111619',
@@ -394,7 +399,12 @@ test('controller selection feeds the next run and does not mutate an active draf
   assert.equal(pathTemplates.activePathForState(state).id, 'path-a');
   assert.equal(activeDraft.activePath.id, 'path-b');
   assert.equal(activeDraft.activePath.geometry, 'freehand');
-  assert.deepEqual(plain(activeDraft.activePath.stroke), { color: '#36d399', style: 'dotted' });
+  assert.deepEqual(plain(activeDraft.activePath.stroke), {
+    color: '#36d399',
+    style: 'dotted',
+    border: '#36d399',
+    borderMatchesFill: true,
+  });
   assert.deepEqual(plain(activeDraft.activePath.anchors), {
     fill: '#f7fbfc',
     border: '#111619',

@@ -20,8 +20,8 @@ async function loadController() {
 
 function createContextMenu() {
   const buttons = new Map();
-  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path', 'merge-paths', 'unmerge-paths']) {
-    buttons.set(action, { hidden: false, disabled: false });
+  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path', 'merge-paths', 'unmerge-paths', 'toggle-path-visibility', 'toggle-category-visibility']) {
+    buttons.set(action, { hidden: false, disabled: false, textContent: '' });
   }
   return {
     buttons,
@@ -82,6 +82,74 @@ test('applyConversionMenuState hides conversion actions when no measurement is t
   assert.equal(menu.buttons.get('merge-paths').disabled, true);
   assert.equal(menu.buttons.get('unmerge-paths').hidden, true);
   assert.equal(menu.buttons.get('unmerge-paths').disabled, true);
+});
+
+test('applyVisibilityMenuState labels path and category visibility actions for the target measurement', async () => {
+  const { controller } = await loadController();
+  const menu = createContextMenu();
+  const measurement = {
+    id: 'cat6-a',
+    pathTemplateId: 'template-security',
+    pathId: 'path-cat6',
+    pathCategoryId: 'low-voltage',
+    pathCategoryName: 'Low Voltage',
+  };
+  const state = { pathCategoryVisibility: {} };
+  const stateStore = {
+    isMeasurementPathVisible(target) {
+      return target.pathHidden !== true;
+    },
+    pathCategoryVisibilityKeyForMeasurement() {
+      return 'category:low-voltage';
+    },
+    isPathCategoryVisible(stateArg, key) {
+      return stateArg === state && key === 'category:low-voltage' && state.pathCategoryVisibility[key] !== false;
+    },
+  };
+
+  let result = controller.applyVisibilityMenuState({ contextMenu: menu, measurement, state, stateStore });
+
+  assert.deepEqual(plain(result), {
+    canTogglePath: true,
+    canToggleCategory: true,
+    pathVisible: true,
+    categoryVisible: true,
+    categoryKey: 'category:low-voltage',
+  });
+  assert.equal(menu.buttons.get('toggle-path-visibility').hidden, false);
+  assert.equal(menu.buttons.get('toggle-path-visibility').disabled, false);
+  assert.equal(menu.buttons.get('toggle-path-visibility').textContent, 'Hide path');
+  assert.equal(menu.buttons.get('toggle-category-visibility').hidden, false);
+  assert.equal(menu.buttons.get('toggle-category-visibility').disabled, false);
+  assert.equal(menu.buttons.get('toggle-category-visibility').textContent, 'Hide category');
+
+  measurement.pathHidden = true;
+  state.pathCategoryVisibility['category:low-voltage'] = false;
+  result = controller.applyVisibilityMenuState({ contextMenu: menu, measurement, state, stateStore });
+
+  assert.equal(result.pathVisible, false);
+  assert.equal(result.categoryVisible, false);
+  assert.equal(menu.buttons.get('toggle-path-visibility').textContent, 'Show path');
+  assert.equal(menu.buttons.get('toggle-category-visibility').textContent, 'Show category');
+});
+
+test('applyVisibilityMenuState hides visibility actions when no measurement is targeted', async () => {
+  const { controller } = await loadController();
+  const menu = createContextMenu();
+
+  const result = controller.applyVisibilityMenuState({ contextMenu: menu, measurement: null });
+
+  assert.deepEqual(plain(result), {
+    canTogglePath: false,
+    canToggleCategory: false,
+    pathVisible: true,
+    categoryVisible: true,
+    categoryKey: null,
+  });
+  assert.equal(menu.buttons.get('toggle-path-visibility').hidden, true);
+  assert.equal(menu.buttons.get('toggle-path-visibility').disabled, true);
+  assert.equal(menu.buttons.get('toggle-category-visibility').hidden, true);
+  assert.equal(menu.buttons.get('toggle-category-visibility').disabled, true);
 });
 
 test('conversionMenuState exposes Continue Path only for terminal anchors', async () => {

@@ -36,6 +36,29 @@
     return state;
   }
 
+  function applyVisibilityMenuState({ contextMenu, measurement, state, stateStore } = {}) {
+    const pathButton = contextMenu?.querySelector('[data-action="toggle-path-visibility"]');
+    const categoryButton = contextMenu?.querySelector('[data-action="toggle-category-visibility"]');
+    const categoryKey = measurement && stateStore?.pathCategoryVisibilityKeyForMeasurement
+      ? stateStore.pathCategoryVisibilityKeyForMeasurement(measurement)
+      : null;
+    const canTogglePath = !!measurement;
+    const canToggleCategory = !!(measurement && categoryKey);
+    const pathVisible = measurement && stateStore?.isMeasurementPathVisible
+      ? stateStore.isMeasurementPathVisible(measurement)
+      : true;
+    const categoryVisible = canToggleCategory && stateStore?.isPathCategoryVisible
+      ? stateStore.isPathCategoryVisible(state, categoryKey)
+      : true;
+
+    setButtonState(pathButton, canTogglePath);
+    setButtonState(categoryButton, canToggleCategory);
+    if (pathButton) pathButton.textContent = pathVisible ? 'Hide path' : 'Show path';
+    if (categoryButton) categoryButton.textContent = categoryVisible ? 'Hide category' : 'Show category';
+
+    return { canTogglePath, canToggleCategory, pathVisible, categoryVisible, categoryKey };
+  }
+
   function beginContinuePath({
     state,
     target,
@@ -173,6 +196,57 @@
     return true;
   }
 
+  function toggleSelectedPathVisibility({
+    state,
+    stateStore,
+    createHistorySnapshot,
+    endRotateMode,
+    renderList,
+    redraw,
+    recordHistory,
+    showStatus,
+  } = {}) {
+    const selected = state?.measurements?.find(m => m.id === state.selectedId);
+    if (!selected) {
+      showStatus('Select a path before changing visibility.');
+      return false;
+    }
+    const nextVisible = !stateStore?.isMeasurementPathVisible?.(selected);
+    const historyBefore = createHistorySnapshot();
+    if (!stateStore?.setMeasurementPathVisibility?.(state, selected.id, nextVisible)) return false;
+    if (!nextVisible && state.rotateModeId === selected.id) endRotateMode();
+    renderList();
+    redraw();
+    recordHistory(historyBefore, nextVisible ? 'path show' : 'path hide');
+    showStatus(`${nextVisible ? 'Shown' : 'Hidden'} ${selected.name || 'path'}`);
+    return true;
+  }
+
+  function toggleSelectedCategoryVisibility({
+    state,
+    stateStore,
+    createHistorySnapshot,
+    renderList,
+    redraw,
+    recordHistory,
+    showStatus,
+  } = {}) {
+    const selected = state?.measurements?.find(m => m.id === state.selectedId);
+    const key = selected ? stateStore?.pathCategoryVisibilityKeyForMeasurement?.(selected) : null;
+    if (!selected || !key) {
+      showStatus('Select a path before changing category visibility.');
+      return false;
+    }
+    const nextVisible = !stateStore.isPathCategoryVisible(state, key);
+    const historyBefore = createHistorySnapshot();
+    stateStore.setPathCategoryVisibility(state, key, nextVisible);
+    renderList();
+    redraw();
+    recordHistory(historyBefore, nextVisible ? 'category show' : 'category hide');
+    showStatus(`${nextVisible ? 'Shown' : 'Hidden'} category`);
+    return true;
+  }
+
   function mergeSnappedPaths({
     state,
     target,
@@ -215,10 +289,13 @@
   window.TakeoffContextMenuController = {
     conversionMenuState,
     applyConversionMenuState,
+    applyVisibilityMenuState,
     beginContinuePath,
     finishLineContinuation,
     finishFreehandContinuation,
     convertSelectedMeasurement,
+    toggleSelectedPathVisibility,
+    toggleSelectedCategoryVisibility,
     mergeSnappedPaths,
   };
 })();

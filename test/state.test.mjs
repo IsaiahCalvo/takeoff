@@ -59,6 +59,8 @@ test('createInitialState returns fresh mutable collections and current defaults'
       stroke: {
         color: '#b6ff3c',
         style: 'solid',
+        border: '#b6ff3c',
+        borderMatchesFill: true,
       },
       anchors: {
         fill: '#ffffff',
@@ -330,6 +332,46 @@ test('path category visibility filter hides canvas candidates without mutating m
   assert.deepEqual(plain(store.pathCategoryVisibilityForAggregation(state)), {
     'category:low-voltage': false,
   });
+});
+
+test('measurement path visibility hides one run without mutating category visibility', async () => {
+  const store = await loadStateStore();
+  const state = store.createInitialState();
+  state.measurements = [
+    {
+      id: 'cat6-a',
+      pathTemplateId: 'template-security',
+      pathId: 'path-cat6',
+      pathCategoryId: 'low-voltage',
+      pathCategoryName: 'Low Voltage',
+      lengthInches: 120,
+    },
+    {
+      id: 'cat6-b',
+      pathTemplateId: 'template-security',
+      pathId: 'path-cat6',
+      pathCategoryId: 'low-voltage',
+      pathCategoryName: 'Low Voltage',
+      lengthInches: 36,
+    },
+  ];
+
+  assert.equal(store.setMeasurementPathVisibility(state, 'cat6-a', false), true);
+  assert.equal(state.measurements[0].pathHidden, true);
+  assert.equal(store.isMeasurementPathVisible(state.measurements[0]), false);
+  assert.equal(store.isMeasurementPathVisible(state.measurements[1]), true);
+  assert.deepEqual(plain(state.pathCategoryVisibility), {});
+  assert.deepEqual(
+    plain(store.visibleMeasurementsForPathCategories(state, state.measurements).map(measurement => measurement.id)),
+    ['cat6-b'],
+  );
+
+  assert.equal(store.setMeasurementPathVisibility(state, 'cat6-a', true), true);
+  assert.equal(Object.prototype.hasOwnProperty.call(state.measurements[0], 'pathHidden'), false);
+  assert.deepEqual(
+    plain(store.visibleMeasurementsForPathCategories(state, state.measurements).map(measurement => measurement.id)),
+    ['cat6-a', 'cat6-b'],
+  );
 });
 
 test('measurement state helpers replace and clear measurements with selection ownership', async () => {

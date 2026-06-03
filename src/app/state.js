@@ -71,9 +71,31 @@
     return aggregation.pathCategoryVisibilityKeyForMeasurement(measurement);
   }
 
+  function measurementIdMatches(a, b) {
+    return a === b || String(a) === String(b);
+  }
+
+  function isMeasurementPathVisible(measurement) {
+    const source = sourceObject(measurement);
+    if (!source) return true;
+    if (source.hidden === true) return false;
+    if (source.visible === false) return false;
+    if (source.pathHidden === true) return false;
+    return source.templateHidden !== true;
+  }
+
+  function setMeasurementPathVisibility(state, measurementId, visible = true) {
+    if (!state || measurementId == null) return false;
+    const measurement = (state.measurements || []).find(item => measurementIdMatches(item.id, measurementId));
+    if (!measurement) return false;
+    if (visible === false) measurement.pathHidden = true;
+    else delete measurement.pathHidden;
+    return true;
+  }
+
   function isMeasurementVisibleForPathCategories(stateOrVisibility, measurement) {
     const key = pathCategoryVisibilityKeyForMeasurement(measurement);
-    return isPathCategoryVisible(stateOrVisibility, key);
+    return isMeasurementPathVisible(measurement) && isPathCategoryVisible(stateOrVisibility, key);
   }
 
   function visibleMeasurementsForPathCategories(stateOrVisibility, measurements) {
@@ -274,6 +296,8 @@
     setPathCategoryVisibility,
     togglePathCategoryVisibility,
     pathCategoryVisibilityKeyForMeasurement,
+    isMeasurementPathVisible,
+    setMeasurementPathVisibility,
     isMeasurementVisibleForPathCategories,
     visibleMeasurementsForPathCategories,
     createInitialState,

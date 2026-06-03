@@ -32,6 +32,8 @@ test('creates a default path template and active path for new app state', async 
     stroke: {
       color: '#b6ff3c',
       style: 'solid',
+      border: '#b6ff3c',
+      borderMatchesFill: true,
     },
     anchors: {
       fill: '#ffffff',
@@ -59,6 +61,8 @@ test('normalizes templates and paths with safe fallbacks for invalid styles', as
         stroke: {
           color: '',
           style: 'dashdot',
+          border: '',
+          borderMatchesFill: false,
         },
         anchors: {
           fill: '',
@@ -84,6 +88,8 @@ test('normalizes templates and paths with safe fallbacks for invalid styles', as
         stroke: {
           color: '#b6ff3c',
           style: 'solid',
+          border: '#b6ff3c',
+          borderMatchesFill: false,
         },
         anchors: {
           fill: '#ffffff',
@@ -111,6 +117,8 @@ test('selects active templates and paths through normalized helpers', async () =
       stroke: {
         color: '#4cd6ff',
         style: 'dashed',
+        border: '#111111',
+        borderMatchesFill: false,
       },
       anchors: {
         fill: '#111827',
@@ -165,7 +173,7 @@ test('renames, deletes, and updates path styling without mutating the source sta
 
   const renamed = pathTemplates.renamePath(initial, 'default-path-template', 'path-2', 'Branch home run');
   const restyled = pathTemplates.updatePathStyle(renamed, 'default-path-template', 'path-2', {
-    stroke: { color: '#ff9b3c', style: 'dotted' },
+    stroke: { color: '#ff9b3c', style: 'dotted', border: '#111111', borderMatchesFill: false },
     anchors: { borderMatchesStroke: false, border: '#222222' },
   });
   const deleted = pathTemplates.deletePath(restyled, 'default-path-template', 'default-path');
@@ -175,6 +183,8 @@ test('renames, deletes, and updates path styling without mutating the source sta
   assert.deepEqual(plain(restyled.pathTemplates[0].paths[1].stroke), {
     color: '#ff9b3c',
     style: 'dotted',
+    border: '#111111',
+    borderMatchesFill: false,
   });
   assert.deepEqual(plain(restyled.pathTemplates[0].paths[1].anchors), {
     fill: '#111827',
@@ -204,7 +214,7 @@ test('updates Path settings including category without mutating the source state
   const updated = pathTemplates.updatePathSettings(initial, 'default-path-template', 'path-2', {
     pathName: 'Branch revised',
     pathStyle: {
-      stroke: { color: '#ff9b3c', style: 'dotted' },
+      stroke: { color: '#ff9b3c', style: 'dotted', border: '#111619', borderMatchesFill: false },
       anchors: { fill: '#f7fbfc', border: '#222222', borderMatchesStroke: false },
     },
     pathCategoryId: 'low-voltage',
@@ -222,7 +232,7 @@ test('updates Path settings including category without mutating the source state
     templateId: 'default-path-template',
     name: 'Branch revised',
     geometry: 'line',
-    stroke: { color: '#ff9b3c', style: 'dotted' },
+    stroke: { color: '#ff9b3c', style: 'dotted', border: '#111619', borderMatchesFill: false },
     anchors: { fill: '#f7fbfc', border: '#222222', borderMatchesStroke: false },
     order: 1,
     pathCategoryId: 'low-voltage',
