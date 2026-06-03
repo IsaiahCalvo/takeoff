@@ -8,7 +8,9 @@ async function fetchText(url) {
   return response.text();
 }
 
-test('served app shell and critical assets load through HTTP', async () => {
+test('served app shell and critical assets load through HTTP', {
+  skip: process.env.CI === 'true' ? 'Vite dev-server smoke is local-only; CI verifies static tests and production build.' : false,
+}, async () => {
   await withViteServer(async (baseUrl) => {
     const html = await fetchText(`${baseUrl}/`);
 
