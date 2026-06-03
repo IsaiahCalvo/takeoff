@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<link rel="stylesheet" href="./app/styles.css" />
+<link rel="stylesheet" href="./app/styles.css?v=single-page-tabs-1" />
 </head>
 <body class="no-document">
 
@@ -140,20 +140,11 @@
     </div>
     <div class="empty" id="empty">
       <div class="home-shell">
-        <section class="home-upload-panel" aria-label="Open a floor plan">
-          <h2>Drop in a floor plan to begin.</h2>
-          <p>Upload a PDF or image, calibrate the scale against a known dimension, then trace your takeoff measurements.</p>
-          <ol>
-            <li>Click <span class="key">Upload Image/PDF</span> and pick a file.</li>
-            <li>Click <span class="key">Calibrate</span>, draw a line on a known dimension, enter its real length.</li>
-            <li>Click <span class="key">Measure</span>, click point-to-point to trace a path. Double-click to finish.</li>
-          </ol>
-          <button id="emptyUploadButton" class="empty-upload" type="button">
-            <svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg>
-            Upload Image/PDF
-          </button>
-        </section>
-        <section id="pathTemplatesHome" class="path-template-home" aria-label="Path templates"></section>
+        <nav class="home-sidebar" aria-label="Home navigation"><p>Workspace</p><button id="homeIndexTab" class="home-nav-item active" type="button" role="tab" aria-selected="true" aria-controls="homeIndexPanel" data-home-tab="index"><span>Index</span><span>00</span></button><button id="homeTemplatesTab" class="home-nav-item" type="button" role="tab" aria-selected="false" aria-controls="homeTemplatesPanel" data-home-tab="templates"><span>Templates</span><span id="homeTemplateCount">01</span></button></nav>
+        <div class="home-main">
+          <section id="homeIndexPanel" class="home-panel active" role="tabpanel" aria-labelledby="homeIndexTab" data-home-panel="index" tabindex="0"><section class="home-hero" aria-label="Takeoff start"><div class="home-copy"><p class="home-eyebrow">Takeoff</p><h2>Drop in a floor plan to begin.</h2><p class="home-deck">Upload a PDF or image, calibrate the scale against a known dimension, then trace your takeoff measurements.</p></div><section class="home-upload-panel" aria-label="Open a floor plan"><button id="emptyUploadButton" class="empty-upload" type="button"><span class="home-upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/></svg></span><span class="home-upload-copy"><strong>Upload Image/PDF</strong><span>or drop a file anywhere on the canvas</span></span><span class="home-file-types" aria-hidden="true"><span>PDF</span><span>Image</span><span>Multi-page</span></span></button></section></section><section class="home-lower" aria-label="Takeoff setup"><div class="home-steps" aria-label="Takeoff workflow"><div class="home-step"><span>01</span><div><h2>Upload Image/PDF</h2><p>Pick a floor plan file or drop one onto the canvas.</p></div></div><div class="home-step"><span>02</span><div><h2>Calibrate</h2><p>Draw a line on a known dimension and enter its real length.</p></div></div><div class="home-step"><span>03</span><div><h2>Measure</h2><p>Click point-to-point to trace a path. Double-click to finish.</p></div></div></div></section></section>
+          <section id="homeTemplatesPanel" class="home-panel" role="tabpanel" aria-labelledby="homeTemplatesTab" data-home-panel="templates" tabindex="0" hidden><section id="pathTemplatesHome" class="path-template-home" aria-label="Path templates"></section></section>
+        </div>
       </div>
     </div>
     <div id="pathDockRoot" class="path-dock-root" hidden></div>
@@ -165,10 +156,11 @@
           <span class="hud-part">x: <strong>—</strong></span>
           <span class="hud-part">y: <strong>—</strong></span>
         </span>
-        <label class="snap-toggle">
-          <input id="snapToPaths" type="checkbox" />
-          <span>Snap to paths</span>
-        </label>
+        <button id="snapToPaths" class="snap-toggle" type="button" aria-label="Snap to Paths" aria-pressed="false" data-tooltip="Snap to Paths" data-tooltip-placement="above">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path fill="currentColor" d="M1 12h1v1H1zm4 0H4v1h1zm17 0v1h1v-1zm-3 1h1v-1h-1zm-3-1H8v-1H7v3h1v-1h8v1h1v-3h-1zm1-5.05V10h-1V6.95a2.5 2.5 0 1 1 1 0zm1-2.45A1.5 1.5 0 1 0 16.5 6 1.502 1.502 0 0 0 18 4.5zm-8 16a2.5 2.5 0 1 1-3-2.45V15h1v3.05a2.5 2.5 0 0 1 2 2.45zm-1 0A1.5 1.5 0 1 0 7.5 22 1.502 1.502 0 0 0 9 20.5z"/>
+          </svg>
+        </button>
       </span>
     </div>
   </div>
@@ -190,14 +182,14 @@
       </div>
     </div>
     <div class="total"><span id="totalLen">0.00</span><span class="unit" id="totalUnit">ft</span></div>
-    <div id="entireTotal" class="entire-total" hidden>Entire Total 0.00 ft</div>
+    <div id="entireTotal" class="entire-total" hidden>Total: 0.00 ft</div>
     <div class="sub"><span id="runCount">0 runs</span></div>
   </div>
 
   <div id="scopeTabs" class="tabs">
-    <button class="tab active" data-tab="page">This Page</button>
+    <button class="tab active" data-tab="page">This page</button>
     <button class="tab" data-tab="categories">Categories</button>
-    <button class="tab" data-tab="all">All Pages</button>
+    <button class="tab" data-tab="all">All pages</button>
   </div>
 
   <div class="meas-list" id="measList"></div>
@@ -229,9 +221,10 @@
   <button type="button" data-action="continue-path" hidden>Continue Path</button>
   <button type="button" data-action="cut">Cut</button>
   <button type="button" data-action="copy">Copy</button>
-  <button type="button" data-action="duplicate">Duplicate</button>
   <button type="button" data-action="paste">Paste</button>
   <button type="button" data-action="rotate">Rotate</button>
+  <button type="button" data-action="toggle-path-visibility" hidden>Hide path</button>
+  <button type="button" data-action="toggle-category-visibility" hidden>Hide category</button>
   <button type="button" data-action="convert-to-line" hidden>Convert to Line</button>
   <button type="button" data-action="convert-to-freehand" hidden>Convert to Freehand</button>
   <button type="button" data-action="merge-paths" hidden>Merge Paths</button>
@@ -324,7 +317,9 @@
       <section class="path-settings-section" aria-label="Line styling">
         <h4>Line</h4>
         <div class="path-settings-grid">
-          <label class="path-settings-field"><span>Line color</span><input id="pathSettingsLineColor" type="color" /></label>
+          <label class="path-settings-field"><span>Line fill</span><input id="pathSettingsLineColor" type="color" /></label>
+          <label class="path-settings-field"><span>Line border</span><input id="pathSettingsLineBorder" type="color" /></label>
+          <label class="path-settings-check path-settings-field-full"><input id="pathSettingsLineBorderMatches" type="checkbox" /><span>Match line border to fill</span></label>
           <label class="path-settings-field">
             <span>Line style</span>
             <select id="pathSettingsLineStyle"><option value="solid">Solid</option><option value="dashed">Dashed</option><option value="dotted">Dotted</option></select>
@@ -344,6 +339,6 @@
   </div>
 </div>
 
-<script type="module" src="./src/main.js"></script>
+<script type="module" src="./src/main.js?v=single-page-tabs-1"></script>
 </body>
 </html>

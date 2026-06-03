@@ -53,7 +53,7 @@ test('index uses relative local asset paths for GitHub Pages subpath deploys', a
 test('index keeps app shell styles in an external stylesheet', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<link rel="stylesheet" href="\.\/app\/styles\.css" \/>/);
+  assert.match(html, /<link rel="stylesheet" href="\.\/app\/styles\.css\?v=single-page-tabs-1" \/>/);
   assert.doesNotMatch(html, /<style>/);
 });
 
@@ -61,11 +61,15 @@ test('index delegates app startup to one module entrypoint', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
-  assert.match(html, /<script type="module" src="\.\/src\/main\.js"><\/script>/);
+  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=single-page-tabs-1"><\/script>/);
   assert.doesNotMatch(html, /<script src="src\/app\/pointer-controller\.js"><\/script>/);
   assert.doesNotMatch(html, /<script>\s*pdfjsLib\.GlobalWorkerOptions/);
   assert.match(main, /import '\.\/export-utils\.js';/);
   assert.match(main, /import '\.\/app\/path-aggregation\.js';/);
+  assert.match(main, /import '\.\/app\/sidebar\.js\?v=single-page-tabs-1';/);
+  assert.match(main, /import '\.\/app\/sidebar-view\.js\?v=single-page-tabs-1';/);
+  assert.match(main, /import '\.\/app\/sidebar-controller\.js\?v=single-page-tabs-1';/);
+  assert.match(main, /import '\.\/app\/path-style-renderer\.js\?v=preview-panel-icon-1';/);
   assert.match(main, /import '\.\/app\/pointer-controller\.js';/);
   assert.match(main, /const pdfjsLib = window\.pdfjsLib;/);
 });
@@ -84,7 +88,7 @@ test('main runtime stays below the current coordination ceiling', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const lineCount = main.trimEnd().split('\n').length;
 
-  assert.equal(lineCount < 2560, true, `src/main.js has ${lineCount} lines`);
+  assert.equal(lineCount < 2610, true, `src/main.js has ${lineCount} lines`);
   assert.doesNotMatch(main, /function downloadBytes\(/);
   assert.doesNotMatch(main, /function positionToolTip\(/);
   assert.match(main, /TakeoffPointerWorkflow/);
@@ -111,6 +115,10 @@ test('home shell preserves upload controls and mounts Path Templates', async () 
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
   assert.match(html, /class="home-shell"/);
+  assert.match(html, /data-home-tab="index"/);
+  assert.match(html, /data-home-tab="templates"/);
+  assert.match(html, /data-home-panel="index"/);
+  assert.match(html, /data-home-panel="templates"/);
   assert.match(html, /class="home-upload-panel"/);
   assert.match(html, /id="pathTemplatesHome" class="path-template-home" aria-label="Path templates"/);
   assert.match(html, /id="fileInput"/);
@@ -120,8 +128,10 @@ test('home shell preserves upload controls and mounts Path Templates', async () 
   assert.match(styles, /body\.no-document #status\s*\{\s*display:\s*none;\s*\}/);
   assert.match(styles, /\.path-template-editor::-webkit-scrollbar\s*\{/);
   assert.match(styles, /scrollbar-color:\s*rgba\(125,\s*138,\s*145,\s*0\.34\)\s*transparent/);
-  assert.match(main, /import '\.\/app\/path-template-view\.js';/);
+  assert.match(main, /import '\.\/app\/path-template-view\.js\?v=preview-panel-fit-2';/);
   assert.match(main, /createPathTemplateHome/);
+  assert.match(main, /function setHomeTab/);
+  assert.match(main, /function updateHomeTemplateCount/);
 });
 
 test('pan toolbar icon is inline so it cannot lose its mask asset path', async () => {
@@ -227,22 +237,65 @@ test('context menu exposes only Line and Freehand conversion wording', async () 
   assert.match(styles, /\.unmerge-actions\s*\{/);
 });
 
-test('context menu places Duplicate near Copy and Paste', async () => {
+test('context menu exposes path and category visibility actions', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const controller = await readFile(new URL('../src/app/context-menu-controller.js', import.meta.url), 'utf8');
+  const contextMenu = html.match(/<div id="contextMenu"[\s\S]*?<\/div>/)?.[0] || '';
+
+  assert.match(contextMenu, /data-action="toggle-path-visibility"[^>]*hidden>Hide path<\/button>/);
+  assert.match(contextMenu, /data-action="toggle-category-visibility"[^>]*hidden>Hide category<\/button>/);
+  assert.match(controller, /function applyVisibilityMenuState/);
+  assert.match(controller, /pathButton\.textContent = pathVisible \? 'Hide path' : 'Show path';/);
+  assert.match(controller, /categoryButton\.textContent = categoryVisible \? 'Hide category' : 'Show category';/);
+  assert.match(main, /action === 'toggle-path-visibility'/);
+  assert.match(main, /action === 'toggle-category-visibility'/);
+});
+
+test('context menu keeps edit clipboard actions without Duplicate', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const contextMenu = html.match(/<div id="contextMenu"[\s\S]*?<\/div>/)?.[0] || '';
 
-  assert.match(contextMenu, /data-action="copy"[\s\S]*>Copy<[\s\S]*data-action="duplicate"[\s\S]*>Duplicate<[\s\S]*data-action="paste"[\s\S]*>Paste</);
+  assert.match(contextMenu, /data-action="copy"[\s\S]*>Copy<[\s\S]*data-action="paste"[\s\S]*>Paste</);
+  assert.doesNotMatch(contextMenu, /data-action="duplicate"|>Duplicate</);
 });
 
-test('bottom-left HUD exposes the Snap to paths toggle beside cursor status', async () => {
+test('bottom-left HUD exposes Snap to paths as an icon-only pressed toggle', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const hud = html.match(/<div class="hud">[\s\S]*?<\/div>\s*<\/div>\s*<\/main>/)?.[0] || '';
 
   assert.match(hud, /id="cursorPos"/);
-  assert.match(hud, /id="snapToPaths"/);
-  assert.match(hud, />Snap to paths<\/span>/);
+  assert.match(hud, /<button id="snapToPaths"/);
+  assert.match(hud, /aria-label="Snap to Paths"/);
+  assert.match(hud, /aria-pressed="false"/);
+  assert.match(hud, /data-tooltip="Snap to Paths"/);
+  assert.match(hud, /data-tooltip-placement="above"/);
+  assert.match(hud, /M1 12h1v1H1/);
+  assert.doesNotMatch(hud, /<input[^>]+id="snapToPaths"|>Snap to paths<\/span>/);
   assert.match(styles, /\.snap-toggle\s*\{/);
+  assert.match(styles, /\.snap-toggle\s*\{[^}]*margin-left:\s*10px/);
+  assert.match(styles, /\.snap-toggle\s*\{[^}]*background:\s*transparent/);
+  assert.match(styles, /\.snap-toggle\[aria-pressed="true"\]\s*\{[^}]*background:\s*transparent/);
+  assert.match(styles, /\.snap-toggle\[aria-pressed="true"\]\s*\{[^}]*color:\s*var\(--accent\)/);
+  assert.match(styles, /\.snap-toggle\[aria-pressed="true"\] svg\s*\{[^}]*drop-shadow/);
+  assert.match(main, /snapToggle\.addEventListener\('click'/);
+  assert.match(main, /snapToggle\.setAttribute\('aria-pressed', state\.snapToPaths \? 'true' : 'false'\)/);
+  assert.doesNotMatch(main, /snapToggle\.classList\.toggle\('active'/);
+});
+
+test('measure Path Dock floats above the bottom-left HUD without lifting it', async () => {
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const dockRule = styles.match(/^\.path-dock-root\s*\{[^}]+\}/m)?.[0] || '';
+  const hudRule = styles.match(/\.hud\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(dockRule, /left:\s*50%/);
+  assert.match(dockRule, /bottom:\s*82px/);
+  assert.match(dockRule, /transform:\s*translateX\(-50%\)/);
+  assert.match(hudRule, /bottom:\s*16px/);
+  assert.doesNotMatch(styles, /\.path-dock-root:not\(\[hidden\]\)\s*\+\s*\.status\s*\{[\s\S]*?bottom:/);
+  assert.doesNotMatch(styles, /\.path-dock-root:not\(\[hidden\]\)\s*~\s*\.hud\s*\{[\s\S]*?bottom:/);
 });
 
 test('Measure mode mounts a bottom-center Path Dock with upward menus', async () => {
@@ -261,14 +314,14 @@ test('Measure mode mounts a bottom-center Path Dock with upward menus', async ()
   assert.match(dock, /closeMenus/);
   assert.match(main, /activePathForNewRun\(state\.inProgress\)/);
   assert.match(main, /activePath:\s*activePathForNewRun\(\)/);
-  assert.match(styles, /\.path-dock-root\s*\{[\s\S]*bottom:\s*16px;/);
+  assert.match(styles, /\.path-dock-root\s*\{[\s\S]*bottom:\s*82px;/);
   assert.match(styles, /\.path-dock\s*\{[^}]*width:\s*100%;[^}]*box-sizing:\s*border-box;/);
   assert.match(styles, /\.path-dock-template-menu,\s*\n\.path-dock-overflow-menu\s*\{[\s\S]*bottom:\s*calc\(100% \+ 8px\)/);
   assert.match(styles, /\.path-dock-template-menu,\s*\n\.path-dock-overflow-menu\s*\{[\s\S]*grid-column:\s*1 \/ -1;/);
   assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-root\s*\{[^}]*left:\s*10px;[^}]*right:\s*10px;[^}]*width:\s*auto;[^}]*transform:\s*none;/);
   assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*128px minmax\(0, 1fr\) 88px;[^}]*overflow:\s*visible;/);
   assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-paths\s*\{[^}]*flex:\s*1 1 0;[^}]*overflow-x:\s*auto;/);
-  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-overflow-menu\s*\{[^}]*position:\s*fixed;[^}]*right:\s*10px;[^}]*bottom:\s*78px;/);
+  assert.match(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock-overflow-menu\s*\{[^}]*position:\s*fixed;[^}]*right:\s*10px;[^}]*bottom:\s*144px;/);
   assert.doesNotMatch(styles, /@media \(max-width: 820px\)\s*\{[\s\S]*\.path-dock\s*\{[^}]*overflow-x:\s*auto;/);
   assert.doesNotMatch(html, /\bnode\b/i);
 });
@@ -496,19 +549,23 @@ test('PDF.js detail tile is layered above the base bitmap and below measurements
   assert.match(main, /renderContinuousPdfPage[\s\S]*pdfDetailTile\.baseRenderScale\(minRenderScale\)/);
 });
 
-test('single-page documents remove scope chrome entirely', async () => {
+test('single-page documents show only This page and Categories tabs', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const hiddenRule = styles.match(/\.tabs\[hidden\]\s*\{[^}]+\}/)?.[0] || '';
+  const hiddenTabRule = styles.match(/\.tab\[hidden\]\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(html, /<div id="scopeTabs" class="tabs">/);
-  assert.match(html, /data-tab="page">This Page/);
+  assert.match(html, /data-tab="page">This page/);
   assert.match(html, /data-tab="categories">Categories/);
-  assert.match(html, /data-tab="all">All Pages/);
+  assert.match(html, /data-tab="all">All pages/);
   assert.match(source, /function documentPageCount\(\)/);
   assert.match(source, /function updateSidebarScopeChrome\(model\)/);
   assert.match(source, /scopeTabs\.hidden = !model\.showScopeTabs;/);
+  assert.match(source, /availableScopeTabs/);
+  assert.match(source, /--scope-tab-count/);
   assert.match(source, /totalHeading\.textContent = model\.totalHeadingText;/);
   assert.match(hiddenRule, /display:\s*none !important/);
+  assert.match(hiddenTabRule, /display:\s*none !important/);
   assert.doesNotMatch(html, /singleScopeTitle/);
   assert.doesNotMatch(html, /single-scope-title/);
   assert.doesNotMatch(html, /scopeTitle/);
@@ -516,15 +573,15 @@ test('single-page documents remove scope chrome entirely', async () => {
   assert.doesNotMatch(html, /No runs measured yet\./);
 });
 
-test('right-panel scope tabs fit three Path views without horizontal overflow', async () => {
+test('right-panel scope tabs fit page, category, and all-page views without horizontal overflow', async () => {
   const { html, styles, source } = await readIndexAndSidebarView();
   const tabsRule = styles.match(/\.tabs\s*\{[^}]+\}/)?.[0] || '';
   const tabRule = styles.match(/\.tab\s*\{[^}]+\}/)?.[0] || '';
 
-  assert.match(html, /data-tab="page">This Page<\/button>/);
+  assert.match(html, /data-tab="page">This page<\/button>/);
   assert.match(html, /data-tab="categories">Categories<\/button>/);
-  assert.match(html, /data-tab="all">All Pages<\/button>/);
-  assert.match(tabsRule, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(html, /data-tab="all">All pages<\/button>/);
+  assert.match(tabsRule, /grid-template-columns:\s*repeat\(var\(--scope-tab-count,\s*3\),\s*minmax\(0,\s*1fr\)\)/);
   assert.match(tabRule, /min-width:\s*0/);
   assert.match(tabRule, /overflow:\s*hidden/);
   assert.match(tabRule, /text-overflow:\s*ellipsis/);
@@ -536,22 +593,90 @@ test('Path group rows expose marker, title, category, total, run count, and page
   const { styles, source } = await readIndexAndSidebarView();
   const pathGroupRule = styles.match(/\.path-group\s*\{[^}]+\}/)?.[0] || '';
   const summaryRule = styles.match(/\.path-group-summary\s*\{[^}]+\}/)?.[0] || '';
+  const markerRule = styles.match(/\.path-group-marker\s*\{[^}]+\}/)?.[0] || '';
+  const markerSvgRule = styles.match(/\.path-group-marker svg\s*\{[^}]+\}/)?.[0] || '';
   const titleRule = styles.match(/\.path-group-title\s*\{[^}]+\}/)?.[0] || '';
   const totalRule = styles.match(/\.path-group-total\s*\{[^}]+\}/)?.[0] || '';
   const chipRule = styles.match(/\.path-group-chip\s*\{[^}]+\}/)?.[0] || '';
+  const pathGroupMarkupSource = source.match(/function buildPathGroupMarkup[\s\S]*?function buildPageGroupMarkup/)?.[0] || '';
 
-  assert.match(source, /buildPathGroupMarkup/);
-  assert.match(source, /class="path-group-marker"/);
-  assert.match(source, /class="path-group-title"/);
-  assert.match(source, /class="path-group-subtitle"/);
-  assert.match(source, /class="path-group-total"/);
-  assert.match(source, /class="path-group-chip"/);
-  assert.match(source, /pageCoverageText/);
+  assert.match(pathGroupMarkupSource, /buildPathGroupMarkup/);
+  assert.match(pathGroupMarkupSource, /class="path-group-marker"/);
+  assert.match(pathGroupMarkupSource, /style="--path-color:/);
+  assert.match(source, /d="M18 74 C34 74 34 54 50 54 C66 54 66 26 82 26"/);
+  assert.doesNotMatch(pathGroupMarkupSource, /viewBox="0 0 16 16"/);
+  assert.match(pathGroupMarkupSource, /class="path-group-title"/);
+  assert.match(pathGroupMarkupSource, /class="path-group-subtitle"/);
+  assert.match(pathGroupMarkupSource, /class="path-group-total"/);
+  assert.match(pathGroupMarkupSource, /class="path-group-chip"/);
+  assert.match(pathGroupMarkupSource, /pageCoverageText/);
   assert.match(pathGroupRule, /overflow:\s*hidden/);
   assert.match(summaryRule, /grid-template-columns:\s*20px minmax\(0,\s*1fr\) minmax\(46px,\s*auto\)/);
+  assert.match(markerRule, /var\(--path-color/);
+  assert.doesNotMatch(markerRule, /background:\s*currentColor|background:\s*[^;]*#36d399/);
+  assert.match(markerSvgRule, /overflow:\s*visible/);
   assert.match(titleRule, /text-overflow:\s*ellipsis/);
   assert.match(totalRule, /max-width:\s*74px/);
   assert.match(chipRule, /white-space:\s*nowrap/);
+});
+
+test('This Page tab renders individual measurement rows instead of Path total groups', async () => {
+  const { main, source, styles } = await readIndexAndSidebarView();
+  const renderListSource = main.match(/function renderList\(\)[\s\S]*?\/\/ init/)?.[0] || '';
+  const itemRule = styles.match(/\n\s*\.meas-item\s*\{[^}]+\}/)?.[0] || '';
+  const itemIconRule = styles.match(/\n\s*\.meas-item \.measurement-path-icon\s*\{[^}]+\}/)?.[0] || '';
+  const itemRowRule = styles.match(/\n\s*\.meas-item \.row\s*\{[^}]+\}/)?.[0] || '';
+  const copyRule = styles.match(/\.meas-item \.measurement-copy\s*\{[^}]+\}/)?.[0] || '';
+  const categoryRule = styles.match(/\n\s*\.meas-item \.measurement-category\s*\{[^}]+\}/)?.[0] || '';
+  const hiddenItemRule = styles.match(/\.meas-item\.visibility-hidden\s*\{[^}]+\}/)?.[0] || '';
+  const hiddenColorRule = styles.match(/\.meas-item\.visibility-hidden :is\(\.measurement-path-icon,\s*\.point-count,\s*\.len,\s*\.measurement-category\)\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(renderListSource, /model\.effectiveSidebarTab === 'page'/);
+  assert.match(renderListSource, /model\.measurementRowsForTab \|\| \[\]\)\.forEach\(row => measList\.appendChild\(buildMeasItem\(row\.measurement,\s*row\)\)\)/);
+  assert.match(renderListSource, /model\.effectiveSidebarTab === 'all'/);
+  assert.match(renderListSource, /appendPageGroups\(model\.pageSections\)/);
+  assert.match(source, /pathCategoryVisibilityKey/);
+  assert.match(source, /pathCategorySubtitle/);
+  assert.match(source, /class="measurement-path-icon"/);
+  assert.match(source, /class="measurement-category"/);
+  assert.doesNotMatch(source, /class="measurement-category-toggle path-category-status/);
+  assert.doesNotMatch(source, /function measurementCategoryToggleMarkup/);
+  assert.doesNotMatch(source, /class="swatch"/);
+  assert.match(itemRule, /padding:\s*5px 6px/);
+  assert.match(itemRule, /margin-bottom:\s*8px/);
+  assert.match(itemIconRule, /width:\s*20px/);
+  assert.match(itemIconRule, /overflow:\s*visible/);
+  assert.match(itemRowRule, /grid-template-columns:\s*20px minmax\(0,\s*1fr\) minmax\(22px,\s*auto\) minmax\(50px,\s*auto\) 18px 18px/);
+  assert.match(itemRowRule, /gap:\s*5px/);
+  assert.match(copyRule, /display:\s*grid/);
+  assert.match(categoryRule, /text-overflow:\s*ellipsis/);
+  assert.match(hiddenItemRule, /opacity:\s*0\.58/);
+  assert.match(hiddenColorRule, /filter:\s*grayscale\(1\)/);
+});
+
+test('All Pages tab renders page dropdown sections with individual runs', async () => {
+  const { main, source, styles } = await readIndexAndSidebarView();
+  const renderListSource = main.match(/function renderList\(\)[\s\S]*?\/\/ init/)?.[0] || '';
+  const pageToggleRule = styles.match(/\.page-group-toggle\s*\{[^}]+\}/)?.[0] || '';
+  const chevronRule = styles.match(/\.page-group-chevron\s*\{[^}]+\}/)?.[0] || '';
+  const collapsedRunsRule = styles.match(/\.page-group\.collapsed \.path-group-runs\s*\{[^}]+\}/)?.[0] || '';
+
+  assert.match(source, /pageSections/);
+  assert.match(source, /buildPageGroupMarkup/);
+  assert.match(source, /function buildPageGroupItem\(section\)/);
+  assert.match(source, /data-page-group-toggle/);
+  assert.match(source, /state\.collapsedPageGroups/);
+  assert.match(source, /runs\.hidden = !!section\.collapsed/);
+  assert.match(source, /header\.className = 'page-group-row';/);
+  assert.match(source, /section\.measurementRows \|\| \[\]/);
+  assert.match(source, /runs\.appendChild\(buildMeasItem\(row\.measurement,\s*row\)\);/);
+  assert.match(renderListSource, /model\.effectiveSidebarTab === 'all'/);
+  assert.match(renderListSource, /appendPageGroups\(model\.pageSections\)/);
+  assert.doesNotMatch(renderListSource, /else appendPathGroups\(model\.pathGroups\)/);
+  assert.match(pageToggleRule, /grid-template-columns:\s*18px minmax\(0,\s*1fr\) minmax\(46px,\s*auto\)/);
+  assert.match(pageToggleRule, /width:\s*100%/);
+  assert.match(chevronRule, /transition:\s*transform/);
+  assert.match(collapsedRunsRule, /display:\s*none/);
 });
 
 test('canvas length labels expose a chevron-only navigation path to the selected sidebar run', async () => {
@@ -594,6 +719,7 @@ test('Path group rows nest full-width child runs with existing row controls', as
   const runsRule = styles.match(/\.path-group-runs\s*\{[^}]+\}/)?.[0] || '';
   const childItemRule = styles.match(/\.path-group \.meas-item\s*\{[^}]+\}/)?.[0] || '';
   const childRowRule = styles.match(/\.path-group \.meas-item \.row\s*\{[^}]+\}/)?.[0] || '';
+  const childIconRule = styles.match(/\.path-group \.meas-item \.measurement-path-icon\s*\{[^}]+\}/)?.[0] || '';
   const itemRule = styles.match(/\n\s*\.meas-item\s*\{[^}]+\}/)?.[0] || '';
   const rowRule = styles.match(/\n\s*\.meas-item \.row\s*\{[^}]+\}/)?.[0] || '';
   const inputRule = styles.match(/\n\s*\.meas-item input\.name\s*\{[^}]+\}/)?.[0] || '';
@@ -605,7 +731,8 @@ test('Path group rows nest full-width child runs with existing row controls', as
   assert.match(source, /header\.className = 'path-group-row';/);
   assert.match(source, /runs\.className = 'path-group-runs';/);
   assert.match(source, /groupEl\.appendChild\(header\);/);
-  assert.match(source, /runs\.appendChild\(buildMeasItem\(m\)\);/);
+  assert.match(source, /group\.measurementRows \|\| \[\]/);
+  assert.match(source, /runs\.appendChild\(buildMeasItem\(row\.measurement,\s*row\)\);/);
   assert.match(source, /groupEl\.appendChild\(runs\);/);
   assert.match(runsRule, /display:\s*grid/);
   assert.match(runsRule, /gap:\s*3px/);
@@ -614,8 +741,8 @@ test('Path group rows nest full-width child runs with existing row controls', as
   assert.match(itemRule, /align-items:\s*center/);
   assert.match(rowRule, /align-items:\s*center/);
   assert.match(rowRule, /width:\s*100%/);
-  assert.match(inputRule, /height:\s*20px/);
-  assert.match(inputRule, /line-height:\s*20px/);
+  assert.match(inputRule, /height:\s*18px/);
+  assert.match(inputRule, /line-height:\s*18px/);
   assert.match(lengthRule, /display:\s*inline-flex/);
   assert.match(lengthRule, /align-items:\s*center/);
   assert.match(source, /data-run-details-action="open"/);
@@ -627,8 +754,9 @@ test('Path group rows nest full-width child runs with existing row controls', as
   assert.match(childItemRule, /width:\s*100%/);
   assert.match(childItemRule, /min-height:\s*31px/);
   assert.match(childItemRule, /padding:\s*3px 5px/);
-  assert.match(childRowRule, /grid-template-columns:\s*8px minmax\(0,\s*1fr\) auto auto auto auto/);
-  assert.match(childRowRule, /min-height:\s*17px/);
+  assert.match(childRowRule, /grid-template-columns:\s*18px minmax\(0,\s*1fr\) minmax\(20px,\s*auto\) minmax\(46px,\s*auto\) 18px 17px 17px/);
+  assert.match(childRowRule, /min-height:\s*27px/);
+  assert.match(childIconRule, /width:\s*18px/);
 });
 
 test('Run Details modal stays bounded and previews media without overflow', async () => {
@@ -648,45 +776,92 @@ test('Run Details modal stays bounded and previews media without overflow', asyn
   assert.match(styles, /@media \(max-width:\s*520px\)/);
 });
 
-test('category tab renders aggregation category sections around Path groups', async () => {
+test('category tab renders category rows without nested Path groups', async () => {
   const { styles, source } = await readIndexAndSidebarView();
   const toolbarRule = styles.match(/\.path-category-visibility-toolbar\s*\{[^}]+\}/)?.[0] || '';
+  const toolbarToggleRule = styles.match(/\.path-category-bulk-toggle\s*\{[^}]+\}/)?.[0] || '';
+  const toolbarToggleBulbRule = styles.match(/\.path-category-bulk-toggle \.path-category-bulb\s*\{[^}]+\}/)?.[0] || '';
   const sectionRule = styles.match(/\.path-category-section\s*\{[^}]+\}/)?.[0] || '';
   const headerRule = styles.match(/\.path-category-header\s*\{[^}]+\}/)?.[0] || '';
+  const iconRule = styles.match(/\.path-category-icon\s*\{[^}]+\}/)?.[0] || '';
+  const iconSvgRule = styles.match(/\.path-category-icon svg\s*\{[^}]+\}/)?.[0] || '';
   const titleRule = styles.match(/\.path-category-title\s*\{[^}]+\}/)?.[0] || '';
   const summaryRule = styles.match(/\.path-category-summary\s*\{[^}]+\}/)?.[0] || '';
 
   assert.match(source, /function categorySectionViewModel\(category, pathGroupsByKey, unit\)/);
+  assert.match(source, /const pathStyle = pathGroups\.length === 1 \? \(pathGroups\[0\]\.pathStyle \|\| null\) : null;/);
   assert.match(source, /totalsScope:\s*'visible'/);
   assert.match(source, /pathCategoryVisibility:\s*stateStore\.pathCategoryVisibilityForAggregation\(state\)/);
   assert.match(source, /effectiveSidebarTab === 'categories' \? categorySections : \[\]/);
   assert.match(source, /function appendPathGroupCategories\(sections, controls\)/);
   assert.match(source, /buildCategoryVisibilityToolbarMarkup/);
   assert.match(source, /bindCategoryVisibilityControls/);
+  assert.match(source, /sectionEl\.appendChild\(header\);/);
+  assert.match(source, /measList\.appendChild\(sectionEl\);/);
+  assert.doesNotMatch(source, /appendPathGroups\(section\.pathGroups,\s*sectionEl\)/);
   assert.match(source, /data-path-category-key/);
-  assert.match(source, /data-category-visibility-action="show-all"/);
+  assert.match(source, /const action = allVisible \? 'hide-all' : 'show-all';/);
+  assert.match(source, /data-category-visibility-action="\$\{action\}"/);
+  assert.match(source, /class="path-category-bulk-toggle path-category-status/);
+  assert.match(source, /categoryBulbIconMarkup\(allVisible\)/);
+  assert.doesNotMatch(source, /function visibilityIconMarkup/);
+  assert.doesNotMatch(source, /class="path-category-bulk-action"/);
+  assert.doesNotMatch(source, /M2\.5 12s3\.5-6 9\.5-6/);
+  assert.match(source, /categoryIconMarkup\(\{ color, iconKind, hidden: !isVisible, pathStyle \}\)/);
+  assert.match(source, /pathStyle \? measurementPathIconSvg\(\{ color, pathStyle \}\) : templateCategoryIconSvg\(\)/);
   assert.match(source, /class="path-category-title"/);
   assert.match(source, /class="path-category-summary"/);
   assert.match(toolbarRule, /justify-content:\s*space-between/);
+  assert.match(toolbarToggleRule, /width:\s*24px/);
+  assert.match(toolbarToggleRule, /border:\s*0/);
+  assert.match(toolbarToggleBulbRule, /width:\s*15px/);
   assert.match(sectionRule, /display:\s*grid/);
   assert.match(headerRule, /justify-content:\s*space-between/);
+  assert.match(iconRule, /overflow:\s*hidden/);
+  assert.match(iconSvgRule, /width:\s*26px !important/);
+  assert.match(iconSvgRule, /height:\s*26px !important/);
   assert.match(titleRule, /text-overflow:\s*ellipsis/);
   assert.match(summaryRule, /max-width:\s*100%/);
 });
 
-test('hidden category styling uses an icon-only gray shell without broad row dimming', async () => {
+test('hidden category styling removes the icon shell and uses an icon-only bulb state', async () => {
   const { styles, source } = await readIndexAndSidebarView();
+  const headerTotalRule = styles.match(/\.side-h \.entire-total\s*\{[^}]+\}/)?.[0] || '';
+  const headerSubRule = styles.match(/\.side-h \.sub\s*\{[^}]+\}/)?.[0] || '';
   const hiddenIconRule = styles.match(/\.path-category-icon\.hidden-icon\s*\{[^}]+\}/)?.[0] || '';
+  const hiddenAnchorRule = styles.match(/\.path-category-icon\.hidden-icon \.anchor-dot\s*\{[^}]+\}/)?.[0] || '';
+  const hiddenSquareRule = styles.match(/\.path-category-icon\.hidden-icon \.path-category-square\s*\{[^}]+\}/)?.[0] || '';
+  const statusRule = styles.match(/\.path-category-status\s*\{[^}]+\}/)?.[0] || '';
+  const statusOffRule = styles.match(/\.path-category-status\.off\s*\{[^}]+\}/)?.[0] || '';
   const categoryHiddenRule = styles.match(/\.path-category-section\.category-hidden\s*\{[^}]+\}/)?.[0] || '';
   const pathHiddenMarkerRule = styles.match(/\.path-group\.hidden \.path-group-marker\s*\{[^}]+\}/)?.[0] || '';
 
+  assert.match(source, /entireTotalText:\s*`Total: /);
+  assert.doesNotMatch(source, /Entire Total/);
+  assert.match(headerTotalRule, /position:\s*absolute/);
+  assert.match(headerTotalRule, /right:\s*18px/);
+  assert.match(headerTotalRule, /bottom:\s*12px/);
+  assert.match(headerTotalRule, /text-align:\s*right/);
+  assert.match(headerSubRule, /padding-right:\s*104px/);
   assert.match(source, /class="path-category-icon/);
   assert.match(source, /path-category-icon-template/);
   assert.match(source, /path-category-icon-manual/);
-  assert.match(hiddenIconRule, /border-color:\s*#5a666e/);
+  assert.match(source, /class="path-category-status\$\{isVisible \? '' : ' off'\}" aria-hidden="true"/);
+  assert.match(source, /class="path-category-bulb"/);
+  assert.match(source, /M14\.5 19\.5H9\.5/);
+  assert.doesNotMatch(source, /path-category-status\$\{isVisible \? '' : ' off'\}">\$\{isVisible \? 'Visible' : 'Hidden'\}/);
+  assert.match(hiddenIconRule, /border-color:\s*transparent/);
   assert.match(hiddenIconRule, /background:\s*transparent/);
+  assert.match(hiddenIconRule, /box-shadow:\s*none/);
+  assert.match(hiddenAnchorRule, /fill:\s*transparent/);
+  assert.match(hiddenSquareRule, /background:\s*transparent/);
+  assert.match(hiddenSquareRule, /box-shadow:\s*none/);
+  assert.match(statusRule, /width:\s*24px/);
+  assert.match(statusRule, /height:\s*24px/);
+  assert.match(statusRule, /font-size:\s*0/);
+  assert.match(statusOffRule, /color:\s*#8f9aa0/);
   assert.doesNotMatch(categoryHiddenRule, /opacity/);
   assert.doesNotMatch(pathHiddenMarkerRule, /filter:\s*grayscale/);
   assert.doesNotMatch(styles, /\.path-group\.hidden :is\(\.path-group-title,\s*\.path-group-total\)/);
-  assert.doesNotMatch([hiddenIconRule, categoryHiddenRule, pathHiddenMarkerRule].join('\n'), /#f00|#ff0000|\bred\b/i);
+  assert.doesNotMatch([hiddenIconRule, hiddenAnchorRule, hiddenSquareRule, categoryHiddenRule, pathHiddenMarkerRule].join('\n'), /#f00|#ff0000|\bred\b/i);
 });

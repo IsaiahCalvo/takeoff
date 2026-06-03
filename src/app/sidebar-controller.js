@@ -3,14 +3,41 @@
     return window.TakeoffRunDetails?.hasRunDetails?.(details) || false;
   }
 
+  function sourceObject(value) {
+    return value && typeof value === 'object' ? value : {};
+  }
+
+  function cleanString(value) {
+    const text = String(value ?? '').trim();
+    return text || '';
+  }
+
+  function measurementCategorySubtitle(measurement) {
+    const pathCategory = sourceObject(measurement?.pathCategory);
+    const category = sourceObject(measurement?.category);
+    return cleanString(measurement?.pathCategoryName)
+      || cleanString(measurement?.categoryName)
+      || (typeof measurement?.pathCategory === 'string' ? cleanString(measurement.pathCategory) : '')
+      || (typeof measurement?.category === 'string' ? cleanString(measurement.category) : '')
+      || cleanString(pathCategory.name)
+      || cleanString(category.name)
+      || cleanString(measurement?.pathName)
+      || 'Uncategorized';
+  }
+
   function applyScopeChrome({ scopeTabs, totalHeading, entireTotal, tabs, model }) {
     scopeTabs.hidden = !model.showScopeTabs;
     totalHeading.textContent = model.totalHeadingText;
+    const availableTabs = Array.isArray(model.availableScopeTabs) ? new Set(model.availableScopeTabs) : null;
+    if (scopeTabs.style?.setProperty) {
+      scopeTabs.style.setProperty('--scope-tab-count', String(availableTabs?.size || 3));
+    }
     if (entireTotal) {
       entireTotal.hidden = !model.showEntireTotal;
       entireTotal.textContent = model.entireTotalText || '';
     }
     for (const tab of tabs || []) {
+      if (availableTabs) tab.hidden = !availableTabs.has(tab.dataset.tab);
       tab.classList.toggle('active', tab.dataset.tab === model.effectiveSidebarTab);
     }
   }
@@ -25,6 +52,10 @@
     unitLabel,
     measurementItemClass,
     hasRunDetails,
+    pathCategoryVisibilityKey = measurement?.pathCategoryVisibilityKey,
+    pathCategoryVisible = measurement?.pathCategoryVisible,
+    pathCategoryHidden = measurement?.pathCategoryHidden,
+    pathVisibilityHidden = measurement?.pathVisibilityHidden,
   }) {
     const name = cleanMeasurementName(measurement.name, measurement);
     const isUnscaled = measurement.lengthInches == null;
@@ -32,9 +63,19 @@
     const lengthValue = isUnscaled ? 'unscaled' : formatLength(measurement.lengthInches);
     const lengthUnit = isUnscaled ? '' : unitLabel(unit);
     const detailsPresent = (hasRunDetails || defaultHasRunDetails)(measurement.runDetails);
+    const pathDisplayName = cleanString(measurement.pathName) || name || 'Path';
+    const pathCategorySubtitle = measurementCategorySubtitle(measurement);
+    const visibilityKey = cleanString(pathCategoryVisibilityKey);
+    const categoryVisible = pathCategoryVisible !== false;
     return {
       color: measurement.color,
       name,
+      pathDisplayName,
+      pathCategorySubtitle,
+      pathCategoryVisibilityKey: visibilityKey,
+      pathCategoryVisible: categoryVisible,
+      pathCategoryToggleName: pathCategorySubtitle || pathDisplayName || name || 'Path',
+      pathStyle: measurement.pathStyle || null,
       pointCount: measurement.points.length,
       page: measurement.page,
       onOtherPage,
@@ -47,6 +88,7 @@
       className: measurementItemClass({
         selected: selectedId === measurement.id,
         isUnscaled,
+        pathVisibilityHidden: pathVisibilityHidden === true || pathCategoryHidden === true,
       }),
     };
   }

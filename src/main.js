@@ -1,12 +1,12 @@
 import './export-utils.js';
 import './calibration-utils.js'; import './app/decimal-input.js';
 import './app/path-aggregation.js';
-import './app/sidebar.js';
-import './app/sidebar-view.js';
-import './app/sidebar-controller.js';
+import './app/sidebar.js?v=single-page-tabs-1';
+import './app/sidebar-view.js?v=single-page-tabs-1';
+import './app/sidebar-controller.js?v=single-page-tabs-1';
 import './app/length-edit-controller.js';
-import './app/path-templates.js'; import './app/path-style-renderer.js'; import './app/path-dock.js'; import './app/path-settings.js';
-import './app/path-template-store.js'; import './app/path-template-view.js';
+import './app/path-templates.js'; import './app/path-style-renderer.js?v=preview-panel-icon-1'; import './app/path-dock.js'; import './app/path-settings.js';
+import './app/path-template-store.js'; import './app/path-template-view.js?v=preview-panel-fit-2';
 import './app/state.js';
 import './app/geometry.js';
 import './app/measurements.js';
@@ -184,6 +184,11 @@ const SNAP_ANCHOR_SCREEN_TOLERANCE = 12, SNAP_CENTERLINE_SCREEN_TOLERANCE = 8;
 const copySummaryButton = $('copySummary'), snapToggle = $('snapToPaths');
 const pathTemplateHome = window.TakeoffPathTemplateView.createPathTemplateHome({ root: $('pathTemplatesHome'), state, pathTemplates: window.TakeoffPathTemplates, store: pathTemplateStore, renderer: window.TakeoffPathStyleRenderer }); let sidebarPathGroupsById = new Map();
 const pathDock = window.TakeoffPathDock.createPathDockController({ root: pathDockRoot, state, pathTemplates: window.TakeoffPathTemplates, renderer: window.TakeoffPathStyleRenderer, maxVisiblePathCount: 4, visible: () => !!(state.baseW && state.mode === 'measure'), applyTemplateState: window.TakeoffPathTemplateView.applyTemplateState, save: () => pathTemplateStore.save(state), renderTemplateHome: () => pathTemplateHome.render() });
+const homeTabs = Array.from(document.querySelectorAll('[data-home-tab]')), homePanels = Array.from(document.querySelectorAll('[data-home-panel]')), homeTemplateCount = $('homeTemplateCount');
+function updateHomeTemplateCount() { if (homeTemplateCount) homeTemplateCount.textContent = String(Array.isArray(state.pathTemplates) ? state.pathTemplates.length : 0).padStart(2, '0'); }
+function setHomeTab(tabName) { homeTabs.forEach((tab) => { const active = tab.dataset.homeTab === tabName; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', active ? 'true' : 'false'); }); homePanels.forEach((panel) => { const active = panel.dataset.homePanel === tabName; panel.classList.toggle('active', active); panel.hidden = !active; if (active) panel.focus({ preventScroll: true }); }); }
+homeTabs.forEach((tab) => tab.addEventListener('click', () => setHomeTab(tab.dataset.homeTab))); document.querySelector('.home-main')?.addEventListener('wheel', (event) => { const panel = homePanels.find((item) => !item.hidden); if (!panel || panel.scrollHeight <= panel.clientHeight) return; const before = panel.scrollTop; panel.scrollTop += event.deltaY; if (panel.scrollTop !== before) event.preventDefault(); }, { passive: false }); homePanels.forEach((panel) => panel.addEventListener('keydown', (event) => { const steps = { PageDown: panel.clientHeight * 0.8, PageUp: panel.clientHeight * -0.8, ArrowDown: 48, ArrowUp: -48 }; const delta = steps[event.key]; if (!delta || panel.scrollHeight <= panel.clientHeight) return; const before = panel.scrollTop; panel.scrollTop += delta; if (panel.scrollTop !== before) event.preventDefault(); }));
+$('pathTemplatesHome')?.addEventListener('click', () => queueMicrotask(updateHomeTemplateCount)); updateHomeTemplateCount();
 
 const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
   state, stage, viewport, detailCanvas: pdfDetailCanvas, logger: performanceLogger, desiredPdfRenderScale, desiredPdfDetailTileScale,
@@ -378,9 +383,10 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
   const canAddAnchor = !!(canEditAnchors && target && target.kind === 'path-hit'), canRemoveAnchor = !!(canEditAnchors && target && target.kind === 'anchor-hit' && canRemoveAnchorFromTarget(target));
   addButton.disabled = !canAddAnchor;
   removeButton.disabled = !canRemoveAnchor;
-  for (const action of ['cut', 'copy', 'duplicate', 'rotate']) contextMenu.querySelector(`[data-action="${action}"]`).disabled = !canActOnRun;
+  for (const action of ['cut', 'copy', 'rotate']) contextMenu.querySelector(`[data-action="${action}"]`).disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
   contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target, measurements: state.measurements });
+  contextMenuController.applyVisibilityMenuState({ contextMenu, measurement: targetedMeasurement, state, stateStore });
   contextMenu.style.left = `${Math.min(clientX, window.innerWidth - 170)}px`;
   contextMenu.style.top = `${Math.min(clientY, window.innerHeight - 220)}px`;
   contextMenu.classList.add('show');
@@ -983,7 +989,9 @@ $('btn-pan').classList.add('active');
 // ------- Zoom buttons -------
 $('zoomIn').addEventListener('click', () => zoomAt(stageCenter(), 1.25, 'button'));
 $('zoomOut').addEventListener('click', () => zoomAt(stageCenter(), 0.8, 'button'));
-snapToggle.addEventListener('change', () => { state.snapToPaths = snapToggle.checked; state.snapFeedback = null; redrawActivePreview(); });
+function syncSnapToggle() { snapToggle.setAttribute('aria-pressed', state.snapToPaths ? 'true' : 'false'); snapToggle.classList.remove('active'); }
+snapToggle.addEventListener('click', () => { state.snapToPaths = !state.snapToPaths; state.snapFeedback = null; syncSnapToggle(); redrawActivePreview(); });
+syncSnapToggle();
 $('zoomFit').addEventListener('click', (e) => {
   e.stopPropagation();
   fitToView('page');
@@ -1562,6 +1570,8 @@ contextMenu.addEventListener('click', (e) => {
   if (action === 'duplicate') duplicateSelectedMeasurement();
   if (action === 'paste') pasteCopiedMeasurement();
   if (action === 'rotate') beginRotateMode(state.selectedId);
+  if (action === 'toggle-path-visibility') contextMenuController.toggleSelectedPathVisibility({ state, stateStore, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
+  if (action === 'toggle-category-visibility') contextMenuController.toggleSelectedCategoryVisibility({ state, stateStore, createHistorySnapshot, renderList, redraw, recordHistory, showStatus });
   if (action === 'convert-to-line' || action === 'convert-to-freehand') contextMenuController.convertSelectedMeasurement({ nextShape: action === 'convert-to-line' ? 'line' : 'freehand', state, measurementCommands, scaleForPage, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
   if (action === 'unmerge-paths') unmergePathModal.open();
 });
@@ -2407,7 +2417,7 @@ function syncSidebarSelection() {
   });
 }
 
-function buildMeasItem(m) {
+function buildMeasItem(m, sidebarMeta = {}) {
   const item = document.createElement('div');
   const itemModel = sidebarController.buildMeasurementItemViewModel({
     measurement: m,
@@ -2418,6 +2428,10 @@ function buildMeasItem(m) {
     formatLength: formatLen,
     unitLabel: unitModel.unitLabel,
     measurementItemClass: sidebarView.measurementItemClass,
+    pathCategoryVisibilityKey: sidebarMeta.pathCategoryVisibilityKey,
+    pathCategoryVisible: sidebarMeta.pathCategoryVisible,
+    pathCategoryHidden: sidebarMeta.pathCategoryHidden,
+    pathVisibilityHidden: sidebarMeta.pathVisibilityHidden,
   });
   const onOtherPage = itemModel.onOtherPage;
   m.name = itemModel.name;
@@ -2470,6 +2484,16 @@ function buildMeasItem(m) {
       redraw();
     }
   });
+  item.addEventListener('contextmenu', async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (onOtherPage) await goToPage(m.page);
+    setMode('selection');
+    state.selectedId = m.id;
+    renderList();
+    redraw();
+    openContextMenu(e.clientX, e.clientY, m.id, { kind: 'sidebar-row', measurementId: m.id });
+  });
   item.addEventListener('click', async (e) => {
     if (!sidebarModel.shouldSelectMeasurementFromSidebarClick(e.target)) return;
     if (onOtherPage) await goToPage(m.page);
@@ -2495,7 +2519,7 @@ function buildPathGroupItem(group) {
   header.className = 'path-group-row';
   header.innerHTML = sidebarView.buildPathGroupMarkup(group);
   runs.className = 'path-group-runs';
-  for (const m of group.measurements) runs.appendChild(buildMeasItem(m));
+  for (const row of group.measurementRows || []) runs.appendChild(buildMeasItem(row.measurement, row));
   groupEl.appendChild(header);
   groupEl.appendChild(runs);
   return groupEl;
@@ -2503,6 +2527,36 @@ function buildPathGroupItem(group) {
 
 function appendPathGroups(groups, parent = measList) {
   for (const group of groups || []) parent.appendChild(buildPathGroupItem(group));
+}
+
+function buildPageGroupItem(section) {
+  const groupEl = document.createElement('section');
+  const header = document.createElement('div');
+  const runs = document.createElement('div');
+  groupEl.className = ['path-group', 'page-group', section.collapsed ? 'collapsed' : ''].filter(Boolean).join(' ');
+  groupEl.dataset.pageGroupPage = section.page;
+  header.className = 'page-group-row';
+  header.innerHTML = sidebarView.buildPageGroupMarkup(section);
+  runs.className = 'path-group-runs';
+  runs.id = section.runsId;
+  runs.hidden = !!section.collapsed;
+  for (const row of section.measurementRows || []) runs.appendChild(buildMeasItem(row.measurement, row));
+  header.querySelector('[data-page-group-toggle]')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!state.collapsedPageGroups) state.collapsedPageGroups = {};
+    if (section.collapsed) delete state.collapsedPageGroups[section.page];
+    else state.collapsedPageGroups[section.page] = true;
+    renderList();
+    saveActiveDocument();
+  });
+  groupEl.appendChild(header);
+  groupEl.appendChild(runs);
+  return groupEl;
+}
+
+function appendPageGroups(sections, parent = measList) {
+  for (const section of sections || []) parent.appendChild(buildPageGroupItem(section));
 }
 
 function appendPathGroupCategories(sections, controls) {
@@ -2519,7 +2573,6 @@ function appendPathGroupCategories(sections, controls) {
     header.className = 'path-category-header';
     header.innerHTML = sidebarView.buildCategoryHeaderMarkup(section);
     sectionEl.appendChild(header);
-    appendPathGroups(section.pathGroups, sectionEl);
     measList.appendChild(sectionEl);
   }
 }
@@ -2534,11 +2587,13 @@ function renderList() {
     pageCount: documentPageCount(),
     unit: state.unit,
     pathCategoryVisibility: stateStore.pathCategoryVisibilityForAggregation(state),
+    collapsedPageGroups: state.collapsedPageGroups,
   });
   sidebarPathGroupsById = new Map((model.pathGroups || []).map(group => [group.id, group]));
   updateSidebarScopeChrome(model);
   if (model.effectiveSidebarTab === 'categories') appendPathGroupCategories(model.categorySections, model.categoryVisibilityControls);
-  else appendPathGroups(model.pathGroups);
+  else if (model.effectiveSidebarTab === 'page') (model.measurementRowsForTab || []).forEach(row => measList.appendChild(buildMeasItem(row.measurement, row)));
+  else if (model.effectiveSidebarTab === 'all') appendPageGroups(model.pageSections);
 
   $('totalLen').textContent = model.totalLenText;
   $('runCount').textContent = model.runCountText;

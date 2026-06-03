@@ -58,34 +58,34 @@ test('buildSidebarModel summarizes the current page tab', async () => {
   }]);
 });
 
-test('buildSidebarModel simplifies single-page documents without scope tabs', async () => {
+test('buildSidebarModel keeps This Page and Categories tabs for single-page documents', async () => {
   const sidebar = await loadSidebar();
   const model = sidebar.buildSidebarModel({
     measurements: measurements.filter(measurement => measurement.page === 1),
     currentPage: 1,
-    sidebarTab: 'all',
+    sidebarTab: 'categories',
     pageScales: { 1: 10 },
     collapsedPageGroups: {},
     pageCount: 1,
     unit: 'ft',
   });
 
-  assert.equal(model.effectiveSidebarTab, 'page');
-  assert.equal(model.showScopeTabs, false);
-  assert.equal(model.totalHeadingText, 'Total');
-  assert.deepEqual(plain(model.measurementsForTab.map(measurement => measurement.id)), [1, 2]);
+  assert.equal(model.effectiveSidebarTab, 'categories');
+  assert.equal(model.showScopeTabs, true);
+  assert.deepEqual(plain(model.availableScopeTabs), ['page', 'categories']);
+  assert.equal(model.totalHeadingText, 'Categories Total');
   assert.equal(model.pathGroups.length, 1);
-  assert.deepEqual(plain(model.categorySections), []);
+  assert.equal(model.categorySections.length, 1);
 });
 
-test('buildSidebarModel groups all measurements by Path for all pages', async () => {
+test('buildSidebarModel groups all measurements by page for all pages', async () => {
   const sidebar = await loadSidebar();
   const model = sidebar.buildSidebarModel({
     measurements,
     currentPage: 1,
     sidebarTab: 'all',
     pageScales: { 1: 10 },
-    collapsedPageGroups: {},
+    collapsedPageGroups: { 2: true },
     pageCount: 2,
     unit: 'ft',
   });
@@ -95,24 +95,40 @@ test('buildSidebarModel groups all measurements by Path for all pages', async ()
   assert.equal(model.effectiveSidebarTab, 'all');
   assert.equal(model.showScopeTabs, true);
   assert.equal(model.totalHeadingText, 'Grand Total');
-  assert.deepEqual(plain(model.pathGroups.map(group => ({
-    displayName: group.displayName,
-    ids: group.measurements.map(measurement => measurement.id),
-    runCountText: group.runCountText,
-    unscaledText: group.unscaledText,
-    totalText: group.totalText,
-    pageCoverageText: group.pageCoverageText,
+  assert.deepEqual(plain(model.pageSections.map(section => ({
+    page: section.page,
+    title: section.title,
+    ids: section.measurements.map(measurement => measurement.id),
+    runCountText: section.runCountText,
+    unscaledText: section.unscaledText,
+    hiddenText: section.hiddenText,
+    totalText: section.totalText,
+    totalUnitText: section.totalUnitText,
+    collapsed: section.collapsed,
   }))), [{
-    displayName: 'Legacy measurements',
-    ids: [1, 2, 3],
-    runCountText: '3 runs',
+    page: 1,
+    title: 'Page 1',
+    ids: [1, 2],
+    runCountText: '2 runs',
     unscaledText: '1 unscaled excluded',
-    totalText: '15.00',
-    pageCoverageText: 'P 1-2',
+    hiddenText: '',
+    totalText: '10.00',
+    totalUnitText: 'ft',
+    collapsed: false,
+  }, {
+    page: 2,
+    title: 'Page 2',
+    ids: [3],
+    runCountText: '1 run',
+    unscaledText: '',
+    hiddenText: '',
+    totalText: '5.00',
+    totalUnitText: 'ft',
+    collapsed: true,
   }]);
 });
 
-test('buildSidebarModel renders category sections from Path groups', async () => {
+test('buildSidebarModel renders template Path names and uncategorized sections without nested Path groups', async () => {
   const sidebar = await loadSidebar();
   const model = sidebar.buildSidebarModel({
     measurements: [
@@ -136,6 +152,18 @@ test('buildSidebarModel renders category sections from Path groups', async () =>
         category: { id: 'low-voltage', name: 'Low Voltage' },
       },
       {
+        id: 'uncategorized-path-a',
+        page: 1,
+        lengthInches: 48,
+        pathTemplateId: 'default',
+        pathId: 'path',
+        pathName: 'Branch Feeder',
+        pathStyle: {
+          stroke: { color: '#ff5500', style: 'dashed' },
+          anchors: { fill: '#101820', border: '#f7f7f7' },
+        },
+      },
+      {
         id: 'legacy-a',
         page: 2,
         lengthInches: null,
@@ -149,20 +177,84 @@ test('buildSidebarModel renders category sections from Path groups', async () =>
 
   assert.equal(model.effectiveSidebarTab, 'categories');
   assert.equal(model.totalHeadingText, 'Categories Total');
+  assert.deepEqual(plain(model.categoryVisibilityControls), {
+    totalCount: 3,
+    hiddenCount: 0,
+    visibleCount: 3,
+    canShowAll: false,
+    canHideAll: true,
+  });
   assert.deepEqual(plain(model.categorySections.map(section => ({
+    key: section.key,
     name: section.name,
     summaryText: section.summaryText,
+    color: section.color,
+    pathStyle: section.pathStyle,
+    pathGroups: section.pathGroups,
     groups: section.pathGroups.map(group => group.displayName),
   }))), [
     {
+      key: 'category:low-voltage',
       name: 'Low Voltage',
       summaryText: '2 paths · 2 runs',
-      groups: ['Cat 6', 'Fiber'],
+      color: '#7d8a91',
+      pathStyle: null,
+      pathGroups: [],
+      groups: [],
     },
     {
-      name: 'Legacy measurements',
+      key: 'category-path:path%3Adefault%3Apath',
+      name: 'Branch Feeder',
       summaryText: '1 path · 1 run',
-      groups: ['Legacy measurements'],
+      color: '#ff5500',
+      pathStyle: {
+        stroke: { color: '#ff5500', style: 'dashed' },
+        anchors: { fill: '#101820', border: '#f7f7f7' },
+      },
+      pathGroups: [],
+      groups: [],
+    },
+    {
+      key: 'category-path:legacy%3Apath',
+      name: 'Uncategorized',
+      summaryText: '1 path · 1 run',
+      color: '#7d8a91',
+      pathStyle: null,
+      pathGroups: [],
+      groups: [],
+    },
+  ]);
+});
+
+test('buildSidebarModel labels id-only categories with the category id', async () => {
+  const sidebar = await loadSidebar();
+  const model = sidebar.buildSidebarModel({
+    measurements: [
+      {
+        id: 'security-a',
+        page: 1,
+        lengthInches: 72,
+        pathTemplateId: 'systems',
+        pathId: 'security-path',
+        pathName: 'Security Path',
+        pathCategoryId: 'security',
+      },
+    ],
+    currentPage: 1,
+    sidebarTab: 'categories',
+    pageCount: 2,
+    unit: 'ft',
+  });
+
+  assert.deepEqual(plain(model.categorySections.map(section => ({
+    key: section.key,
+    name: section.name,
+    summaryText: section.summaryText,
+  }))), [
+    {
+      key: 'category:security',
+      name: 'security',
+      summaryText: '1 path · 1 run',
     },
   ]);
 });
@@ -202,7 +294,7 @@ test('buildSidebarModel uses visible category totals while retaining hidden cate
   assert.equal(model.totalLenText, '5.00');
   assert.equal(model.totalHeadingText, 'Visible Total');
   assert.equal(model.showEntireTotal, true);
-  assert.equal(model.entireTotalText, 'Entire Total 15.00 ft');
+  assert.equal(model.entireTotalText, 'Total: 15.00 ft');
   assert.deepEqual(plain(model.categoryVisibilityControls), {
     totalCount: 2,
     hiddenCount: 1,
@@ -219,7 +311,7 @@ test('buildSidebarModel uses visible category totals while retaining hidden cate
     hiddenRunCount: section.hiddenRunCount,
     hiddenText: section.hiddenText,
     totalText: section.totalText,
-    pathGroupTotals: section.pathGroups.map(group => group.totalText),
+    pathGroupCount: section.pathGroups.length,
   }))), [
     {
       key: 'category:low-voltage',
@@ -230,7 +322,7 @@ test('buildSidebarModel uses visible category totals while retaining hidden cate
       hiddenRunCount: 1,
       hiddenText: '1 hidden',
       totalText: '0.00',
-      pathGroupTotals: ['0.00'],
+      pathGroupCount: 0,
     },
     {
       key: 'category:power',
@@ -241,7 +333,119 @@ test('buildSidebarModel uses visible category totals while retaining hidden cate
       hiddenRunCount: 0,
       hiddenText: '',
       totalText: '5.00',
-      pathGroupTotals: ['5.00'],
+      pathGroupCount: 0,
+    },
+  ]);
+});
+
+test('buildSidebarModel page sections use visible totals and hidden counts', async () => {
+  const sidebar = await loadSidebar();
+  const model = sidebar.buildSidebarModel({
+    measurements: [
+      {
+        id: 'cat6-a',
+        page: 1,
+        lengthInches: 120,
+        pathTemplateId: 'low-voltage',
+        pathId: 'cat6',
+        pathName: 'Cat 6',
+        pathCategoryId: 'low-voltage',
+        pathCategoryName: 'Low Voltage',
+      },
+      {
+        id: 'feeder-a',
+        page: 2,
+        lengthInches: 60,
+        pathTemplateId: 'power',
+        pathId: 'feeder',
+        pathName: 'Feeder',
+        pathCategoryId: 'power',
+        pathCategoryName: 'Power',
+      },
+    ],
+    currentPage: 1,
+    sidebarTab: 'all',
+    pageCount: 2,
+    unit: 'ft',
+    pathCategoryVisibility: { 'category:low-voltage': false },
+  });
+
+  assert.equal(model.totalLenText, '5.00');
+  assert.equal(model.showEntireTotal, true);
+  assert.deepEqual(plain(model.pageSections.map(section => ({
+    page: section.page,
+    title: section.title,
+    runCountText: section.runCountText,
+    hiddenText: section.hiddenText,
+    totalText: section.totalText,
+    ids: section.measurements.map(measurement => measurement.id),
+  }))), [
+    {
+      page: 1,
+      title: 'Page 1',
+      runCountText: '1 run',
+      hiddenText: '1 hidden',
+      totalText: '0.00',
+      ids: ['cat6-a'],
+    },
+    {
+      page: 2,
+      title: 'Page 2',
+      runCountText: '1 run',
+      hiddenText: '',
+      totalText: '5.00',
+      ids: ['feeder-a'],
+    },
+  ]);
+});
+
+test('buildSidebarModel marks hidden This Page rows without category visibility controls', async () => {
+  const sidebar = await loadSidebar();
+  const model = sidebar.buildSidebarModel({
+    measurements: [
+      {
+        id: 'cat6-a',
+        page: 1,
+        lengthInches: 120,
+        pathTemplateId: 'low-voltage',
+        pathId: 'cat6',
+        pathName: 'Cat 6',
+        pathCategoryId: 'low-voltage',
+        pathCategoryName: 'Low Voltage',
+        pathHidden: true,
+      },
+      {
+        id: 'feeder-a',
+        page: 1,
+        lengthInches: 60,
+        pathTemplateId: 'power',
+        pathId: 'feeder',
+        pathName: 'Feeder',
+        pathCategoryId: 'power',
+        pathCategoryName: 'Power',
+      },
+    ],
+    currentPage: 1,
+    sidebarTab: 'page',
+    pageCount: 2,
+    unit: 'ft',
+    pathCategoryVisibility: { 'category:low-voltage': false },
+  });
+
+  assert.deepEqual(plain(model.measurementRowsForTab.map(row => ({
+    id: row.measurement.id,
+    pathCategorySubtitle: row.pathCategorySubtitle,
+    pathVisibilityHidden: row.pathVisibilityHidden,
+  }))), [
+    {
+      id: 'cat6-a',
+      pathCategorySubtitle: 'Low Voltage',
+      pathVisibilityHidden: true,
+    },
+    {
+      id: 'feeder-a',
+      pathCategorySubtitle: 'Power',
+      pathVisibilityHidden: false,
     },
   ]);
 });
@@ -271,6 +475,13 @@ test('shouldSelectMeasurementFromSidebarClick allows readonly title clicks to se
     tagName: 'BUTTON',
     hasAttribute() { return false; },
     classList: { contains: className => className === 'run-details-action' },
+  }), false);
+
+  assert.equal(sidebar.shouldSelectMeasurementFromSidebarClick({
+    tagName: 'BUTTON',
+    hasAttribute() { return false; },
+    classList: { contains: () => false },
+    closest(selector) { return selector === '[data-path-category-key]' ? this : null; },
   }), false);
 });
 

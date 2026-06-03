@@ -23,6 +23,7 @@ test('applyScopeChrome hides tabs and marks the effective tab active', async () 
   const sidebar = await loadSidebarController();
   const scopeTabs = { hidden: false };
   const totalHeading = { textContent: '' };
+  const entireTotal = { hidden: true, textContent: '' };
   const tabs = [
     { dataset: { tab: 'page' }, classList: { active: false, toggle(_, value) { this.active = value; } } },
     { dataset: { tab: 'categories' }, classList: { active: false, toggle(_, value) { this.active = value; } } },
@@ -32,12 +33,64 @@ test('applyScopeChrome hides tabs and marks the effective tab active', async () 
   sidebar.applyScopeChrome({
     scopeTabs,
     totalHeading,
+    entireTotal,
     tabs,
-    model: { showScopeTabs: false, totalHeadingText: 'Total', effectiveSidebarTab: 'categories' },
+    model: {
+      showScopeTabs: false,
+      totalHeadingText: 'Visible Total',
+      effectiveSidebarTab: 'categories',
+      showEntireTotal: true,
+      entireTotalText: 'Total: 15.00 ft',
+    },
   });
 
   assert.equal(scopeTabs.hidden, true);
-  assert.equal(totalHeading.textContent, 'Total');
+  assert.equal(totalHeading.textContent, 'Visible Total');
+  assert.equal(entireTotal.hidden, false);
+  assert.equal(entireTotal.textContent, 'Total: 15.00 ft');
+  assert.equal(tabs[0].classList.active, false);
+  assert.equal(tabs[1].classList.active, true);
+  assert.equal(tabs[2].classList.active, false);
+});
+
+test('applyScopeChrome shows only available single-page scope tabs', async () => {
+  const sidebar = await loadSidebarController();
+  const styleCalls = [];
+  const scopeTabs = {
+    hidden: true,
+    style: {
+      setProperty(name, value) {
+        styleCalls.push({ name, value });
+      },
+    },
+  };
+  const totalHeading = { textContent: '' };
+  const tabs = [
+    { hidden: false, textContent: 'This page', dataset: { tab: 'page' }, classList: { active: false, toggle(_, value) { this.active = value; } } },
+    { hidden: false, textContent: 'Categories', dataset: { tab: 'categories' }, classList: { active: false, toggle(_, value) { this.active = value; } } },
+    { hidden: false, textContent: 'All pages', dataset: { tab: 'all' }, classList: { active: false, toggle(_, value) { this.active = value; } } },
+  ];
+
+  sidebar.applyScopeChrome({
+    scopeTabs,
+    totalHeading,
+    tabs,
+    model: {
+      showScopeTabs: true,
+      availableScopeTabs: ['page', 'categories'],
+      totalHeadingText: 'Categories Total',
+      effectiveSidebarTab: 'categories',
+      showEntireTotal: false,
+    },
+  });
+
+  assert.equal(scopeTabs.hidden, false);
+  assert.deepEqual(styleCalls, [{ name: '--scope-tab-count', value: '2' }]);
+  assert.equal(totalHeading.textContent, 'Categories Total');
+  assert.equal(tabs[0].hidden, false);
+  assert.equal(tabs[1].hidden, false);
+  assert.equal(tabs[2].hidden, true);
+  assert.deepEqual(tabs.filter(tab => !tab.hidden).map(tab => tab.textContent), ['This page', 'Categories']);
   assert.equal(tabs[0].classList.active, false);
   assert.equal(tabs[1].classList.active, true);
   assert.equal(tabs[2].classList.active, false);
@@ -52,6 +105,14 @@ test('buildMeasurementItemViewModel prepares sidebar row display data', async ()
     points: [{}, {}, {}],
     page: 2,
     lengthInches: 24,
+    pathName: 'West wall data',
+    pathCategoryName: 'Cat 6',
+    pathCategoryVisibilityKey: 'category:low-voltage',
+    pathCategoryVisible: false,
+    pathStyle: {
+      stroke: { color: '#36d399', style: 'dashed' },
+      anchors: { fill: '#ffffff', border: '#36d399' },
+    },
     runDetails: { text: 'Needs review', photos: [], videos: [] },
   };
 
@@ -70,6 +131,15 @@ test('buildMeasurementItemViewModel prepares sidebar row display data', async ()
   assert.deepEqual(plain(model), {
     color: '#b6ff3c',
     name: 'Custom run',
+    pathDisplayName: 'West wall data',
+    pathCategorySubtitle: 'Cat 6',
+    pathCategoryVisibilityKey: 'category:low-voltage',
+    pathCategoryVisible: false,
+    pathCategoryToggleName: 'Cat 6',
+    pathStyle: {
+      stroke: { color: '#36d399', style: 'dashed' },
+      anchors: { fill: '#ffffff', border: '#36d399' },
+    },
     pointCount: 3,
     page: 2,
     onOtherPage: true,

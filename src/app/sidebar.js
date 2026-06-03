@@ -105,6 +105,12 @@
     return '—';
   }
 
+  function addTotals(target, totals) {
+    for (const [unit, value] of Object.entries(totals || {})) {
+      target[unit] = (target[unit] || 0) + value;
+    }
+  }
+
   function formatPathRunCount(group) {
     const count = Number(group?.runCount || 0);
     return `${count} run${count === 1 ? '' : 's'}`;
@@ -137,6 +143,7 @@
   }
 
   function pathGroupViewModel(group, measurements, unit, lookup) {
+    const measurementRows = (group.runs || []).map(run => measurementRowViewModel(run, lookup)).filter(Boolean);
     return {
       id: group.id,
       key: group.key,
@@ -167,10 +174,115 @@
       pageCoverageText: pageCoverageText(group),
       settingsAvailable: !group.isLegacy && !!group.pathTemplateId && !!group.pathId,
       settingsLabel: `Path Settings for ${group.displayName || 'Path'}`,
-      measurements: (group.runs || []).map(run => (
-        lookup.get(run.measurementId) || lookup.get(`index:${run.sourceIndex}`)
-      )).filter(Boolean),
+      measurements: measurementRows.map(row => row.measurement),
+      measurementRows,
     };
+  }
+
+  function measurementRowViewModel(run, lookup) {
+    const measurement = lookup.get(run.measurementId) || lookup.get(`index:${run.sourceIndex}`);
+    if (!measurement) return null;
+    return {
+      measurement,
+      pathCategorySubtitle: cleanString(run.categoryName) || cleanString(run.pathName) || '',
+      pathVisibilityHidden: run.isVisible === false,
+    };
+  }
+
+  function measurementRowsBySourceIndex(aggregation, measurements) {
+    const lookup = measurementLookup(measurements);
+    const rows = new Map();
+    for (const group of aggregation?.groups || []) {
+      for (const run of group.runs || []) {
+        const row = measurementRowViewModel(run, lookup);
+        if (row) rows.set(run.sourceIndex, row);
+      }
+    }
+    return rows;
+  }
+
+  function measurementRowsForPage(aggregation, measurements, currentPage) {
+    const rowsByIndex = measurementRowsBySourceIndex(aggregation, measurements);
+    const rows = [];
+    (measurements || []).forEach((measurement, index) => {
+      if (measurementPage(measurement) !== currentPage) return;
+      rows.push(rowsByIndex.get(index) || {
+        measurement,
+        pathCategoryVisibilityKey: null,
+        pathCategoryVisible: true,
+        pathCategoryHidden: false,
+      });
+    });
+    return rows;
+  }
+
+  function createPageSection(page, collapsed) {
+    return {
+      page,
+      title: `Page ${page}`,
+      runCount: 0,
+      scaledRunCount: 0,
+      unscaledRunCount: 0,
+      visibleRunCount: 0,
+      hiddenRunCount: 0,
+      visibleScaledRunCount: 0,
+      visibleUnscaledRunCount: 0,
+      allTotalsByUnit: {},
+      visibleTotalsByUnit: {},
+      hiddenTotalsByUnit: {},
+      measurements: [],
+      measurementRows: [],
+      collapsed: !!collapsed,
+      runsId: `page-group-runs-${page}`,
+    };
+  }
+
+  function finalizePageSection(section, unit) {
+    const visibleSource = {
+      scaledRunCount: section.visibleScaledRunCount,
+      unscaledRunCount: section.visibleUnscaledRunCount,
+    };
+    return {
+      ...section,
+      runCountText: formatPathRunCount(section),
+      unscaledText: formatUnscaledCount(section),
+      hiddenText: formatHiddenRunCount(section),
+      totalText: formatTotalsByUnit(section.visibleTotalsByUnit, unit, visibleSource),
+      totalUnitText: UNIT_LABEL[unit] || unit,
+    };
+  }
+
+  function pageSectionViewModels(aggregation, measurements, unit, collapsedPageGroups = {}) {
+    const lookup = measurementLookup(measurements);
+    const sections = new Map();
+    const runs = [];
+    for (const group of aggregation?.groups || []) runs.push(...(group.runs || []));
+    runs.sort((a, b) => (a.page || 1) - (b.page || 1) || (a.sourceIndex || 0) - (b.sourceIndex || 0));
+    for (const run of runs) {
+      const page = measurementPage(lookup.get(run.measurementId) || lookup.get(`index:${run.sourceIndex}`) || run);
+      if (!sections.has(page)) sections.set(page, createPageSection(page, collapsedPageGroups?.[page]));
+      const section = sections.get(page);
+      const measurement = lookup.get(run.measurementId) || lookup.get(`index:${run.sourceIndex}`);
+      section.runCount += 1;
+      if (run.scaled) section.scaledRunCount += 1;
+      else section.unscaledRunCount += 1;
+      if (run.isVisible) {
+        section.visibleRunCount += 1;
+        if (run.scaled) section.visibleScaledRunCount += 1;
+        else section.visibleUnscaledRunCount += 1;
+        addTotals(section.visibleTotalsByUnit, run.totalsByUnit);
+      } else {
+        section.hiddenRunCount += 1;
+        addTotals(section.hiddenTotalsByUnit, run.totalsByUnit);
+      }
+      addTotals(section.allTotalsByUnit, run.totalsByUnit);
+      if (measurement) {
+        const row = measurementRowViewModel(run, lookup);
+        section.measurements.push(measurement);
+        if (row) section.measurementRows.push(row);
+      }
+    }
+    return [...sections.values()].map(section => finalizePageSection(section, unit));
   }
 
   function categorySectionViewModel(category, pathGroupsByKey, unit) {
@@ -180,23 +292,36 @@
     const visibleRunCount = Number(category.visibleRunCount || 0);
     const templateBacked = pathGroups.some(group => !group.isLegacy && group.pathTemplateId && group.pathId);
     const firstColorGroup = pathGroups.find(group => group.color);
+    const pathStyle = pathGroups.length === 1 ? (pathGroups[0].pathStyle || null) : null;
     return {
       key: category.key,
-      name: category.displayName || category.name || 'Uncategorized',
+      name: categorySectionName(category),
       categoryVisible: category.categoryVisible !== false,
       isVisible: category.isVisible !== false,
       color: firstColorGroup?.color || '#7d8a91',
+      pathStyle,
       iconKind: templateBacked ? 'template' : 'manual',
       visibleRunCount,
       hiddenRunCount,
       hiddenText: formatHiddenRunCount(category),
-      pathGroups,
+      pathGroups: [],
       pathCount,
       runCount: category.runCount || 0,
       summaryText: `${pathCount} path${pathCount === 1 ? '' : 's'} · ${formatPathRunCount(category)}`,
       totalText: formatPathTotal(category, unit),
       totalUnitText: UNIT_LABEL[unit] || unit,
     };
+  }
+
+  function categorySectionName(category) {
+    const displayName = cleanString(category?.displayName);
+    if (displayName && displayName !== 'Uncategorized') return displayName;
+    return cleanString(category?.name)
+      || cleanString(category?.categoryName)
+      || cleanString(category?.id)
+      || cleanString(category?.categoryId)
+      || displayName
+      || 'Uncategorized';
   }
 
   function buildPathGroups(measurements, currentPage, effectiveSidebarTab, unit, pathCategoryVisibility) {
@@ -223,12 +348,13 @@
     };
   }
 
-  function buildSidebarModel({ measurements, currentPage, sidebarTab, pageCount, unit, pathCategoryVisibility }) {
+  function buildSidebarModel({ measurements, currentPage, sidebarTab, pageCount, unit, pathCategoryVisibility, collapsedPageGroups = {} }) {
     const all = measurements || [];
     const resolvedPageCount = resolvePageCount(all, pageCount);
     const isSinglePage = resolvedPageCount <= 1;
-    const effectiveSidebarTab = isSinglePage ? 'page' : normalizeSidebarTab(sidebarTab);
-    const measurementsForTab = all.filter(measurement => measurementPage(measurement) === currentPage);
+    const availableScopeTabs = isSinglePage ? ['page', 'categories'] : ['page', 'categories', 'all'];
+    const requestedSidebarTab = normalizeSidebarTab(sidebarTab);
+    const effectiveSidebarTab = availableScopeTabs.includes(requestedSidebarTab) ? requestedSidebarTab : 'page';
     const summary = summarizeMeasurements(all, currentPage);
     const activeSummary = effectiveSidebarTab === 'page' ? summary.page : summary.all;
     const {
@@ -236,11 +362,14 @@
       pathGroups,
       categorySections,
     } = buildPathGroups(all, currentPage, effectiveSidebarTab, unit, pathCategoryVisibility);
+    const measurementRowsForTab = measurementRowsForPage(pathRunAggregation, all, currentPage);
+    const measurementsForTab = measurementRowsForTab.map(row => row.measurement);
     const hiddenCount = Number(pathRunAggregation.hiddenRunCount || 0);
     const hasHidden = hiddenCount > 0;
     const allTotalText = formatTotalsByUnit(pathRunAggregation.allTotalsByUnit, unit, pathRunAggregation);
     return {
       measurementsForTab,
+      measurementRowsForTab,
       pageSummary: summary.page,
       allSummary: summary.all,
       activeSummary,
@@ -249,16 +378,18 @@
       totalUnitText: UNIT_LABEL[unit],
       effectiveSidebarTab,
       isSinglePage,
-      showScopeTabs: !isSinglePage,
-      totalHeadingText: hasHidden ? 'Visible Total' : isSinglePage ? 'Total' : ({
+      availableScopeTabs,
+      showScopeTabs: availableScopeTabs.length > 1,
+      totalHeadingText: hasHidden ? 'Visible Total' : ({
         page: 'This Page Total',
         categories: 'Categories Total',
         all: 'Grand Total',
       }[effectiveSidebarTab]),
       showEntireTotal: hasHidden,
-      entireTotalText: `Entire Total ${allTotalText} ${UNIT_LABEL[unit] || unit}`,
+      entireTotalText: `Total: ${allTotalText} ${UNIT_LABEL[unit] || unit}`,
       pathRunAggregation,
       pathGroups,
+      pageSections: effectiveSidebarTab === 'all' ? pageSectionViewModels(pathRunAggregation, all, unit, collapsedPageGroups) : [],
       categorySections: effectiveSidebarTab === 'categories' ? categorySections : [],
       categoryVisibilityControls: categoryVisibilityControls(categorySections),
     };
@@ -266,6 +397,7 @@
 
   function shouldSelectMeasurementFromSidebarClick(target) {
     if (!target) return true;
+    if (target.closest?.('[data-path-category-key]')) return false;
     if (target.closest?.('.path-group-settings') || target.classList?.contains('path-group-settings')) return false;
     if (target.closest?.('.run-details-action') || target.classList?.contains('run-details-action')) return false;
     if (target.closest?.('.del') || target.classList?.contains('del')) return false;
