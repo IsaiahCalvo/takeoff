@@ -33,6 +33,9 @@ test('createDocumentSnapshot captures persisted document state only when a docum
     activeFitMode: 'page',
     pxPerInch: 4,
     pageScales: { 2: 4 },
+    nextRunNumber: 8,
+    nextMergedPathNumber: 3,
+    nextMeasurementPanelOrder: 9,
     measurements: [{
       id: 1,
       pathCategoryId: 'low-voltage',
@@ -65,6 +68,9 @@ test('createDocumentSnapshot captures persisted document state only when a docum
   assert.equal(snapshot.id, 'doc-1');
   assert.equal(snapshot.name, 'Drawing.pdf');
   assert.equal(snapshot.continuousScrollMode, true);
+  assert.equal(snapshot.nextRunNumber, 8);
+  assert.equal(snapshot.nextMergedPathNumber, 3);
+  assert.equal(snapshot.nextMeasurementPanelOrder, 9);
   assert.deepEqual(plain(snapshot.continuousScrollPreferences), { '1,2,3': true });
   assert.deepEqual(plain(snapshot.pageScales), { 2: 4 });
   assert.equal(snapshot.measurements[0].shape.previousFreehand.points[0].x, 0);

@@ -684,6 +684,7 @@ main {
 #stage.marqueeing { cursor: crosshair !important; }
 #stage.dragging { cursor: grabbing !important; }
 #stage.erase { cursor: not-allowed; }
+#stage.snapped-cursor:not(.dragging) { cursor: none; }
 
 #viewport {
   position: absolute;

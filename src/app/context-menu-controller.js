@@ -1,4 +1,6 @@
 (function () {
+  const MERGE_PATHS_FEATURE_ENABLED = false;
+
   function selectedMergeConnection({ measurement, measurementCommands, target, measurements, selectedIds } = {}) {
     if (!measurement || !target || !measurementCommands?.mergeConnectionForSelectedMeasurements) return null;
     return measurementCommands.mergeConnectionForSelectedMeasurements({
@@ -18,7 +20,7 @@
       && !measurementModel?.isMixedMeasurement?.(measurement)
       && measurementCommands?.continuationEndpointRole?.(measurement, target)
     );
-    const canMergePaths = !!(
+    const canMergePaths = MERGE_PATHS_FEATURE_ENABLED && !!(
       measurement
       && target
       && (
@@ -26,7 +28,7 @@
         || selectedMergeConnection({ measurement, measurementCommands, target, measurements, selectedIds })
       )
     );
-    const canUnmergePaths = !!(
+    const canUnmergePaths = MERGE_PATHS_FEATURE_ENABLED && !!(
       measurement
       && measurementCommands?.unmergePathState?.(measurement)?.canUnmergePaths
     );
@@ -302,7 +304,9 @@
     recordHistory,
     showStatus,
     focusMeasurementName,
+    nextMergedPathName,
   } = {}) {
+    if (!MERGE_PATHS_FEATURE_ENABLED) return false;
     if (!state || !target) return false;
     const measurementId = target.measurementId ?? state.selectedId;
     const measurement = state.measurements?.find(item => item.id === measurementId);
@@ -323,8 +327,10 @@
     });
     if (!selectedConnection) return false;
     const historyBefore = createHistorySnapshot();
+    const mergeName = typeof nextMergedPathName === 'function' ? nextMergedPathName() : null;
     const result = measurementCommands.mergeSnappedEndpointPaths(state.measurements, selectedConnection, {
       pxPerInch: scaleForPage(measurement.page),
+      mergeName,
     });
     if (!result?.merged) return false;
     setMeasurements(result.measurements, result.measurement.id);
@@ -340,6 +346,7 @@
   }
 
   window.TakeoffContextMenuController = {
+    mergePathsFeatureEnabled: () => MERGE_PATHS_FEATURE_ENABLED,
     conversionMenuState,
     positionContextMenu,
     applyConversionMenuState,

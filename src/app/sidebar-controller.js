@@ -252,6 +252,24 @@
     });
   }
 
+  function selectMeasurementRowFromSidebar({
+    measurementId,
+    event = {},
+    selection,
+    renderList,
+    syncSidebarSelection,
+    redraw,
+  } = {}) {
+    if (!selection?.selectFromClick) return null;
+    const action = selection.selectFromClick(measurementId, event);
+    if (action !== 'preserve') {
+      if (event.target?.tagName === 'INPUT') syncSidebarSelection?.();
+      else renderList?.();
+      redraw?.();
+    }
+    return action;
+  }
+
   function measurementIdMatches(left, right) {
     return left != null && right != null && String(left) === String(right);
   }
@@ -293,6 +311,7 @@
     bindCategoryVisibilityControls,
     bindPathGroupSettingsControls,
     bindRunDetailsControls,
+    selectMeasurementRowFromSidebar,
     measurementIdMatches,
     findMeasurementRow,
     expandContainingPathGroup,

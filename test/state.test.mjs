@@ -244,6 +244,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.deepEqual(plain(state.pageScales), { 3: 4 });
   assert.deepEqual(plain(state.measurements), [{
     id: 1,
+    panelOrder: 1,
     shape: {
       active: 'line',
       previousFreehand: {
@@ -280,6 +281,35 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.activePathTemplateId, 'template-2');
   assert.equal(state.activePathId, 'path-2');
   assert.equal(state.navToken, 8);
+});
+
+test('restoreDocumentState restores naming counters and backfills stable panel order', async () => {
+  const store = await loadStateStore();
+  const state = store.createInitialState();
+  const doc = {
+    id: 'doc-2',
+    pdf: { numPages: 1 },
+    measurements: [
+      { id: 1, name: 'Run 7' },
+      { id: 2, name: 'Merged Path 2', panelOrder: 4 },
+    ],
+    nextRunNumber: 3,
+    nextMergedPathNumber: 1,
+    nextMeasurementPanelOrder: 1,
+  };
+
+  store.restoreDocumentState(state, doc);
+
+  assert.equal(state.nextRunNumber, 8);
+  assert.equal(state.nextMergedPathNumber, 3);
+  assert.equal(state.nextMeasurementPanelOrder, 5);
+  assert.deepEqual(plain(state.measurements.map(measurement => ({
+    id: measurement.id,
+    panelOrder: measurement.panelOrder,
+  }))), [
+    { id: 1, panelOrder: 1 },
+    { id: 2, panelOrder: 4 },
+  ]);
 });
 
 test('path category visibility helpers default visible and toggle durable keys', async () => {
@@ -340,6 +370,25 @@ test('path category visibility filter hides canvas candidates without mutating m
   assert.deepEqual(plain(store.pathCategoryVisibilityForAggregation(state)), {
     'category:low-voltage': false,
   });
+});
+
+test('measurement naming helpers allocate chronological names and skip visible generated collisions', async () => {
+  const store = await loadStateStore();
+  const state = store.createInitialState();
+  state.measurements = [
+    { id: 1, name: 'Run 1', panelOrder: 1 },
+    { id: 2, name: 'Merged Path 1', panelOrder: 2 },
+  ];
+
+  assert.equal(store.allocateRunName(state), 'Run 2');
+  assert.equal(store.allocateMeasurementPanelOrder(state), 1);
+  state.measurements.push({ id: 3, name: 'Run 2', panelOrder: 1 });
+  assert.equal(store.allocateRunName(state), 'Run 3');
+
+  assert.equal(store.allocateMergedPathName(state), 'Merged Path 2');
+  state.measurements.push({ id: 4, name: 'Merged Path 2', panelOrder: 3 });
+  assert.equal(store.allocateMergedPathName(state), 'Merged Path 3');
+  assert.equal(store.allocateMeasurementPanelOrder(state), 2);
 });
 
 test('measurement path visibility hides one run without mutating category visibility', async () => {

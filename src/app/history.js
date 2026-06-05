@@ -8,6 +8,9 @@
       measurements: cloneValue(source.measurements) || [],
       pageScales: cloneValue(source.pageScales) || {},
       pxPerInch: source.pxPerInch,
+      nextRunNumber: source.nextRunNumber,
+      nextMergedPathNumber: source.nextMergedPathNumber,
+      nextMeasurementPanelOrder: source.nextMeasurementPanelOrder,
       selectedId: source.selectedId,
       selectedIds: cloneValue(source.selectedIds) || (source.selectedId != null ? [source.selectedId] : []),
       copiedMeasurement: cloneValue(source.copiedMeasurement),
@@ -33,6 +36,9 @@
     state.measurements = cloneValue(snapshot.measurements) || [];
     state.pageScales = cloneValue(snapshot.pageScales) || {};
     state.pxPerInch = state.pageScales[currentPage] || null;
+    state.nextRunNumber = snapshot.nextRunNumber ?? state.nextRunNumber ?? 1;
+    state.nextMergedPathNumber = snapshot.nextMergedPathNumber ?? state.nextMergedPathNumber ?? 1;
+    state.nextMeasurementPanelOrder = snapshot.nextMeasurementPanelOrder ?? state.nextMeasurementPanelOrder ?? 1;
     state.selectedId = snapshot.selectedId ?? null;
     state.selectedIds = cloneValue(snapshot.selectedIds) || (state.selectedId != null ? [state.selectedId] : []);
     state.copiedMeasurement = cloneValue(snapshot.copiedMeasurement);

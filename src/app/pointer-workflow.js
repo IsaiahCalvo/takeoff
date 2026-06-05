@@ -116,6 +116,60 @@
     };
   }
 
+  function isSnapPlacementMode(mode) {
+    return mode === 'measure' || mode === 'calibrate';
+  }
+
+  function snapFeedbackKey(snap) {
+    if (!snap?.point) return '';
+    return `${snap.kind || ''}:${snap.measurementId ?? ''}:${snap.point.x.toFixed(2)}:${snap.point.y.toFixed(2)}`;
+  }
+
+  function shouldPreviewSnapCursor(state, rawStackPoint) {
+    return !!(state &&
+      rawStackPoint &&
+      state.snapToPaths &&
+      isSnapPlacementMode(state.mode) &&
+      !state.isPanning &&
+      !state.marqueeSelection &&
+      !state.dragVertex &&
+      !state.dragMeasurement &&
+      !state.dragLabel &&
+      !state.rotationDrag);
+  }
+
+  function shouldShowSnappedCursor(state) {
+    return !!(shouldPreviewSnapCursor(state, state?.cursorImg) && state.snapFeedback?.point);
+  }
+
+  function resolvePointerSnapPreview({
+    state,
+    rawStackPoint,
+    shiftKey = false,
+    placementPointInfo,
+    stackPointForPage,
+  } = {}) {
+    const before = snapFeedbackKey(state?.snapFeedback);
+    if (!shouldPreviewSnapCursor(state, rawStackPoint)) {
+      if (state && (!state.snapToPaths || !isSnapPlacementMode(state.mode))) state.snapFeedback = null;
+      return { changed: before !== snapFeedbackKey(state?.snapFeedback), cursorImg: null };
+    }
+    const draft = state.freehandDraft;
+    const inProgress = state.inProgress;
+    const points = inProgress?.points || [];
+    const continuationId = draft?.continuation?.measurementId || inProgress?.continuation?.measurementId;
+    const info = placementPointInfo?.(rawStackPoint, {
+      page: draft?.page || inProgress?.page || null,
+      previous: points.length ? points[points.length - 1] : null,
+      shiftKey: !!inProgress && shiftKey,
+      excludeMeasurementIds: continuationId ? [continuationId] : [],
+    });
+    const cursorImg = info?.page && info.point && stackPointForPage
+      ? stackPointForPage(info.page, info.point)
+      : null;
+    return { changed: before !== snapFeedbackKey(state.snapFeedback), cursorImg };
+  }
+
   function createRotationDrag({ measurement, frame, pointer, historyBefore }) {
     const center = { x: frame.cx, y: frame.cy };
     return {
@@ -336,6 +390,10 @@
     buildContextMenuHit,
     appendPointToDraft,
     resolveSnapPoint,
+    snapFeedbackKey,
+    shouldPreviewSnapCursor,
+    shouldShowSnappedCursor,
+    resolvePointerSnapPreview,
     createRotationDrag,
     createMeasurementDrag,
     createMeasurementGroupDrag,

@@ -260,7 +260,7 @@ test('conversionMenuState hides Continue Path for mixed paths', async () => {
   assert.equal(menu.buttons.get('continue-path').disabled, true);
 });
 
-test('conversionMenuState exposes Merge Paths only for eligible snapped endpoints', async () => {
+test('conversionMenuState keeps Merge Paths hidden while the feature is parked', async () => {
   const { controller, measurements } = await loadController();
   const measurement = {
     id: 20,
@@ -286,10 +286,11 @@ test('conversionMenuState exposes Merge Paths only for eligible snapped endpoint
     canConvertToLine: false,
     canConvertToFreehand: true,
     canContinuePath: true,
-    canMergePaths: true,
+    canMergePaths: false,
     canUnmergePaths: false,
   });
 
+  assert.equal(controller.mergePathsFeatureEnabled(), false);
   assert.equal(controller.conversionMenuState({
     measurement,
     measurementModel: measurements,
@@ -302,7 +303,7 @@ test('conversionMenuState exposes Merge Paths only for eligible snapped endpoint
   }).canMergePaths, false);
 });
 
-test('conversionMenuState exposes Merge Paths for a selected snapped pair from a path body', async () => {
+test('conversionMenuState keeps selected snapped path pairs hidden while the feature is parked', async () => {
   const { controller, measurements } = await loadController();
   const measurement = {
     id: 20,
@@ -328,12 +329,12 @@ test('conversionMenuState exposes Merge Paths for a selected snapped pair from a
     canConvertToLine: false,
     canConvertToFreehand: true,
     canContinuePath: false,
-    canMergePaths: true,
+    canMergePaths: false,
     canUnmergePaths: false,
   });
 });
 
-test('conversionMenuState exposes Unmerge Paths only for measurements with merge memory', async () => {
+test('conversionMenuState keeps Unmerge Paths hidden while the feature is parked', async () => {
   const { controller, measurements } = await loadController();
   const merged = {
     id: 40,
@@ -355,7 +356,7 @@ test('conversionMenuState exposes Unmerge Paths only for measurements with merge
     canConvertToFreehand: false,
     canContinuePath: false,
     canMergePaths: false,
-    canUnmergePaths: true,
+    canUnmergePaths: false,
   });
 
   assert.equal(controller.conversionMenuState({
@@ -438,7 +439,7 @@ test('convertSelectedMeasurement refreshes UI hooks and selection for Line to Fr
   ]);
 });
 
-test('mergeSnappedPaths records history, replaces measurements, and refreshes UI hooks', async () => {
+test('mergeSnappedPaths no-ops while the feature is parked', async () => {
   const { controller } = await loadController();
   const calls = [];
   const measurement = { id: 30, page: 2, shape: { active: 'line' } };
@@ -454,7 +455,7 @@ test('mergeSnappedPaths records history, replaces measurements, and refreshes UI
         return { sourceId: 30, sourceEndpoint: 'end', targetId: 31, targetEndpoint: 'start' };
       },
       mergeSnappedEndpointPaths(measurements, connection, options) {
-        calls.push(['merge', measurements.length, connection.targetId, options.pxPerInch]);
+        calls.push(['merge', measurements.length, connection.targetId, options.pxPerInch, options.mergeName]);
         return {
           merged: true,
           measurement: { id: 30 },
@@ -463,6 +464,10 @@ test('mergeSnappedPaths records history, replaces measurements, and refreshes UI
       },
     },
     scaleForPage: page => page * 10,
+    nextMergedPathName: () => {
+      calls.push(['name']);
+      return 'Merged Path 1';
+    },
     createHistorySnapshot: () => ({ before: true }),
     setMeasurements: (measurements, selectedId) => calls.push(['set', measurements.length, selectedId]),
     endRotateMode: () => calls.push(['end-rotate']),
@@ -470,21 +475,12 @@ test('mergeSnappedPaths records history, replaces measurements, and refreshes UI
     redraw: () => calls.push(['redraw']),
     recordHistory: (before, label) => calls.push(['history', before.before, label]),
     showStatus: text => calls.push(['status', text]),
-  }), true);
+  }), false);
 
-  assert.deepEqual(calls, [
-    ['connection', 30, 1],
-    ['merge', 2, 31, 20],
-    ['set', 1, 30],
-    ['end-rotate'],
-    ['render-list'],
-    ['redraw'],
-    ['history', true, 'path merge'],
-    ['status', 'Merge Paths'],
-  ]);
+  assert.deepEqual(calls, []);
 });
 
-test('mergeSnappedPaths can merge a selected snapped pair from a path body target', async () => {
+test('mergeSnappedPaths no-ops for selected snapped pairs while the feature is parked', async () => {
   const { controller } = await loadController();
   const calls = [];
   const measurement = { id: 30, page: 2, shape: { active: 'line' } };
@@ -500,7 +496,7 @@ test('mergeSnappedPaths can merge a selected snapped pair from a path body targe
         return { sourceId: 30, sourceEndpoint: 'end', targetId: 31, targetEndpoint: 'start' };
       },
       mergeSnappedEndpointPaths(measurements, connection, options) {
-        calls.push(['merge', measurements.length, connection.targetId, options.pxPerInch]);
+        calls.push(['merge', measurements.length, connection.targetId, options.pxPerInch, options.mergeName]);
         return {
           merged: true,
           measurement: { id: 30 },
@@ -509,6 +505,10 @@ test('mergeSnappedPaths can merge a selected snapped pair from a path body targe
       },
     },
     scaleForPage: page => page * 10,
+    nextMergedPathName: () => {
+      calls.push(['name']);
+      return 'Merged Path 1';
+    },
     createHistorySnapshot: () => ({ before: true }),
     setMeasurements: (measurements, selectedId) => calls.push(['set', measurements.length, selectedId]),
     endRotateMode: () => calls.push(['end-rotate']),
@@ -516,18 +516,9 @@ test('mergeSnappedPaths can merge a selected snapped pair from a path body targe
     redraw: () => calls.push(['redraw']),
     recordHistory: (before, label) => calls.push(['history', before.before, label]),
     showStatus: text => calls.push(['status', text]),
-  }), true);
+  }), false);
 
   assert.equal(state.selectedId, 30);
-  assert.deepEqual(plain(state.selectedIds), [30]);
-  assert.deepEqual(calls, [
-    ['selected-connection', '30,31', 30],
-    ['merge', 2, 31, 20],
-    ['set', 1, 30],
-    ['end-rotate'],
-    ['render-list'],
-    ['redraw'],
-    ['history', true, 'path merge'],
-    ['status', 'Merge Paths'],
-  ]);
+  assert.deepEqual(plain(state.selectedIds), [30, 31]);
+  assert.deepEqual(calls, []);
 });

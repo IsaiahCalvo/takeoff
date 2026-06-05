@@ -340,6 +340,40 @@ test('new Line and Freehand runs use the draft Path captured before selection ch
   });
 });
 
+test('new Line and Freehand runs accept chronological names and panel order from state', async () => {
+  const commands = await loadCommands();
+  const line = commands.createLineMeasurement({
+    id: 24,
+    points: [{ x: 0, y: 0 }, { x: 30, y: 40 }],
+    existingMeasurements: [{ id: 1, name: 'Run 1' }],
+    palette: ['cyan'],
+    page: 1,
+    pxPerInch: 10,
+    name: 'Run 4',
+    panelOrder: 4,
+  });
+  const freehand = commands.createFreehandMeasurement({
+    id: 25,
+    rawPoints: [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 40, y: 20 },
+      { x: 60, y: 20 },
+    ],
+    existingMeasurements: [line],
+    palette: ['cyan'],
+    page: 1,
+    pxPerInch: 10,
+    name: 'Run 5',
+    panelOrder: 5,
+  });
+
+  assert.equal(line.name, 'Run 4');
+  assert.equal(line.panelOrder, 4);
+  assert.equal(freehand.name, 'Run 5');
+  assert.equal(freehand.panelOrder, 5);
+});
+
 test('resizeMeasurementToLength halves a two-anchor Line and keeps the start anchor fixed', async () => {
   const commands = await loadCommands();
   const measurement = {
@@ -1749,7 +1783,7 @@ test('mergeSnappedEndpointPaths flattens repeated merge memory into one ordered 
     sourceEndpoint: 'end',
     targetId: 121,
     targetEndpoint: 'start',
-  }, { pxPerInch: 5 });
+  }, { pxPerInch: 5, mergeName: 'Merged Path 1' });
   const extra = linePath(122, [{ x: 20, y: 0 }, { x: 30, y: 0 }]);
   first.measurement.snapConnections = [{ endpoint: 'end', targetId: 122, targetEndpoint: 'start' }];
 
@@ -1758,13 +1792,91 @@ test('mergeSnappedEndpointPaths flattens repeated merge memory into one ordered 
     sourceEndpoint: 'end',
     targetId: 122,
     targetEndpoint: 'start',
-  }, { pxPerInch: 5 });
+  }, { pxPerInch: 5, mergeName: 'Merged Path 2' });
 
   assert.equal(second.merged, true);
+  assert.equal(second.measurement.name, 'Merged Path 2');
   assert.deepEqual(plain(second.measurement.mergeMemory.sources.map(source => source.original.id)), [120, 121, 122]);
   assert.equal(second.measurement.mergeMemory.sources.filter(source => source.original.mergeMemory).length, 0);
   assert.equal(second.measurement.mergeMemory.sources.length, 3);
   assert.deepEqual(plain(second.measurement.points), [{ x: 0, y: 0 }, { x: 30, y: 0 }]);
+
+  const unmerged = commands.unmergePaths(second.measurements, second.measurement.id, { mode: 'original', pxPerInch: 5 });
+  assert.deepEqual(plain(unmerged.measurements.map(measurement => measurement.name)), ['Line 120', 'Freehand 121', 'Line 122']);
+});
+
+test('mergeSnappedEndpointPaths names merged paths and unmerge restores original row order', async () => {
+  const commands = await loadCommands();
+  const first = linePath(300, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    name: 'Run 1',
+    panelOrder: 1,
+    snapConnections: [{ endpoint: 'end', targetId: 302, targetEndpoint: 'start' }],
+  });
+  const middle = linePath(301, [{ x: 100, y: 0 }, { x: 110, y: 0 }], {
+    name: 'Run 2',
+    panelOrder: 2,
+  });
+  const third = linePath(302, [{ x: 10, y: 0 }, { x: 20, y: 0 }], {
+    name: 'Run 3',
+    panelOrder: 3,
+  });
+
+  const merged = commands.mergeSnappedEndpointPaths([first, middle, third], {
+    sourceId: 300,
+    sourceEndpoint: 'end',
+    targetId: 302,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2, mergeName: 'Merged Path 1' });
+
+  assert.equal(merged.merged, true);
+  assert.equal(merged.measurement.name, 'Merged Path 1');
+  assert.equal(merged.measurement.panelOrder, 1);
+  assert.deepEqual(plain(merged.measurements.map(measurement => measurement.name)), ['Merged Path 1', 'Run 2']);
+  assert.deepEqual(plain(merged.measurement.mergeMemory.sources.map(source => ({
+    id: source.original.id,
+    panelOrder: source.panelOrder,
+  }))), [
+    { id: 300, panelOrder: 1 },
+    { id: 302, panelOrder: 3 },
+  ]);
+
+  const unmerged = commands.unmergePaths(merged.measurements, merged.measurement.id, {
+    mode: 'original',
+    pxPerInch: 2,
+  });
+
+  assert.equal(unmerged.unmerged, true);
+  assert.deepEqual(plain(unmerged.measurements.map(measurement => measurement.name)), ['Run 1', 'Run 2', 'Run 3']);
+});
+
+test('mergeSnappedEndpointPaths keeps chain endpoint snaps so merged paths can merge again', async () => {
+  const commands = await loadCommands();
+  const first = linePath(320, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 321, targetEndpoint: 'start' }],
+  });
+  const second = linePath(321, [{ x: 10, y: 0 }, { x: 20, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 322, targetEndpoint: 'start' }],
+  });
+  const third = linePath(322, [{ x: 20, y: 0 }, { x: 30, y: 0 }]);
+
+  const merged = commands.mergeSnappedEndpointPaths([first, second, third], {
+    sourceId: 320,
+    sourceEndpoint: 'end',
+    targetId: 321,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 5, mergeName: 'Merged Path 1' });
+
+  assert.equal(merged.merged, true);
+  assert.deepEqual(plain(commands.mergeConnectionForSelectedMeasurements({
+    measurements: merged.measurements,
+    selectedIds: [320, 322],
+    measurement: merged.measurement,
+  })), {
+    sourceId: 320,
+    sourceEndpoint: 'end',
+    targetId: 322,
+    targetEndpoint: 'start',
+  });
 });
 
 test('copy and paste preserve mixed merge memory and move portion boundaries', async () => {

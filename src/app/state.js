@@ -12,6 +12,89 @@
     return text || null;
   }
 
+  function positiveInteger(value, fallback = 1) {
+    const number = Number(value);
+    return Number.isInteger(number) && number > 0 ? number : fallback;
+  }
+
+  function measurementNameSet(measurements = []) {
+    return new Set((measurements || [])
+      .map(measurement => String(measurement?.name || '').trim().toLowerCase())
+      .filter(Boolean));
+  }
+
+  function allocateGeneratedMeasurementName(state, counterKey, label, measurements = state?.measurements) {
+    if (!state) return `${label} 1`;
+    const names = measurementNameSet(measurements);
+    let number = positiveInteger(state[counterKey], 1);
+    let name = `${label} ${number}`;
+    while (names.has(name.toLowerCase())) {
+      number += 1;
+      name = `${label} ${number}`;
+    }
+    state[counterKey] = number + 1;
+    return name;
+  }
+
+  function allocateRunName(state, measurements = state?.measurements) {
+    return allocateGeneratedMeasurementName(state, 'nextRunNumber', 'Run', measurements);
+  }
+
+  function allocateMergedPathName(state, measurements = state?.measurements) {
+    return allocateGeneratedMeasurementName(state, 'nextMergedPathNumber', 'Merged Path', measurements);
+  }
+
+  function allocateMeasurementPanelOrder(state) {
+    if (!state) return 1;
+    const panelOrder = positiveInteger(state.nextMeasurementPanelOrder, 1);
+    state.nextMeasurementPanelOrder = panelOrder + 1;
+    return panelOrder;
+  }
+
+  const RUN_NAME_PATTERN = /^Run\s+(\d+)$/i;
+  const MERGED_PATH_NAME_PATTERN = /^Merged Path\s+(\d+)$/i;
+
+  function nextNumberAfterGeneratedNames(measurements = [], pattern) {
+    let max = 0;
+    for (const measurement of measurements || []) {
+      const match = String(measurement?.name || '').trim().match(pattern);
+      const number = match ? Number(match[1]) : 0;
+      if (Number.isInteger(number) && number > max) max = number;
+    }
+    return max + 1;
+  }
+
+  function normalizeGeneratedNameCounter(savedValue, measurements, pattern) {
+    return Math.max(
+      positiveInteger(savedValue, 1),
+      nextNumberAfterGeneratedNames(measurements, pattern),
+    );
+  }
+
+  function normalizeMeasurementPanelOrders(measurements = []) {
+    const used = new Set();
+    let nextPanelOrder = 1;
+    return (measurements || []).map(measurement => {
+      const restored = measurement && typeof measurement === 'object' ? measurement : {};
+      let panelOrder = positiveInteger(restored.panelOrder, 0);
+      if (!panelOrder || used.has(panelOrder)) {
+        while (used.has(nextPanelOrder)) nextPanelOrder += 1;
+        panelOrder = nextPanelOrder;
+      }
+      used.add(panelOrder);
+      nextPanelOrder = Math.max(nextPanelOrder, panelOrder + 1);
+      return { ...restored, panelOrder };
+    });
+  }
+
+  function nextMeasurementPanelOrder(savedValue, measurements = []) {
+    const maxPanelOrder = (measurements || []).reduce((max, measurement) => {
+      const panelOrder = positiveInteger(measurement?.panelOrder, 0);
+      return panelOrder > max ? panelOrder : max;
+    }, 0);
+    return Math.max(positiveInteger(savedValue, 1), maxPanelOrder + 1);
+  }
+
   function visibilityBoolean(value) {
     if (typeof value === 'boolean') return value;
     const source = sourceObject(value);
@@ -156,6 +239,9 @@
       drawMode: 'line',
       freehandDraft: null,
       measurements: [],
+      nextRunNumber: 1,
+      nextMergedPathNumber: 1,
+      nextMeasurementPanelOrder: 1,
       hoverId: null,
       selectedId: null,
       selectedIds: [],
@@ -217,6 +303,9 @@
     state.panX = 0;
     state.panY = 0;
     state.measurements = [];
+    state.nextRunNumber = 1;
+    state.nextMergedPathNumber = 1;
+    state.nextMeasurementPanelOrder = 1;
     clearHistoryState(state);
     state.pageScales = {};
     state.pxPerInch = null;
@@ -256,7 +345,10 @@
     state.activeFitMode = doc.activeFitMode || null;
     state.pxPerInch = doc.pxPerInch || null;
     state.pageScales = { ...(doc.pageScales || {}) };
-    state.measurements = cloneValue(doc.measurements) || [];
+    state.measurements = normalizeMeasurementPanelOrders(cloneValue(doc.measurements) || []);
+    state.nextRunNumber = normalizeGeneratedNameCounter(doc.nextRunNumber, state.measurements, RUN_NAME_PATTERN);
+    state.nextMergedPathNumber = normalizeGeneratedNameCounter(doc.nextMergedPathNumber, state.measurements, MERGED_PATH_NAME_PATTERN);
+    state.nextMeasurementPanelOrder = nextMeasurementPanelOrder(doc.nextMeasurementPanelOrder, state.measurements);
     clearHistoryState(state);
     state.sidebarTab = doc.sidebarTab || 'page';
     state.collapsedPageGroups = { ...(doc.collapsedPageGroups || {}) };
@@ -309,6 +401,9 @@
     setMeasurementPathVisibility,
     isMeasurementVisibleForPathCategories,
     visibleMeasurementsForPathCategories,
+    allocateRunName,
+    allocateMergedPathName,
+    allocateMeasurementPanelOrder,
     createInitialState,
     clearHistoryState,
     resetDocumentState,

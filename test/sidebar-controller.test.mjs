@@ -330,6 +330,63 @@ test('Run Details controls dispatch the run row action', async () => {
   assert.deepEqual(plain(calls), ['stopped', 'prevented', '42', 'button']);
 });
 
+test('sidebar row selection uses canvas-style modifier selection', async () => {
+  const sidebar = await loadSidebarController();
+  const calls = [];
+  const state = { selectedId: 10, selectedIds: [10] };
+  const selection = {
+    selectFromClick(id, event) {
+      calls.push(`select:${id}:${event.shiftKey ? 'shift' : 'plain'}:${event.altKey ? 'alt' : 'no-alt'}`);
+      if (event.altKey || (event.shiftKey && state.selectedIds.includes(id))) {
+        state.selectedIds = state.selectedIds.filter(selectedId => selectedId !== id);
+        state.selectedId = state.selectedIds[0] ?? null;
+        return 'remove';
+      }
+      if (event.shiftKey) {
+        state.selectedIds = [...state.selectedIds, id];
+        return 'add';
+      }
+      if (state.selectedIds.includes(id)) return 'preserve';
+      state.selectedIds = [id];
+      state.selectedId = id;
+      return 'single';
+    },
+  };
+
+  assert.equal(sidebar.selectMeasurementRowFromSidebar({
+    measurementId: 11,
+    event: { shiftKey: true, altKey: false },
+    selection,
+    renderList: () => calls.push('render-list'),
+    syncSidebarSelection: () => calls.push('sync-selection'),
+    redraw: () => calls.push('redraw'),
+  }), 'add');
+
+  assert.deepEqual(plain(state), { selectedId: 10, selectedIds: [10, 11] });
+  assert.deepEqual(plain(calls), [
+    'select:11:shift:no-alt',
+    'render-list',
+    'redraw',
+  ]);
+
+  calls.length = 0;
+  assert.equal(sidebar.selectMeasurementRowFromSidebar({
+    measurementId: 11,
+    event: { shiftKey: true, altKey: false, target: { tagName: 'INPUT' } },
+    selection,
+    renderList: () => calls.push('render-list'),
+    syncSidebarSelection: () => calls.push('sync-selection'),
+    redraw: () => calls.push('redraw'),
+  }), 'remove');
+
+  assert.deepEqual(plain(state), { selectedId: 10, selectedIds: [10] });
+  assert.deepEqual(plain(calls), [
+    'select:11:shift:no-alt',
+    'sync-selection',
+    'redraw',
+  ]);
+});
+
 test('revealMeasurementRow expands the containing Path group and scrolls the exact run row', async () => {
   const sidebar = await loadSidebarController();
   const events = [];

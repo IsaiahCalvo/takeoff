@@ -228,6 +228,17 @@
     return text || fallbackMeasurementName(existingMeasurements, measurement);
   }
 
+  function numericPanelOrder(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function measurementPanelOrder(measurement, fallback = null) {
+    const panelOrder = numericPanelOrder(measurement?.panelOrder);
+    if (panelOrder != null) return panelOrder;
+    return numericPanelOrder(fallback);
+  }
+
   function saveMeasurementRunDetails(measurements, measurementId, details) {
     const list = measurements || [];
     const index = list.findIndex(measurement => measurement && measurement.id === measurementId);
@@ -250,16 +261,18 @@
     return (total - anchorClearancePx) / total;
   }
 
-  function createLineMeasurement({ id, points, existingMeasurements, palette, page, pxPerInch, activePath }) {
+  function createLineMeasurement({ id, points, existingMeasurements, palette, page, pxPerInch, activePath, name, panelOrder }) {
     const clonedPoints = clonePoints(points);
     const lengthPx = geometry.polylineLengthPx(clonedPoints);
     const pathSnapshot = selectedPathSnapshot(activePath);
     const color = colorFromPathSnapshot(pathSnapshot, nextMeasurementColor(existingMeasurements, palette));
+    const assignedPanelOrder = numericPanelOrder(panelOrder);
     return {
       id,
-      name: `Run ${(existingMeasurements || []).length + 1}`,
+      name: cleanMeasurementName(existingMeasurements, name, { id }),
       color,
       ...(pathSnapshot || {}),
+      ...(assignedPanelOrder != null ? { panelOrder: assignedPanelOrder } : {}),
       drawType: 'line',
       shape: measurementModel.createShapeMetadata('line'),
       points: clonedPoints,
@@ -279,6 +292,8 @@
     pxPerInch,
     constrainGeometry,
     activePath,
+    name,
+    panelOrder,
   }) {
     const raw = rawPoints || [];
     if (raw.length < 2 || geometry.polylineLengthPx(raw) < 2) return null;
@@ -293,11 +308,13 @@
     const lengthPx = measurementModel.measurementLengthPx({ segments });
     const pathSnapshot = selectedPathSnapshot(activePath);
     const color = colorFromPathSnapshot(pathSnapshot, nextMeasurementColor(existingMeasurements, palette));
+    const assignedPanelOrder = numericPanelOrder(panelOrder);
     return {
       id,
-      name: `Run ${(existingMeasurements || []).length + 1}`,
+      name: cleanMeasurementName(existingMeasurements, name, { id }),
       color,
       ...(pathSnapshot || {}),
+      ...(assignedPanelOrder != null ? { panelOrder: assignedPanelOrder } : {}),
       drawType: 'freehand',
       shape: measurementModel.createShapeMetadata('freehand'),
       points: clonePoints(points),
@@ -773,7 +790,7 @@
     };
   }
 
-  function sourcePortionsForMeasurement(measurement, { reverse = false, connection = null } = {}) {
+  function sourcePortionsForMeasurement(measurement, { reverse = false, connection = null, panelOrder = null } = {}) {
     const existing = measurement?.mergeMemory?.sources;
     let portions = Array.isArray(existing) && existing.length
       ? existing.map(cloneSourcePortion)
@@ -786,6 +803,7 @@
           kind: portion.kind,
           current: portion.current,
           reversed: false,
+          panelOrder: measurementPanelOrder(measurement, panelOrder),
           boundary: sourceBoundary(portion.current),
         };
       })()];
@@ -794,6 +812,7 @@
       ...portion,
       connection: connection ? cloneValue(connection) : portion.connection || null,
       order,
+      panelOrder: measurementPanelOrder(portion, measurementPanelOrder(portion.original, panelOrder)),
       boundary: sourceBoundary(portion.current),
     }));
   }
@@ -840,18 +859,124 @@
     return true;
   }
 
-  function removeSnapConnectionsForMergedIds(measurements, mergedIds) {
-    for (const measurement of measurements || []) {
-      if (!measurement) continue;
-      if (mergedIds.has(measurement.id)) {
-        measurement.snapConnections = [];
-        continue;
-      }
-      measurement.snapConnections = (measurement.snapConnections || []).filter(connection => !mergedIds.has(connection.targetId));
-    }
+  function oppositeEndpoint(endpoint) {
+    if (endpoint === 'start') return 'end';
+    if (endpoint === 'end') return 'start';
+    return null;
   }
 
-  function mergeSnappedEndpointPaths(measurementList, connection, { pxPerInch } = {}) {
+  function snapEndpointKey(id, endpoint) {
+    return `${String(id)}:${endpoint}`;
+  }
+
+  function dedupeSnapConnections(connections) {
+    const seen = new Set();
+    const result = [];
+    for (const connection of connections || []) {
+      if (!connection) continue;
+      const key = `${connection.endpoint}:${String(connection.targetId)}:${connection.targetEndpoint}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      result.push(connection);
+    }
+    return result;
+  }
+
+  function remapSnapConnectionsForMergedPath(measurements, source, target, sourceEndpoint, targetEndpoint) {
+    const list = measurements || [];
+    const sourceId = source?.id;
+    const targetId = target?.id;
+    const sourceOuterEndpoint = oppositeEndpoint(sourceEndpoint);
+    const targetOuterEndpoint = oppositeEndpoint(targetEndpoint);
+    const endpointMap = new Map();
+    if (sourceId != null && sourceOuterEndpoint) {
+      endpointMap.set(
+        snapEndpointKey(sourceId, sourceOuterEndpoint),
+        sourceEndpoint === 'end' ? 'start' : 'end',
+      );
+    }
+    if (targetId != null && targetOuterEndpoint) {
+      endpointMap.set(
+        snapEndpointKey(targetId, targetOuterEndpoint),
+        sourceEndpoint === 'end' ? 'end' : 'start',
+      );
+    }
+
+    const mergedIds = new Set([sourceId, targetId].filter(id => id != null).map(String));
+    const byId = id => list.find(item => item && String(item.id) === String(id));
+    const mappedMergedEndpoint = (id, endpoint) => endpointMap.get(snapEndpointKey(id, endpoint)) || null;
+    const sourceConnections = [];
+
+    for (const original of [source, target]) {
+      for (const connection of original?.snapConnections || []) {
+        const mappedEndpoint = mappedMergedEndpoint(original.id, connection.endpoint);
+        if (!mappedEndpoint || mergedIds.has(String(connection.targetId))) continue;
+        const other = byId(connection.targetId);
+        if (
+          other
+          && isEndpoint(connection.targetEndpoint)
+          && connectionMatchesGeometry(source, mappedEndpoint, other, connection.targetEndpoint)
+        ) {
+          sourceConnections.push({
+            endpoint: mappedEndpoint,
+            targetId: connection.targetId,
+            targetEndpoint: connection.targetEndpoint,
+          });
+        }
+      }
+    }
+
+    for (const measurement of list) {
+      if (!measurement) continue;
+      if (String(measurement.id) === String(sourceId)) continue;
+      const nextConnections = [];
+      for (const connection of measurement.snapConnections || []) {
+        const mappedTargetEndpoint = mappedMergedEndpoint(connection.targetId, connection.targetEndpoint);
+        if (mappedTargetEndpoint) {
+          if (
+            isEndpoint(connection.endpoint)
+            && connectionMatchesGeometry(measurement, connection.endpoint, source, mappedTargetEndpoint)
+          ) {
+            nextConnections.push({
+              endpoint: connection.endpoint,
+              targetId: sourceId,
+              targetEndpoint: mappedTargetEndpoint,
+            });
+          }
+        } else if (!mergedIds.has(String(connection.targetId))) {
+          nextConnections.push(connection);
+        }
+      }
+      measurement.snapConnections = dedupeSnapConnections(nextConnections);
+    }
+
+    source.snapConnections = dedupeSnapConnections(sourceConnections);
+  }
+
+  function minPanelOrder(portions, fallback = null) {
+    const orders = (portions || [])
+      .map(portion => measurementPanelOrder(portion))
+      .filter(order => order != null);
+    return orders.length ? Math.min(...orders) : measurementPanelOrder(null, fallback);
+  }
+
+  function restoreSourcePanelOrder(measurement, source) {
+    const panelOrder = measurementPanelOrder(source, measurementPanelOrder(source?.original));
+    return panelOrder == null ? measurement : { ...measurement, panelOrder };
+  }
+
+  function sortMeasurementsByPanelOrder(measurements) {
+    return (measurements || [])
+      .map((measurement, index) => ({
+        measurement,
+        index,
+        panelOrder: measurementPanelOrder(measurement, index),
+      }))
+      .sort((a, b) => (a.panelOrder - b.panelOrder) || (a.index - b.index))
+      .map(item => item.measurement);
+  }
+
+  function mergeSnappedEndpointPaths(measurementList, connection, { pxPerInch, mergeName = null } = {}) {
     const list = measurementList || [];
     const sourceIndex = list.findIndex(measurement => measurement.id === connection?.sourceId);
     const targetIndex = list.findIndex(measurement => measurement.id === connection?.targetId);
@@ -874,25 +999,33 @@
       targetId: target.id,
       targetEndpoint,
     };
-    const sourcePortions = sourcePortionsForMeasurement(source, { connection: connectionSnapshot });
+    const sourcePortions = sourcePortionsForMeasurement(source, {
+      connection: connectionSnapshot,
+      panelOrder: measurementPanelOrder(source, sourceIndex),
+    });
     const targetPortions = sourcePortionsForMeasurement(target, {
       reverse: sourceEndpoint === targetEndpoint,
       connection: connectionSnapshot,
+      panelOrder: measurementPanelOrder(target, targetIndex),
     });
     const portions = sourceEndpoint === 'end'
       ? [...sourcePortions, ...targetPortions]
       : [...targetPortions, ...sourcePortions];
-    const merged = applyMergedPortions(source, portions.map((portion, order) => ({
+    const orderedPortions = portions.map((portion, order) => ({
       ...portion,
       order,
       boundary: sourceBoundary(portion.current),
-    })));
+    }));
+    const merged = applyMergedPortions(source, orderedPortions);
     if (!merged) return { merged: false, measurements: list, measurement: source };
 
+    const cleanMergeName = String(mergeName || '').trim();
+    if (cleanMergeName) source.name = cleanMergeName;
+    const mergedPanelOrder = minPanelOrder(orderedPortions, sourceIndex);
+    if (mergedPanelOrder != null) source.panelOrder = mergedPanelOrder;
     finalizeMeasurementGeometry(source, { pxPerInch });
-    const mergedIds = new Set([source.id, target.id]);
     const nextMeasurements = list.filter(measurement => measurement.id !== target.id);
-    removeSnapConnectionsForMergedIds(nextMeasurements, mergedIds);
+    remapSnapConnectionsForMergedPath(nextMeasurements, source, target, sourceEndpoint, targetEndpoint);
     return { merged: true, measurements: nextMeasurements, measurement: source };
   }
 
@@ -1246,14 +1379,15 @@
       return { unmerged: false, measurements: list, measurement, reason: state.maintainEditsReason };
     }
     const maintainedSources = mode === 'maintain-edits' ? maintainedSourcesForMeasurement(measurement, sources) : null;
-    const restored = mode === 'maintain-edits'
+    const restored = (mode === 'maintain-edits'
       ? maintainedSources.map(source => measurementFromMaintainedSource(source, { pxPerInch }))
-      : sources.map(sourceOriginalMeasurement);
-    const measurements = [
+      : sources.map(sourceOriginalMeasurement))
+      .map((restoredMeasurement, sourceIndex) => restoreSourcePanelOrder(restoredMeasurement, sources[sourceIndex]));
+    const measurements = sortMeasurementsByPanelOrder([
       ...list.slice(0, index),
-      ...restored,
       ...list.slice(index + 1),
-    ];
+      ...restored,
+    ]);
     return {
       unmerged: true,
       measurements,

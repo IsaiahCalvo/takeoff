@@ -61,18 +61,52 @@ test('index delegates app startup to one module entrypoint', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
-  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=unmerge-flow-1"><\/script>/);
+  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=measure-fix-1"><\/script>/);
+  assert.doesNotMatch(html, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
   assert.doesNotMatch(html, /<script src="src\/app\/pointer-controller\.js"><\/script>/);
   assert.doesNotMatch(html, /<script>\s*pdfjsLib\.GlobalWorkerOptions/);
+  assert.match(main, /import \* as pdfjsLib from 'pdfjs-dist\/build\/pdf\.js';/);
+  assert.match(main, /import pdfWorkerUrl from 'pdfjs-dist\/build\/pdf\.worker\.min\.js\?url';/);
   assert.match(main, /import '\.\/export-utils\.js';/);
   assert.match(main, /import '\.\/app\/path-aggregation\.js';/);
   assert.match(main, /import '\.\/app\/sidebar\.js\?v=single-page-tabs-1';/);
   assert.match(main, /import '\.\/app\/sidebar-view\.js\?v=single-page-tabs-1';/);
-  assert.match(main, /import '\.\/app\/sidebar-controller\.js\?v=single-page-tabs-1';/);
+  assert.match(main, /import '\.\/app\/sidebar-controller\.js\?v=sidebar-row-selection-1';/);
+  assert.match(main, /import '\.\/app\/state\.js\?v=merge-name-counters-1';/);
+  assert.match(main, /import '\.\/app\/measurement-commands\.js\?v=merge-chain-snaps-1';/);
+  assert.match(main, /import '\.\/app\/context-menu-controller\.js\?v=merge-feature-hidden-1';/);
+  assert.match(main, /import '\.\/app\/document-store\.js\?v=merge-name-counters-1';/);
+  assert.match(main, /import '\.\/app\/history\.js\?v=merge-name-counters-1';/);
   assert.match(main, /import '\.\/app\/path-style-renderer\.js\?v=preview-panel-icon-1';/);
   assert.match(main, /import '\.\/app\/unmerge-path-modal\.js\?v=unmerge-auto-1';/);
   assert.match(main, /import '\.\/app\/pointer-controller\.js';/);
-  assert.match(main, /const pdfjsLib = window\.pdfjsLib;/);
+  assert.match(main, /pdfjsLib\.GlobalWorkerOptions\.workerSrc = pdfWorkerUrl;/);
+});
+
+test('main routes sidebar row clicks through shared selection behavior', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(main, /sidebarController\.selectMeasurementRowFromSidebar\(/);
+  assert.doesNotMatch(main, /item\.addEventListener\('click'[\s\S]*?selection\.selectSingle\(m\.id\);[\s\S]*?\}\);/);
+});
+
+test('main allocates chronological names and panel order for new and merged paths', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(main, /name:\s*stateStore\.allocateRunName\(state\)/);
+  assert.match(main, /panelOrder:\s*stateStore\.allocateMeasurementPanelOrder\(state\)/);
+  assert.match(main, /nextMergedPathName:\s*\(\)\s*=>\s*stateStore\.allocateMergedPathName\(state\)/);
+});
+
+test('main keeps merge and unmerge context actions behind the parked feature flag', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const controller = await readFile(new URL('../src/app/context-menu-controller.js', import.meta.url), 'utf8');
+
+  assert.match(controller, /const MERGE_PATHS_FEATURE_ENABLED = false;/);
+  assert.match(controller, /mergePathsFeatureEnabled:\s*\(\)\s*=>\s*MERGE_PATHS_FEATURE_ENABLED/);
+  assert.match(main, /mergePathsFeatureEnabled\s*=\s*\(\)\s*=>\s*contextMenuController\.mergePathsFeatureEnabled\?\.\(\) === true/);
+  assert.match(main, /action === 'merge-paths' && mergePathsFeatureEnabled\(\)/);
+  assert.match(main, /action === 'unmerge-paths' && mergePathsFeatureEnabled\(\)/);
 });
 
 test('index stays a small app shell instead of owning app logic', async () => {
@@ -228,8 +262,8 @@ test('context menu exposes only Line and Freehand conversion wording', async () 
 
   assert.match(contextMenu, /data-action="convert-to-line"[^>]*>Convert to Line<\/button>/);
   assert.match(contextMenu, /data-action="convert-to-freehand"[^>]*>Convert to Freehand<\/button>/);
-  assert.match(contextMenu, /data-action="merge-paths"[^>]*>Merge Paths<\/button>/);
-  assert.match(contextMenu, /data-action="unmerge-paths"[^>]*>Unmerge Paths<\/button>/);
+  assert.match(contextMenu, /data-action="merge-paths" hidden>Merge Paths<\/button>/);
+  assert.match(contextMenu, /data-action="unmerge-paths" hidden>Unmerge Paths<\/button>/);
   assert.match(html, /id="unmergePathModal"/);
   assert.match(html, />Unmerge to original<\/button>/);
   assert.match(html, />Unmerge and maintain edits<\/button>/);

@@ -90,6 +90,65 @@ test('resolveSnapPoint uses snapped path target when Snap to paths is on', async
   });
 });
 
+test('resolvePointerSnapPreview snaps the visible cursor and reports feedback changes', async () => {
+  const workflow = await loadPointerWorkflow();
+  const state = {
+    snapToPaths: true,
+    mode: 'measure',
+    cursorImg: { x: 9, y: 4 },
+    snapFeedback: null,
+    inProgress: { page: 2, points: [{ x: 0, y: 0 }], continuation: { measurementId: 12 } },
+  };
+  const calls = [];
+
+  const result = workflow.resolvePointerSnapPreview({
+    state,
+    rawStackPoint: { x: 9, y: 4 },
+    shiftKey: true,
+    placementPointInfo(point, opts) {
+      calls.push({ point, opts });
+      state.snapFeedback = { kind: 'centerline', measurementId: 7, point: { x: 10, y: 0 } };
+      return { page: 2, point: { x: 10, y: 0 } };
+    },
+    stackPointForPage(page, point) {
+      return { x: point.x, y: point.y + page * 100 };
+    },
+  });
+
+  assert.equal(result.changed, true);
+  assert.deepEqual(plain(result.cursorImg), { x: 10, y: 200 });
+  assert.equal(workflow.shouldShowSnappedCursor({ ...state, cursorImg: result.cursorImg }), true);
+  assert.deepEqual(plain(calls[0].opts), {
+    page: 2,
+    previous: { x: 0, y: 0 },
+    shiftKey: true,
+    excludeMeasurementIds: [12],
+  });
+});
+
+test('resolvePointerSnapPreview clears stale feedback outside placement modes', async () => {
+  const workflow = await loadPointerWorkflow();
+  const state = {
+    snapToPaths: true,
+    mode: 'selection',
+    cursorImg: { x: 1, y: 1 },
+    snapFeedback: { kind: 'anchor', measurementId: 3, point: { x: 1, y: 1 } },
+  };
+
+  const result = workflow.resolvePointerSnapPreview({
+    state,
+    rawStackPoint: { x: 1, y: 1 },
+    placementPointInfo() {
+      throw new Error('placementPointInfo should not be called outside placement modes');
+    },
+  });
+
+  assert.equal(result.changed, true);
+  assert.equal(result.cursorImg, null);
+  assert.equal(state.snapFeedback, null);
+  assert.equal(workflow.shouldShowSnappedCursor(state), false);
+});
+
 test('createRotationDrag clones editable geometry and captures rotation start state', async () => {
   const workflow = await loadPointerWorkflow();
   const measurement = {
