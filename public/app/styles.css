@@ -2325,6 +2325,10 @@ body.no-document .path-dock-root {
   background: #111619;
   box-shadow: 0 18px 40px rgba(0,0,0,0.48);
   z-index: 80;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 .context-menu.show { display: grid; gap: 2px; }
 .context-menu button {

@@ -32,9 +32,52 @@ function createContextMenu() {
   };
 }
 
+function createPositionedContextMenu({ width, height }) {
+  return {
+    style: {},
+    getBoundingClientRect() {
+      return { width, height };
+    },
+  };
+}
+
 function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
+
+test('positionContextMenu clamps the rendered menu inside the viewport', async () => {
+  const { controller } = await loadController();
+  const menu = createPositionedContextMenu({ width: 160, height: 320 });
+
+  const position = controller.positionContextMenu({
+    contextMenu: menu,
+    clientX: 490,
+    clientY: 390,
+    viewportWidth: 500,
+    viewportHeight: 400,
+  });
+
+  assert.deepEqual(plain(position), { left: 332, top: 72, width: 160, height: 320 });
+  assert.equal(menu.style.left, '332px');
+  assert.equal(menu.style.top, '72px');
+});
+
+test('positionContextMenu keeps oversized menus anchored in the visible viewport', async () => {
+  const { controller } = await loadController();
+  const menu = createPositionedContextMenu({ width: 700, height: 600 });
+
+  const position = controller.positionContextMenu({
+    contextMenu: menu,
+    clientX: 490,
+    clientY: 390,
+    viewportWidth: 500,
+    viewportHeight: 400,
+  });
+
+  assert.deepEqual(plain(position), { left: 8, top: 8, width: 700, height: 600 });
+  assert.equal(menu.style.left, '8px');
+  assert.equal(menu.style.top, '8px');
+});
 
 test('conversionMenuState exposes only Convert to Line for Freehand measurements', async () => {
   const { controller, measurements } = await loadController();

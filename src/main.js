@@ -388,9 +388,8 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
   contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target, measurements: state.measurements });
   contextMenuController.applyVisibilityMenuState({ contextMenu, measurement: targetedMeasurement, state, stateStore });
-  contextMenu.style.left = `${Math.min(clientX, window.innerWidth - 170)}px`;
-  contextMenu.style.top = `${Math.min(clientY, window.innerHeight - 220)}px`;
   contextMenu.classList.add('show');
+  contextMenuController.positionContextMenu({ contextMenu, clientX, clientY, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight });
 }
 
 function applyTransform() {

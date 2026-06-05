@@ -26,6 +26,31 @@
     button.disabled = !visible;
   }
 
+  function clamp(value, min, max) {
+    const safeMax = Math.max(min, max);
+    return Math.min(Math.max(value, min), safeMax);
+  }
+
+  function contextMenuSize(contextMenu) {
+    const rect = contextMenu?.getBoundingClientRect?.();
+    return {
+      width: Math.ceil(rect?.width || contextMenu?.offsetWidth || 0),
+      height: Math.ceil(rect?.height || contextMenu?.offsetHeight || 0),
+    };
+  }
+
+  function positionContextMenu({ contextMenu, clientX = 0, clientY = 0, viewportWidth, viewportHeight, margin = 8 } = {}) {
+    if (!contextMenu) return { left: clientX, top: clientY, width: 0, height: 0 };
+    const width = Number.isFinite(viewportWidth) ? viewportWidth : window.innerWidth;
+    const height = Number.isFinite(viewportHeight) ? viewportHeight : window.innerHeight;
+    const size = contextMenuSize(contextMenu);
+    const left = clamp(clientX, margin, width - size.width - margin);
+    const top = clamp(clientY, margin, height - size.height - margin);
+    contextMenu.style.left = `${left}px`;
+    contextMenu.style.top = `${top}px`;
+    return { left, top, ...size };
+  }
+
   function applyConversionMenuState({ contextMenu, measurement, measurementModel, measurementCommands, target, measurements } = {}) {
     const state = conversionMenuState({ measurement, measurementModel, measurementCommands, target, measurements });
     setButtonState(contextMenu?.querySelector('[data-action="convert-to-line"]'), state.canConvertToLine);
@@ -293,6 +318,7 @@
 
   window.TakeoffContextMenuController = {
     conversionMenuState,
+    positionContextMenu,
     applyConversionMenuState,
     applyVisibilityMenuState,
     beginContinuePath,
