@@ -17,7 +17,11 @@
   }
 
   function shouldRedrawForShift(state) {
-    return !!(state.inProgressPointCount || (state.mode === 'selection' && state.selectedId != null));
+    return !!(state.inProgressPointCount || (state.mode === 'selection' && hasSelection(state)));
+  }
+
+  function hasSelection(state = {}) {
+    return state.selectedId != null || !!state.selectedIds?.length;
   }
 
   function describeKeyDown(event, state = {}) {
@@ -45,7 +49,7 @@
     if (event.key === 'Enter' && state.mode === 'measure' && state.inProgressPointCount >= 2) {
       return { action: 'finish-measurement' };
     }
-    if ((event.key === 'Delete' || event.key === 'Backspace') && state.mode === 'selection' && state.selectedId != null) {
+    if ((event.key === 'Delete' || event.key === 'Backspace') && state.mode === 'selection' && hasSelection(state)) {
       return { action: 'delete-selection', preventDefault: true };
     }
 

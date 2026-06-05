@@ -52,9 +52,14 @@ test('describeKeyDown maps modal keys from current input state', async () => {
     preventDefault: true,
   });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'Shift' }, { mode: 'selection', selectedId: 2 })), { action: 'shift-down', redraw: true });
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'Shift' }, { mode: 'selection', selectedIds: [2, 3] })), { action: 'shift-down', redraw: true });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'Escape' }, {})), { action: 'escape' });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'Enter' }, { mode: 'measure', inProgressPointCount: 2 })), { action: 'finish-measurement' });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'Delete' }, { mode: 'selection', selectedId: 2 })), {
+    action: 'delete-selection',
+    preventDefault: true,
+  });
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'Backspace' }, { mode: 'selection', selectedIds: [2, 3] })), {
     action: 'delete-selection',
     preventDefault: true,
   });
@@ -100,6 +105,10 @@ test('describeKeyUp maps space and shift release actions', async () => {
     stopPanning: true,
   });
   assert.deepEqual(plain(input.describeKeyUp({ key: 'Shift' }, { mode: 'selection', selectedId: 2 })), {
+    action: 'shift-up',
+    redraw: true,
+  });
+  assert.deepEqual(plain(input.describeKeyUp({ key: 'Shift' }, { mode: 'selection', selectedIds: [2, 3] })), {
     action: 'shift-up',
     redraw: true,
   });

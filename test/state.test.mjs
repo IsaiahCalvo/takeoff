@@ -99,6 +99,8 @@ test('resetDocumentState clears active document data while preserving app-level 
   state.inProgress = { points: [] };
   state.freehandDraft = { rawPoints: [] };
   state.selectedId = 1;
+  state.selectedIds = [1, 2];
+  state.marqueeSelection = { active: true };
   state.dragLabel = { measurementId: 1 };
   state.pageCache.set(1, { page: 1 });
   state.preRenderQueue = [2, 3];
@@ -139,6 +141,8 @@ test('resetDocumentState clears active document data while preserving app-level 
   assert.equal(state.inProgress, null);
   assert.equal(state.freehandDraft, null);
   assert.equal(state.selectedId, null);
+  assert.deepEqual(plain(state.selectedIds), []);
+  assert.equal(state.marqueeSelection, null);
   assert.equal(state.dragLabel, null);
   assert.equal(state.pageCache.size, 0);
   assert.deepEqual(plain(state.preRenderQueue), []);
@@ -164,6 +168,8 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   state.inProgress = { points: [] };
   state.freehandDraft = { rawPoints: [] };
   state.selectedId = 3;
+  state.selectedIds = [3, 4];
+  state.marqueeSelection = { active: true };
   state.dragLabel = { measurementId: 3 };
   state.pathTemplates = [{
     id: 'template-2',
@@ -263,6 +269,8 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.inProgress, null);
   assert.equal(state.freehandDraft, null);
   assert.equal(state.selectedId, null);
+  assert.deepEqual(plain(state.selectedIds), []);
+  assert.equal(state.marqueeSelection, null);
   assert.equal(state.dragLabel, null);
   assert.deepEqual(plain(state.pathTemplates), [{
     id: 'template-2',
@@ -387,10 +395,17 @@ test('measurement state helpers replace and clear measurements with selection ow
   store.setMeasurements(state, [{ id: 2 }], { selectedId: 2 });
   assert.deepEqual(plain(state.measurements), [{ id: 2 }]);
   assert.equal(state.selectedId, 2);
+  assert.deepEqual(plain(state.selectedIds), [2]);
+
+  store.setMeasurements(state, [{ id: 2 }, { id: 3 }], { selectedId: 2, selectedIds: [2, 3] });
+  assert.deepEqual(plain(state.measurements), [{ id: 2 }, { id: 3 }]);
+  assert.equal(state.selectedId, 2);
+  assert.deepEqual(plain(state.selectedIds), [2, 3]);
 
   store.clearMeasurements(state);
   assert.deepEqual(plain(state.measurements), []);
   assert.equal(state.selectedId, null);
+  assert.deepEqual(plain(state.selectedIds), []);
   assert.equal(state.rotateModeId, null);
   assert.equal(state.rotationHandleHitbox, null);
   assert.equal(state.rotationInputVisible, false);

@@ -53,7 +53,7 @@ test('index uses relative local asset paths for GitHub Pages subpath deploys', a
 test('index keeps app shell styles in an external stylesheet', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<link rel="stylesheet" href="\.\/app\/styles\.css\?v=single-page-tabs-1" \/>/);
+  assert.match(html, /<link rel="stylesheet" href="\.\/app\/styles\.css\?v=[^"]+" \/>/);
   assert.doesNotMatch(html, /<style>/);
 });
 
@@ -61,7 +61,7 @@ test('index delegates app startup to one module entrypoint', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
-  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=single-page-tabs-1"><\/script>/);
+  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=[^"]+"><\/script>/);
   assert.doesNotMatch(html, /<script src="src\/app\/pointer-controller\.js"><\/script>/);
   assert.doesNotMatch(html, /<script>\s*pdfjsLib\.GlobalWorkerOptions/);
   assert.match(main, /import '\.\/export-utils\.js';/);
@@ -703,7 +703,7 @@ test('canvas length labels expose a chevron-only navigation path to the selected
   assert.match(labelNavHoverRule, /opacity:\s*1/);
   assert.match(mousedownHandler, /lengthLabelNavigationTarget\(e\.target\)/);
   assert.match(mousedownHandler, /navigateLengthLabelToSidebar\(labelNavTarget\)[\s\S]*return;/);
-  assert.match(main, /state\.selectedId = measurement\.id;/);
+  assert.match(main, /selection\.selectSingle\(measurement\.id\)/);
   assert.match(main, /revealMeasurementInSidebar\(measurement\)/);
   assert.match(main, /isMeasurementVisibleForPathCategories\(measurement\)/);
   assert.match(main, /const fallbackTab = measurement\?\.page === currentPage\(\) \? 'page' : 'all';/);

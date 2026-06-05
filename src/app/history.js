@@ -9,6 +9,7 @@
       pageScales: cloneValue(source.pageScales) || {},
       pxPerInch: source.pxPerInch,
       selectedId: source.selectedId,
+      selectedIds: cloneValue(source.selectedIds) || (source.selectedId != null ? [source.selectedId] : []),
       copiedMeasurement: cloneValue(source.copiedMeasurement),
       rotateModeId: source.rotateModeId,
     };
@@ -33,6 +34,7 @@
     state.pageScales = cloneValue(snapshot.pageScales) || {};
     state.pxPerInch = state.pageScales[currentPage] || null;
     state.selectedId = snapshot.selectedId ?? null;
+    state.selectedIds = cloneValue(snapshot.selectedIds) || (state.selectedId != null ? [state.selectedId] : []);
     state.copiedMeasurement = cloneValue(snapshot.copiedMeasurement);
     state.rotateModeId = snapshot.rotateModeId ?? null;
     state.inProgress = null;
@@ -40,6 +42,7 @@
     state.dragVertex = null;
     state.dragMeasurement = null;
     state.dragLabel = null;
+    state.marqueeSelection = null;
     state.rotationDrag = null;
     state.snapFeedback = null;
     state.rotationInputVisible = false;

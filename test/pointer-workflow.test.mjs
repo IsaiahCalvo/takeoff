@@ -250,6 +250,39 @@ test('applyMeasurementDrag moves mixed path merge memory with visible endpoints'
   assert.deepEqual(plain(measurement.mergeMemory.sources[1].current.segments[0].to), { x: 24, y: 6 });
 });
 
+test('applyMeasurementGroupDrag moves every selected measurement by one shared delta', async () => {
+  const workflow = await loadPointerWorkflow();
+  const first = {
+    id: 1,
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+    rotationFrame: { x: 0, y: 0, width: 10, height: 1, cx: 5, cy: 0.5 },
+  };
+  const second = {
+    id: 2,
+    points: [{ x: 30, y: 20 }, { x: 40, y: 20 }],
+    rotationFrame: { x: 30, y: 20, width: 10, height: 1, cx: 35, cy: 20.5 },
+  };
+  const drag = workflow.createMeasurementGroupDrag({
+    measurements: [first, second],
+    pointer: { x: 4, y: 5 },
+    historyBefore: { before: true },
+    bounds: { x: 0, y: 0, width: 40, height: 21 },
+  });
+
+  const result = workflow.applyMeasurementGroupDrag({
+    measurements: [first, second],
+    drag,
+    cursor: { x: 14, y: 2 },
+    constrainDelta: () => ({ dx: 8, dy: -2 }),
+  });
+
+  assert.deepEqual(plain(result), { dx: 8, dy: -2, movedIds: [1, 2] });
+  assert.deepEqual(plain(first.points), [{ x: 8, y: -2 }, { x: 18, y: -2 }]);
+  assert.deepEqual(plain(second.points), [{ x: 38, y: 18 }, { x: 48, y: 18 }]);
+  assert.deepEqual(plain(first.rotationFrame), { x: 8, y: -2, width: 10, height: 1, cx: 13, cy: -1.5 });
+  assert.deepEqual(plain(second.rotationFrame), { x: 38, y: 18, width: 10, height: 1, cx: 43, cy: 18.5 });
+});
+
 test('applyRotationDrag rotates geometry, snaps when shifted, and rebuilds the frame', async () => {
   const workflow = await loadPointerWorkflow();
   const measurement = {

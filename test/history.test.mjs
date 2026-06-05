@@ -73,6 +73,7 @@ function baseState() {
     pageScales: { 1: 2 },
     pxPerInch: 2,
     selectedId: 1,
+    selectedIds: [1, 2],
     copiedMeasurement: {
       id: 1,
       points: [{ x: 0, y: 0 }],
@@ -108,6 +109,7 @@ test('createHistorySnapshot clones editable state', async () => {
   state.measurements[0].shape.previousFreehand.points[0].x = 77;
   state.measurements[0].runDetails.photos[0].metadata.tags.push('mutated');
   state.pageScales[1] = 10;
+  state.selectedIds.push(3);
   state.copiedMeasurement.points[0].x = 42;
   state.copiedMeasurement.shape.previousLine.points[0].x = 66;
 
@@ -119,6 +121,7 @@ test('createHistorySnapshot clones editable state', async () => {
     videos: [],
   });
   assert.equal(snapshot.pageScales[1], 2);
+  assert.deepEqual(plain(snapshot.selectedIds), [1, 2]);
   assert.equal(snapshot.copiedMeasurement.points[0].x, 0);
   assert.equal(snapshot.copiedMeasurement.shape.previousLine.points[0].x, 0);
 });
@@ -170,6 +173,7 @@ test('applyHistorySnapshot restores history-owned state and clears transient int
     }],
     pageScales: { 2: 5 },
     selectedId: 9,
+    selectedIds: [9, 10],
     copiedMeasurement: null,
     rotateModeId: null,
   };
@@ -181,6 +185,7 @@ test('applyHistorySnapshot restores history-owned state and clears transient int
   assert.equal(state.measurements[0].shape.previousLine.points[0].x, 1);
   assert.equal(state.pxPerInch, 5);
   assert.equal(state.selectedId, 9);
+  assert.deepEqual(plain(state.selectedIds), [9, 10]);
   assert.equal(state.inProgress, null);
   assert.equal(state.freehandDraft, null);
   assert.equal(state.rotationInputVisible, false);

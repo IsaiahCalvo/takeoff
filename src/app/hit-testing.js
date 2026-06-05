@@ -1,6 +1,7 @@
 (function () {
   const geometry = window.TakeoffGeometry;
   const measurements = window.TakeoffMeasurements;
+  const MARQUEE_MIN_DRAG_PX = 5;
 
   function curveEditHandles(measurement) {
     const handles = [];
@@ -229,6 +230,140 @@
     return null;
   }
 
+  function getMarqueeDirection({ startX, endX } = {}) {
+    return Number(endX) < Number(startX) ? 'crossing' : 'window';
+  }
+
+  function getMarqueeRect({ startX, startY, endX, endY } = {}) {
+    const left = Math.min(Number(startX) || 0, Number(endX) || 0);
+    const right = Math.max(Number(startX) || 0, Number(endX) || 0);
+    const top = Math.min(Number(startY) || 0, Number(endY) || 0);
+    const bottom = Math.max(Number(startY) || 0, Number(endY) || 0);
+    return {
+      left,
+      top,
+      right,
+      bottom,
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+    };
+  }
+
+  function measurementBoundsFromPoints(points) {
+    if (!points?.length) return null;
+    let left = Infinity;
+    let right = -Infinity;
+    let top = Infinity;
+    let bottom = -Infinity;
+    for (const point of points) {
+      if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) continue;
+      left = Math.min(left, point.x);
+      right = Math.max(right, point.x);
+      top = Math.min(top, point.y);
+      bottom = Math.max(bottom, point.y);
+    }
+    if (!Number.isFinite(left) || !Number.isFinite(right) || !Number.isFinite(top) || !Number.isFinite(bottom)) return null;
+    return {
+      left,
+      top,
+      right,
+      bottom,
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+    };
+  }
+
+  function isBoundsFullyContained(rect, bounds) {
+    return !!(rect && bounds &&
+      bounds.left >= rect.left &&
+      bounds.right <= rect.right &&
+      bounds.top >= rect.top &&
+      bounds.bottom <= rect.bottom);
+  }
+
+  function doBoundsOverlap(rect, bounds) {
+    return !!(rect && bounds &&
+      bounds.right >= rect.left &&
+      bounds.left <= rect.right &&
+      bounds.bottom >= rect.top &&
+      bounds.top <= rect.bottom);
+  }
+
+  function isPointInRect(point, rect) {
+    return !!(point && rect &&
+      point.x >= rect.left &&
+      point.x <= rect.right &&
+      point.y >= rect.top &&
+      point.y <= rect.bottom);
+  }
+
+  function signedArea(a, b, c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  }
+
+  function pointOnSegment(point, a, b) {
+    const epsilon = 1e-9;
+    return Math.abs(signedArea(a, b, point)) <= epsilon &&
+      point.x >= Math.min(a.x, b.x) - epsilon &&
+      point.x <= Math.max(a.x, b.x) + epsilon &&
+      point.y >= Math.min(a.y, b.y) - epsilon &&
+      point.y <= Math.max(a.y, b.y) + epsilon;
+  }
+
+  function segmentsIntersect(a, b, c, d) {
+    const epsilon = 1e-9;
+    const abC = signedArea(a, b, c);
+    const abD = signedArea(a, b, d);
+    const cdA = signedArea(c, d, a);
+    const cdB = signedArea(c, d, b);
+    if (Math.abs(abC) <= epsilon && pointOnSegment(c, a, b)) return true;
+    if (Math.abs(abD) <= epsilon && pointOnSegment(d, a, b)) return true;
+    if (Math.abs(cdA) <= epsilon && pointOnSegment(a, c, d)) return true;
+    if (Math.abs(cdB) <= epsilon && pointOnSegment(b, c, d)) return true;
+    return (abC > 0) !== (abD > 0) && (cdA > 0) !== (cdB > 0);
+  }
+
+  function segmentIntersectsRect(a, b, rect) {
+    if (isPointInRect(a, rect) || isPointInRect(b, rect)) return true;
+    const topLeft = { x: rect.left, y: rect.top };
+    const topRight = { x: rect.right, y: rect.top };
+    const bottomRight = { x: rect.right, y: rect.bottom };
+    const bottomLeft = { x: rect.left, y: rect.bottom };
+    return segmentsIntersect(a, b, topLeft, topRight) ||
+      segmentsIntersect(a, b, topRight, bottomRight) ||
+      segmentsIntersect(a, b, bottomRight, bottomLeft) ||
+      segmentsIntersect(a, b, bottomLeft, topLeft);
+  }
+
+  function polylineIntersectsRect(points, rect) {
+    for (let index = 1; index < (points || []).length; index++) {
+      if (segmentIntersectsRect(points[index - 1], points[index], rect)) return true;
+    }
+    return false;
+  }
+
+  function findMarqueeMeasurements(measurementList, rect, direction = 'window') {
+    const mode = direction === 'crossing' ? 'crossing' : 'window';
+    const hits = [];
+    for (const measurement of measurementList || []) {
+      if (!isVisibleMeasurement(measurement)) continue;
+      const points = measurements.measurementDisplayPoints(measurement);
+      if (!points || points.length < 2) continue;
+      const bounds = measurementBoundsFromPoints(points);
+      if (!bounds) continue;
+      if (mode === 'window') {
+        if (isBoundsFullyContained(rect, bounds)) hits.push(measurement.id);
+        continue;
+      }
+      if (doBoundsOverlap(rect, bounds) && polylineIntersectsRect(points, rect)) hits.push(measurement.id);
+    }
+    return hits;
+  }
+
   function findLabelHit(labelHitboxes, point, pad) {
     for (let index = (labelHitboxes || []).length - 1; index >= 0; index--) {
       const hit = labelHitboxes[index];
@@ -249,6 +384,7 @@
   }
 
   window.TakeoffHitTesting = {
+    MARQUEE_MIN_DRAG_PX,
     curveEditHandles,
     findNearestVertex,
     findNearestAnchor,
@@ -256,6 +392,13 @@
     findSnapTarget,
     findTranslatedMeasurementSnap,
     findNearestMeasurement,
+    getMarqueeDirection,
+    getMarqueeRect,
+    measurementBoundsFromPoints,
+    isBoundsFullyContained,
+    doBoundsOverlap,
+    polylineIntersectsRect,
+    findMarqueeMeasurements,
     findLabelHit,
     isPointInBox,
   };

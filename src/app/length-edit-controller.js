@@ -60,6 +60,7 @@
         return false;
       }
       state.selectedId = measurement.id;
+      state.selectedIds = [measurement.id];
       if (state.rotateModeId === measurement.id) endRotateMode();
       recordHistory(historyBefore, 'length edit');
       if (refresh) {
@@ -167,6 +168,7 @@
       clearActiveFitMode();
       setSelectionMode();
       state.selectedId = measurement.id;
+      state.selectedIds = [measurement.id];
       activeCanvasLengthEditId = measurement.id;
       activeCanvasLengthValue = measurementLengthValue(measurement);
       activeCanvasLengthInvalid = false;
@@ -212,6 +214,7 @@
           return;
         }
         state.selectedId = measurement.id;
+        state.selectedIds = [measurement.id];
         syncSidebarSelection();
         redraw();
         lengthEditor.start();

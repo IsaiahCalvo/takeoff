@@ -287,3 +287,63 @@ test('findLabelHit checks latest hitbox first', async () => {
 
   assert.equal(hit.measurementId, 2);
 });
+
+test('marquee direction maps drag direction to window and crossing modes', async () => {
+  const hitTesting = await loadHitTesting();
+
+  assert.equal(hitTesting.getMarqueeDirection({ startX: 10, endX: 60 }), 'window');
+  assert.equal(hitTesting.getMarqueeDirection({ startX: 60, endX: 10 }), 'crossing');
+});
+
+test('window marquee selects only measurements fully contained by the marquee', async () => {
+  const hitTesting = await loadHitTesting();
+  const measurements = [
+    { id: 1, points: [{ x: 20, y: 20 }, { x: 40, y: 20 }] },
+    { id: 2, points: [{ x: 20, y: 20 }, { x: 80, y: 20 }] },
+  ];
+
+  const hits = hitTesting.findMarqueeMeasurements(
+    measurements,
+    hitTesting.getMarqueeRect({ startX: 10, startY: 10, endX: 50, endY: 50 }),
+    'window',
+  );
+
+  assert.deepEqual(JSON.parse(JSON.stringify(hits)), [1]);
+});
+
+test('crossing marquee requires actual measurement geometry intersection, not bounding box overlap', async () => {
+  const hitTesting = await loadHitTesting();
+  const hollowBoxMeasurement = {
+    id: 1,
+    points: [
+      { x: 10, y: 10 },
+      { x: 90, y: 10 },
+      { x: 90, y: 90 },
+      { x: 10, y: 90 },
+    ],
+  };
+
+  const hits = hitTesting.findMarqueeMeasurements(
+    [hollowBoxMeasurement],
+    hitTesting.getMarqueeRect({ startX: 70, startY: 70, endX: 30, endY: 30 }),
+    'crossing',
+  );
+
+  assert.deepEqual(JSON.parse(JSON.stringify(hits)), []);
+});
+
+test('crossing marquee selects measurements whose displayed path crosses the marquee', async () => {
+  const hitTesting = await loadHitTesting();
+  const measurements = [
+    { id: 1, points: [{ x: 10, y: 10 }, { x: 90, y: 90 }] },
+    { id: 2, points: [{ x: 10, y: 10 }, { x: 90, y: 10 }] },
+  ];
+
+  const hits = hitTesting.findMarqueeMeasurements(
+    measurements,
+    hitTesting.getMarqueeRect({ startX: 70, startY: 70, endX: 30, endY: 30 }),
+    'crossing',
+  );
+
+  assert.deepEqual(JSON.parse(JSON.stringify(hits)), [1]);
+});

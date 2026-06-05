@@ -7,7 +7,7 @@ import './app/sidebar-controller.js?v=single-page-tabs-1';
 import './app/length-edit-controller.js';
 import './app/path-templates.js'; import './app/path-style-renderer.js?v=preview-panel-icon-1'; import './app/path-dock.js'; import './app/path-settings.js';
 import './app/path-template-store.js'; import './app/path-template-view.js?v=preview-panel-fit-2';
-import './app/state.js';
+import './app/state.js'; import './app/selection-controller.js?v=marquee-group-drag-1';
 import './app/geometry.js';
 import './app/measurements.js';
 import './app/run-details.js'; import './app/run-detail-modal.js'; import './app/measurement-commands.js';
@@ -16,7 +16,7 @@ import './app/page-state.js';
 import './app/continuous-scroll.js';
 import './app/continuous-renderer.js';
 import './app/continuous-measurements.js';
-import './app/hit-testing.js';
+import './app/hit-testing.js'; import './app/marquee-controller.js'; import './app/marquee-pointer-controller.js';
 import './app/viewer.js';
 import './app/pdf-page-cache.js';
 import './app/pdf-engine.js';
@@ -24,7 +24,7 @@ import './app/pdf-detail-tile.js';
 import './app/performance-logger.js'; import './app/performance-controller.js';
 import './app/input-controller.js'; import './app/context-menu-controller.js';
 import './app/pointer-controller.js';
-import './app/pointer-workflow.js';
+import './app/pointer-workflow.js?v=marquee-group-drag-1';
 import './app/document-loader.js';
 import './app/document-adapters.js';
 import './app/document-store.js';
@@ -173,9 +173,11 @@ const statusEl = $('status');
 const measList = $('measList'), pathDockRoot = $('pathDockRoot');
 const toolTip = $('toolTip'), contextMenu = $('contextMenu');
 const rotationPill = $('rotationPill'), rotationInput = $('rotationInput');
-const undoButton = $('undoButton');
-const redoButton = $('redoButton');
+const undoButton = $('undoButton'), redoButton = $('redoButton');
 const exportWrap = $('exportWrap');
+
+const selection = window.TakeoffSelectionController.createSelectionController({ state, matches: sidebarController.measurementIdMatches, setMeasurements: (measurements, selectionState) => stateStore.setMeasurements(state, measurements, selectionState), endRotateMode });
+const marqueeSelection = window.TakeoffMarqueeController.createMarqueeController({ state, hitTesting: window.TakeoffHitTesting, screenToImage, measurementsForSelection: measurementsOnCurrentPage, selection, stage, renderList, redraw, drawSvg, svgNode, overlayPageSize }); const pointerMarquee = window.TakeoffMarqueePointerController.createPointerMarqueeController({ state, screenToImage, lengthLabelNavigationTarget, isPointInBox, findNearestVertex, findLabelHit, findNearestMeasurement, clearActiveFitMode, endRotateMode, marqueeSelection });
 const exportButton = $('exportButton');
 const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
@@ -339,8 +341,7 @@ function setMode(m, opts = {}) {
     state.inProgress = null;
     state.freehandDraft = null;
   }
-  if (m !== 'selection') state.selectedId = null;
-  if (m !== 'selection') endRotateMode();
+  if (m !== 'selection') { selection.clear(); state.marqueeSelection = null; endRotateMode(); }
   redrawActivePreview(); pathDock.render();
   updateStatus();
 }
@@ -375,7 +376,7 @@ function closeContextMenu() { contextMenu.classList.remove('show'); state.contex
 function activePathForNewRun(draft = null) { return draft?.activePath || window.TakeoffPathTemplates.activePathForState(state); }
 
 function openContextMenu(clientX, clientY, measurementId = null, target = null) {
-  if (measurementId != null) state.selectedId = measurementId;
+  if (measurementId != null) selection.selectSingle(measurementId);
   state.contextTarget = target;
   const canActOnRun = state.selectedId != null, targetedMeasurement = measurementId != null ? state.measurements.find(x => x.id === measurementId) : null;
   const addButton = contextMenu.querySelector('[data-action="add-anchor"]'), removeButton = contextMenu.querySelector('[data-action="remove-anchor"]');
@@ -1088,10 +1089,10 @@ stage.addEventListener('contextmenu', (e) => {
   redraw();
 });
 
-stage.addEventListener('mousedown', (e) => {
+stage.addEventListener('pointerdown', pointerMarquee.pointerDown); stage.addEventListener('mousedown', (e) => {
   if (!state.baseW) return;
   if (e.button !== 2) closeContextMenu();
-  if (e.button !== 0 && e.button !== 1) return;
+  if (e.button !== 0 && e.button !== 1) return; if (state.marqueeSelection) { e.preventDefault(); return; }
   const labelNavTarget = e.button === 0 ? lengthLabelNavigationTarget(e.target) : null; if (labelNavTarget) { navigateLengthLabelToSidebar(labelNavTarget); e.preventDefault(); e.stopPropagation(); return; }
   const p = screenToImage(e.clientX, e.clientY);
   state.cursorImg = p;
@@ -1129,7 +1130,7 @@ stage.addEventListener('mousedown', (e) => {
   const labelHit = state.mode === 'selection' ? null : findLabelHit(p);
   if (labelHit && state.mode !== 'erase') {
     clearActiveFitMode();
-    state.selectedId = labelHit.measurementId;
+    selection.selectSingle(labelHit.measurementId);
     state.dragLabel = { measurementId: labelHit.measurementId, historyBefore: createHistorySnapshot() };
     stage.classList.add('dragging');
     renderList();
@@ -1139,11 +1140,11 @@ stage.addEventListener('mousedown', (e) => {
   }
 
   if (state.mode === 'selection') {
+    const handleSelectionHit = (id) => { clearActiveFitMode(); const action = selection.selectFromClick(id, e); if (action !== 'preserve') { renderList(); redraw(); } if (e.shiftKey || e.altKey) { e.preventDefault(); return true; } return false; };
     // Vertex hit first — clicking a node selects its run AND starts drag
     const v = findNearestVertex(p, 10 / state.zoom);
     if (v) {
-      clearActiveFitMode();
-      state.selectedId = v.measurementId;
+      if (handleSelectionHit(v.measurementId)) return;
       state.dragVertex = { ...v, historyBefore: createHistorySnapshot() };
       stage.classList.add('dragging');
       renderList();
@@ -1152,8 +1153,7 @@ stage.addEventListener('mousedown', (e) => {
     }
     const selectedLabelHit = findLabelHit(p);
     if (selectedLabelHit) {
-      clearActiveFitMode();
-      state.selectedId = selectedLabelHit.measurementId;
+      if (handleSelectionHit(selectedLabelHit.measurementId)) return;
       state.dragLabel = { measurementId: selectedLabelHit.measurementId, historyBefore: createHistorySnapshot() };
       stage.classList.add('dragging');
       renderList();
@@ -1163,12 +1163,12 @@ stage.addEventListener('mousedown', (e) => {
     }
     const hitId = findNearestMeasurement(p, 8 / state.zoom);
     if (hitId !== state.rotateModeId) endRotateMode();
-    state.selectedId = hitId;
     if (hitId != null) {
+      if (handleSelectionHit(hitId)) return;
       const m = state.measurements.find(x => x.id === hitId);
       if (m) {
-        clearActiveFitMode();
-        state.dragMeasurement = pointerWorkflow.createMeasurementDrag({
+        const selectedDragMeasurements = selection.isSelected(hitId) ? [m, ...selection.currentIds().map(measurementById).filter(x => x && !sidebarController.measurementIdMatches(x.id, hitId) && (x.page || 1) === (m.page || 1))] : [];
+        state.dragMeasurement = selectedDragMeasurements.length > 1 ? pointerWorkflow.createMeasurementGroupDrag({ measurements: selectedDragMeasurements, pointer: localPointForMeasurement(m, p), historyBefore: createHistorySnapshot() }) : pointerWorkflow.createMeasurementDrag({
           measurement: m,
           pointer: localPointForMeasurement(m, p),
           historyBefore: createHistorySnapshot(),
@@ -1176,9 +1176,14 @@ stage.addEventListener('mousedown', (e) => {
         });
         stage.classList.add('dragging');
       }
+    } else {
+      clearActiveFitMode();
+      marqueeSelection.start({ point: p, clientX: e.clientX, clientY: e.clientY, shiftKey: e.shiftKey, altKey: e.altKey });
+      e.preventDefault();
     }
     renderList();
     redraw();
+    return;
   } else if (state.mode === 'calibrate') {
     clearActiveFitMode();
     if (shouldSuppressPointPlacement(e)) {
@@ -1280,6 +1285,8 @@ stage.addEventListener('mousemove', (e) => {
   state.cursorImg = screenToImage(e.clientX, e.clientY);
   updateCursorHud();
 
+  if (state.marqueeSelection) { marqueeSelection.update(e); return; }
+
   if (state.freehandDraft) {
     const raw = state.freehandDraft.rawPoints;
     const previewPoint = continuousMeasurements.localPointForPage(state, state.freehandDraft.page, state.cursorImg);
@@ -1335,15 +1342,12 @@ stage.addEventListener('mousemove', (e) => {
           ? window.TakeoffHitTesting.findTranslatedMeasurementSnap({ ...m, points: originalPoints, segments: originalSegments }, measurementsForSnap(m.page), dx, dy, snapTolerances([m.id]))
           : null,
       });
+      const movedMeasurements = result.movedIds?.length ? result.movedIds.map(measurementById).filter(Boolean) : [m];
       setSnapFeedback(m.page, result.snap);
-      measurementCommands.clearEndpointSnapConnections(m);
-      if (result.snap?.kind === 'anchor' && result.snap.endpoint && result.snap.source?.endpoint) {
+      for (const moved of movedMeasurements) { measurementCommands.clearEndpointSnapConnections(moved); if (isCurveMeasurement(moved)) updateCurveAnchors(moved); recomputeMeasurementLength(moved); }
+      if (!result.movedIds?.length && result.snap?.kind === 'anchor' && result.snap.endpoint && result.snap.source?.endpoint) {
         measurementCommands.setEndpointSnapConnection(m, result.snap.source.endpoint, result.snap);
       }
-      if (isCurveMeasurement(m)) {
-        updateCurveAnchors(m);
-      }
-      recomputeMeasurementLength(m);
       renderList();
       redraw();
     }
@@ -1411,6 +1415,7 @@ function updateRotationDrag(clientX, clientY, shiftKey = false) {
 }
 
 function finishPointerDrag() {
+  if (state.marqueeSelection) { marqueeSelection.commit(); return; }
   if (state.isPanning) {
     state.isPanning = false;
     stage.classList.remove('dragging');
@@ -1442,6 +1447,7 @@ function finishPointerDrag() {
 
 stage.addEventListener('mouseup', finishPointerDrag);
 window.addEventListener('mousemove', (e) => {
+  if (state.marqueeSelection) { if (e.buttons === 0) finishPointerDrag(); else marqueeSelection.update(e); return; }
   if (!state.rotationDrag) return;
   if (e.buttons === 0) {
     finishPointerDrag();
@@ -1449,7 +1455,7 @@ window.addEventListener('mousemove', (e) => {
   }
   updateRotationDrag(e.clientX, e.clientY, e.shiftKey);
 });
-window.addEventListener('mouseup', finishPointerDrag);
+window.addEventListener('mouseup', finishPointerDrag); window.addEventListener('pointermove', (e) => { if (state.marqueeSelection && marqueeSelection.matchesPointer(e)) { if (e.buttons === 0) finishPointerDrag(); else { marqueeSelection.update(e); updateCursorHud(); } } });
 window.addEventListener('pointerup', finishPointerDrag);
 window.addEventListener('blur', finishPointerDrag);
 
@@ -1471,6 +1477,7 @@ function currentInputState(target = null) {
     prevMode: state.prevMode,
     spaceHeld: state.spaceHeld,
     selectedId: state.selectedId,
+    selectedIds: state.selectedIds,
     isPanning: state.isPanning,
     inProgressPointCount: state.inProgress?.points?.length || 0,
   };
@@ -1534,7 +1541,7 @@ window.addEventListener('keydown', (e) => {
   }
   if (inputAction.action === 'delete-selection') {
     const historyBefore = createHistorySnapshot();
-    if (deleteMeasurementFromState(state.selectedId)) {
+    if (selection.deleteSelectedMeasurements()) {
       recordHistory(historyBefore, 'run deletion');
       renderList(); redraw();
     }
@@ -1709,16 +1716,7 @@ function cleanMeasurementName(value, m) {
   return measurementCommands.cleanMeasurementName(state.measurements, value, m);
 }
 
-function deleteMeasurementFromState(id) {
-  const result = measurementWorkflows.deleteMeasurementResult({
-    measurements: state.measurements,
-    selectedId: state.selectedId,
-    deletedId: id,
-  });
-  stateStore.setMeasurements(state, result.measurements, { selectedId: result.selectedId });
-  if (state.rotateModeId === id) endRotateMode();
-  return result.deleted;
-}
+function deleteMeasurementFromState(id) { return selection.deleteMeasurement(id, measurementWorkflows.deleteMeasurementResult); }
 
 function recomputeMeasurementLength(m) {
   return measurementWorkflows.recomputeMeasurementLength(m, {
@@ -1823,11 +1821,7 @@ function visibleMeasurementsForPathCategories(measurements = state.measurements)
 function isMeasurementVisibleForPathCategories(measurement) { return stateStore.isMeasurementVisibleForPathCategories(state, measurement); }
 
 function syncSelectionWithPathCategoryVisibility() {
-  const selected = state.measurements.find(measurement => measurement.id === state.selectedId);
-  if (selected && !isMeasurementVisibleForPathCategories(selected)) {
-    state.selectedId = null;
-    endRotateMode();
-  }
+  selection.filterVisible({ measurementById, isVisible: isMeasurementVisibleForPathCategories });
   const hovered = state.measurements.find(measurement => measurement.id === state.hoverId);
   if (hovered && !isMeasurementVisibleForPathCategories(hovered)) state.hoverId = null;
 }
@@ -1888,7 +1882,7 @@ function finalizeMeasurementGeometry(m, preservedLabelPoint = null) {
     pxPerInch: scaleForPage(m.page),
     preservedLabelPoint,
   });
-  state.selectedId = m.id;
+  selection.selectSingle(m.id);
   if (state.rotateModeId === m.id) endRotateMode();
   renderList();
   redraw();
@@ -1902,7 +1896,7 @@ function isPointInBox(p, box) { return window.TakeoffHitTesting.isPointInBox(p, 
 function measurementById(id) { return state.measurements.find(measurement => sidebarController.measurementIdMatches(measurement.id, id)) || null; }
 function lengthLabelNavigationTarget(target) { return target?.closest?.('[data-length-label-nav="true"]') || null; }
 function revealMeasurementInSidebar(measurement) { const measurementId = measurement?.id ?? measurement; let row = sidebarController.revealMeasurementRow({ root: measList, measurementId }); if (row) return row; const fallbackTab = measurement?.page === currentPage() ? 'page' : 'all'; if (state.sidebarTab !== fallbackTab) { state.sidebarTab = fallbackTab; renderList(); row = sidebarController.revealMeasurementRow({ root: measList, measurementId }); } return row; }
-function navigateLengthLabelToSidebar(navTarget) { const measurement = measurementById(navTarget?.dataset?.measurementId); if (!measurement || !isMeasurementVisibleForPathCategories(measurement)) return false; clearActiveFitMode(); endRotateMode(); setMode('selection'); state.selectedId = measurement.id; renderList(); revealMeasurementInSidebar(measurement); redraw(); return true; }
+function navigateLengthLabelToSidebar(navTarget) { const measurement = measurementById(navTarget?.dataset?.measurementId); if (!measurement || !isMeasurementVisibleForPathCategories(measurement)) return false; clearActiveFitMode(); endRotateMode(); setMode('selection'); selection.selectSingle(measurement.id); renderList(); revealMeasurementInSidebar(measurement); redraw(); return true; }
 
 function beginRotateMode(id) {
   const m = state.measurements.find(x => x.id === id);
@@ -1910,7 +1904,7 @@ function beginRotateMode(id) {
   m.rotationFrame = createRotationFrame(m);
   m.rotationAngle = m.rotationFrame?.angle || normalizeDegrees(m.rotationAngle || 0);
   setMode('selection');
-  state.selectedId = id;
+  selection.selectSingle(id);
   state.rotateModeId = id;
   state.rotationInputVisible = true;
   renderList();
@@ -2309,7 +2303,7 @@ function redraw(previewTo) {
   // existing measurements for the active view
   for (const m of measurementsOnCurrentPage()) {
     const isEraseHover = state.hoverId === m.id && state.mode === 'erase';
-    const isSelected = state.selectedId === m.id;
+    const isSelected = selection.isSelected(m.id);
     const isSelHover = state.hoverId === m.id && state.mode === 'selection' && !isSelected;
     const baseColor = m.color || '#b6ff3c';
     const color = isEraseHover ? '#ff5b5b' : baseColor;
@@ -2381,6 +2375,7 @@ function redraw(previewTo) {
     }
     drawEndpointAnchors(drawRaw, '#b6ff3c');
   }
+  marqueeSelection.draw();
   lengthEditController.bindActiveCanvasLengthInput();
   if (state.snapFeedback) svgRenderer.drawSnapFeedback(state.snapFeedback);
 }
@@ -2413,7 +2408,7 @@ function svgNode(tag, attrs = {}) { return window.TakeoffSvgRenderer.svgNode(tag
 // ------- Sidebar list -------
 function syncSidebarSelection() {
   measList.querySelectorAll('.meas-item').forEach(item => {
-    item.classList.toggle('selected', sidebarController.measurementIdMatches(item.dataset.measId, state.selectedId));
+    item.classList.toggle('selected', selection.isSelected(item.dataset.measId));
   });
 }
 
@@ -2436,6 +2431,7 @@ function buildMeasItem(m, sidebarMeta = {}) {
   const onOtherPage = itemModel.onOtherPage;
   m.name = itemModel.name;
   item.className = itemModel.className;
+  item.classList.toggle('selected', selection.isSelected(m.id));
   item.dataset.measId = m.id;
   item.innerHTML = sidebarView.buildMeasurementItemMarkup(itemModel);
   const nameInput = item.querySelector('.name');
@@ -2489,7 +2485,7 @@ function buildMeasItem(m, sidebarMeta = {}) {
     e.preventDefault();
     if (onOtherPage) await goToPage(m.page);
     setMode('selection');
-    state.selectedId = m.id;
+    selection.selectSingle(m.id);
     renderList();
     redraw();
     openContextMenu(e.clientX, e.clientY, m.id, { kind: 'sidebar-row', measurementId: m.id });
@@ -2498,7 +2494,7 @@ function buildMeasItem(m, sidebarMeta = {}) {
     if (!sidebarModel.shouldSelectMeasurementFromSidebarClick(e.target)) return;
     if (onOtherPage) await goToPage(m.page);
     setMode('selection');
-    state.selectedId = m.id;
+    selection.selectSingle(m.id);
     if (e.target.tagName === 'INPUT') syncSidebarSelection();
     else renderList();
     redraw();

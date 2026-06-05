@@ -15,19 +15,23 @@ test('served app shell and critical assets load through HTTP', {
     const html = await fetchText(`${baseUrl}/`);
 
     assert.match(html, /Takeoff — Plan Measurement Tool/);
-    assert.match(html, /href="(?:\.\/|\/)app\/styles\.css"/);
+    assert.match(html, /href="(?:\.\/|\/)app\/styles\.css(?:\?[^"]+)?"/);
     assert.match(html, /src="(?:\.\/|\/)src\/main\.js(?:\?[^"]+)?"/);
 
-    const [styles, main, pointerController, sidebarView] = await Promise.all([
+    const [styles, main, pointerController, sidebarView, selectionController, marqueeController] = await Promise.all([
       fetchText(`${baseUrl}/app/styles.css`),
       fetchText(`${baseUrl}/src/main.js`),
       fetchText(`${baseUrl}/src/app/pointer-controller.js`),
       fetchText(`${baseUrl}/src/app/sidebar-view.js`),
+      fetchText(`${baseUrl}/src/app/selection-controller.js`),
+      fetchText(`${baseUrl}/src/app/marquee-controller.js`),
     ]);
 
     assert.match(styles, /body\.no-document/);
     assert.match(main, /TakeoffPathTemplateView/);
     assert.match(pointerController, /TakeoffPointerController/);
     assert.match(sidebarView, /TakeoffSidebarView/);
+    assert.match(selectionController, /TakeoffSelectionController/);
+    assert.match(marqueeController, /TakeoffMarqueeController/);
   });
 });

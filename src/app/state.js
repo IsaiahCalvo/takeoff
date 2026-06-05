@@ -158,6 +158,8 @@
       measurements: [],
       hoverId: null,
       selectedId: null,
+      selectedIds: [],
+      marqueeSelection: null,
       dragVertex: null,
       dragMeasurement: null,
       dragLabel: null,
@@ -223,6 +225,8 @@
     state.pendingUnmergePathId = null;
     state.snapFeedback = null;
     state.selectedId = null;
+    state.selectedIds = [];
+    state.marqueeSelection = null;
     state.dragLabel = null;
     state.pageCache.clear();
     state.preRenderQueue = [];
@@ -261,13 +265,18 @@
     state.freehandDraft = null;
     state.snapFeedback = null;
     state.selectedId = null;
+    state.selectedIds = [];
+    state.marqueeSelection = null;
     state.dragLabel = null;
     state.navToken++;
   }
 
-  function setMeasurements(state, measurements, { selectedId = state.selectedId } = {}) {
+  function setMeasurements(state, measurements, { selectedId = state.selectedId, selectedIds = null } = {}) {
     state.measurements = measurements || [];
     state.selectedId = selectedId;
+    state.selectedIds = Array.isArray(selectedIds)
+      ? selectedIds.slice()
+      : (selectedId != null ? [selectedId] : []);
     return state.measurements;
   }
 

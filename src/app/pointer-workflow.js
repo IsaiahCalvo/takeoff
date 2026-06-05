@@ -146,7 +146,36 @@
     };
   }
 
+  function createMeasurementGroupDrag({ measurements = [], pointer, historyBefore, bounds }) {
+    const measuredBounds = (bounds || measurements.map(measurement => measurementModel?.measurementBounds?.(measurement)).filter(Boolean));
+    const groupBounds = Array.isArray(measuredBounds) && measuredBounds.length
+      ? {
+        x: Math.min(...measuredBounds.map(box => box.x)),
+        y: Math.min(...measuredBounds.map(box => box.y)),
+        width: Math.max(...measuredBounds.map(box => box.x + box.width)) - Math.min(...measuredBounds.map(box => box.x)),
+        height: Math.max(...measuredBounds.map(box => box.y + box.height)) - Math.min(...measuredBounds.map(box => box.y)),
+      }
+      : measuredBounds;
+    return {
+      measurementId: measurements[0]?.id ?? null,
+      measurementIds: measurements.map(measurement => measurement.id),
+      historyBefore,
+      start: clonePoint(pointer),
+      originalBounds: groupBounds,
+      targets: measurements,
+      members: measurements.map(measurement => ({
+        measurementId: measurement.id,
+        originalPoints: clonePoints(measurement.points),
+        originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+        originalShape: cloneShape(measurement.shape),
+        originalMergeMemory: cloneValue(measurement.mergeMemory),
+        originalFrame: measurement.rotationFrame ? { ...measurement.rotationFrame } : null,
+      })),
+    };
+  }
+
   function applyMeasurementDrag({ measurement, drag, cursor, constrainDelta, snapDelta = null }) {
+    if (drag.members?.length) return applyMeasurementGroupDrag({ measurements: drag.targets || [measurement], drag, cursor, constrainDelta });
     const rawDx = cursor.x - drag.start.x;
     const rawDy = cursor.y - drag.start.y;
     let { dx, dy } = constrainDelta(drag.originalBounds, rawDx, rawDy);
@@ -183,6 +212,26 @@
       };
     }
     return snap ? { dx, dy, snap } : { dx, dy };
+  }
+
+  function applyMeasurementGroupDrag({ measurements = [], drag, cursor, constrainDelta }) {
+    const rawDx = cursor.x - drag.start.x;
+    const rawDy = cursor.y - drag.start.y;
+    const { dx, dy } = constrainDelta(drag.originalBounds, rawDx, rawDy);
+    const byId = new Map(measurements.map(measurement => [String(measurement.id), measurement]));
+    const movedIds = [];
+    for (const member of drag.members || []) {
+      const measurement = byId.get(String(member.measurementId));
+      if (!measurement) continue;
+      applyMeasurementDrag({
+        measurement,
+        drag: { ...member, start: drag.start, originalBounds: drag.originalBounds },
+        cursor: { x: drag.start.x + dx, y: drag.start.y + dy },
+        constrainDelta: () => ({ dx, dy }),
+      });
+      movedIds.push(measurement.id);
+    }
+    return { dx, dy, movedIds };
   }
 
   function applyRotationFromSnapshot({
@@ -278,7 +327,9 @@
     resolveSnapPoint,
     createRotationDrag,
     createMeasurementDrag,
+    createMeasurementGroupDrag,
     applyMeasurementDrag,
+    applyMeasurementGroupDrag,
     applyRotationDrag,
     applyMeasurementRotation,
   };

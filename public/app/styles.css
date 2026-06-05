@@ -677,9 +677,11 @@ main {
   position: absolute; inset: 0;
   overflow: hidden;
   cursor: crosshair;
+  touch-action: none;
 }
 #stage.selection { cursor: default; }
 #stage.pan { cursor: grab; }
+#stage.marqueeing { cursor: crosshair !important; }
 #stage.dragging { cursor: grabbing !important; }
 #stage.erase { cursor: not-allowed; }
 
@@ -697,6 +699,7 @@ main {
 #baseCanvas, #pdfDetailCanvas, #drawCanvas, #drawSvg {
   position: absolute; top: 0; left: 0;
   display: block;
+  touch-action: none;
 }
 #pdfDetailCanvas {
   display: none;

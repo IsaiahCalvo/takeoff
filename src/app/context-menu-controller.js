@@ -83,6 +83,7 @@
     clearActiveFitMode();
     setMode('measure');
     state.selectedId = measurement.id;
+    state.selectedIds = [measurement.id];
     state.inProgress = null;
     state.freehandDraft = null;
     const continuation = { measurementId: measurement.id, endpoint };
@@ -123,6 +124,7 @@
       if (snapConnection) measurementCommands.setEndpointSnapConnection(measurement, continuation.endpoint, snapConnection);
       else measurementCommands.clearEndpointSnapConnection(measurement, continuation.endpoint);
       state.selectedId = measurement.id;
+      state.selectedIds = [measurement.id];
       recordHistory(historyBefore, 'path continuation');
       showStatus('Path continued');
     }
@@ -157,6 +159,7 @@
       if (snapConnection) measurementCommands.setEndpointSnapConnection(target, continuation.endpoint, snapConnection);
       else measurementCommands.clearEndpointSnapConnection(target, continuation.endpoint);
       state.selectedId = target.id;
+      state.selectedIds = [target.id];
       recordHistory(historyBefore, 'path continuation');
       renderList();
       redraw();
@@ -188,6 +191,7 @@
       : measurementCommands.convertLineMeasurementToFreehand(measurement, { pxPerInch: scaleForPage(measurement.page) });
     if (!ok) return false;
     state.selectedId = measurement.id;
+    state.selectedIds = [measurement.id];
     if (state.rotateModeId === measurement.id) endRotateMode();
     renderList();
     redraw();
@@ -277,6 +281,7 @@
     if (!result?.merged) return false;
     setMeasurements(result.measurements, result.measurement.id);
     state.selectedId = result.measurement.id;
+    state.selectedIds = [result.measurement.id];
     endRotateMode();
     renderList();
     redraw();
