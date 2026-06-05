@@ -1059,6 +1059,10 @@
     return points;
   }
 
+  function lineOnlyMergeSources(sources) {
+    return sources?.length > 1 && sources.every(source => source?.kind === 'line');
+  }
+
   function samePointList(a, b) {
     if ((a || []).length !== (b || []).length) return false;
     return (a || []).every((point, index) => samePoint(point, b[index]));
@@ -1069,6 +1073,11 @@
     if (sources.length < 2) return false;
     const points = displayPointsForSources(sources);
     if (points.length < 2) return false;
+    if (lineOnlyMergeSources(sources)) {
+      const measurementPoints = measurement?.points || [];
+      const endpoints = [points[0], points[points.length - 1]];
+      return samePointList(measurementPoints, points) || samePointList(measurementPoints, endpoints);
+    }
     if (measurementModel.isMixedMeasurement?.(measurement)) {
       const endpoints = measurementModel.mixedEndpointPoints?.(measurement) || [points[0], points[points.length - 1]];
       return samePointList(measurement.points || [], endpoints);
@@ -1076,14 +1085,126 @@
     return samePointList(measurementModel.measurementDisplayPoints(measurement), points);
   }
 
+  function sourceCurrentMatchesOriginal(source) {
+    const original = source?.original;
+    if (!original) return false;
+    const portion = measurementCurrentPortion(original);
+    let current = portion.current;
+    if (source?.reversed) current = reverseCurrentGeometry(portion.kind, current);
+    const originalSource = {
+      kind: source?.kind === 'freehand' ? 'freehand' : 'line',
+      current,
+    };
+    return samePointList(currentDisplayPointsForSource(source), currentDisplayPointsForSource(originalSource));
+  }
+
+  function mergeSourcesHaveMaintainedEdits(measurement, sources) {
+    if (!sources?.length) return false;
+    return !sourceMemoryMatchesCurrentMeasurement(measurement) || sources.some(source => !sourceCurrentMatchesOriginal(source));
+  }
+
+  function lineSourceSegmentCount(source) {
+    const points = source?.current?.points || source?.boundary?.points || [];
+    return Math.max(1, points.length - 1);
+  }
+
+  function lineSourceSplitWeight(source) {
+    const boundaryLength = source?.boundary?.lengthPx;
+    if (Number.isFinite(boundaryLength) && boundaryLength > 0) return boundaryLength;
+    return geometry.polylineLengthPx(source?.current?.points || source?.boundary?.points || []);
+  }
+
+  function lineSourceWithCurrent(source, points) {
+    const current = { points: clonePoints(points), segments: null };
+    return {
+      ...cloneSourcePortion(source),
+      kind: 'line',
+      current,
+      boundary: sourceBoundary(current),
+    };
+  }
+
+  function pointAtPolylineDistance(points, distance, totalLength) {
+    const result = geometry.pointAtPolylineT(points, totalLength ? distance / totalLength : 0);
+    return result?.point ? clonePoint(result.point) : null;
+  }
+
+  function slicePolylineByDistance(points, startDistance, endDistance, totalLength) {
+    const start = pointAtPolylineDistance(points, startDistance, totalLength);
+    const end = pointAtPolylineDistance(points, endDistance, totalLength);
+    if (!start || !end) return null;
+    const sliced = [start];
+    let travelled = 0;
+    for (let index = 1; index < points.length; index++) {
+      const a = points[index - 1];
+      const b = points[index];
+      const segmentLength = geometry.distancePx(a, b);
+      if (!segmentLength) continue;
+      const pointDistance = travelled + segmentLength;
+      if (pointDistance > startDistance + 0.0001 && pointDistance < endDistance - 0.0001) {
+        appendUniquePoint(sliced, b);
+      }
+      travelled = pointDistance;
+    }
+    appendUniquePoint(sliced, end);
+    return sliced.length >= 2 ? sliced : [start, end];
+  }
+
+  function splitLineSourcesBySegments(points, sources) {
+    const counts = sources.map(lineSourceSegmentCount);
+    const totalSourceSegments = counts.reduce((sum, count) => sum + count, 0);
+    if (points.length - 1 !== totalSourceSegments) return null;
+    let offset = 0;
+    return sources.map((source, index) => {
+      const count = counts[index];
+      const portion = points.slice(offset, offset + count + 1);
+      offset += count;
+      return lineSourceWithCurrent(source, portion);
+    });
+  }
+
+  function splitLineSourcesByLength(points, sources) {
+    const totalLength = geometry.polylineLengthPx(points);
+    if (!totalLength) return null;
+    const weights = sources.map(lineSourceSplitWeight);
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    if (!totalWeight) return null;
+    let distance = 0;
+    return sources.map((source, index) => {
+      const startDistance = distance;
+      distance = index === sources.length - 1
+        ? totalLength
+        : distance + (weights[index] / totalWeight) * totalLength;
+      const portion = slicePolylineByDistance(points, startDistance, distance, totalLength);
+      return portion ? lineSourceWithCurrent(source, portion) : null;
+    });
+  }
+
+  function maintainedSourcesForMeasurement(measurement, sources = mergeMemorySources(measurement)) {
+    if (sourceMemoryMatchesCurrentMeasurement(measurement)) return sources;
+    if (
+      (measurementModel.isLineMeasurement(measurement) || lineOnlyMergeSources(sources))
+      && (measurement.points || []).length >= 2
+    ) {
+      const points = clonePoints(measurement.points);
+      const split = splitLineSourcesBySegments(points, sources) || splitLineSourcesByLength(points, sources);
+      if (split && split.every(Boolean)) return split;
+    }
+    return null;
+  }
+
   const UNSAFE_MAINTAIN_REASON = 'Current path edits cannot be mapped to the original paths.';
 
   function unmergePathState(measurement) {
-    const canUnmergePaths = mergeMemorySources(measurement).length > 1;
-    const canMaintainEdits = canUnmergePaths && sourceMemoryMatchesCurrentMeasurement(measurement);
+    const sources = mergeMemorySources(measurement);
+    const canUnmergePaths = sources.length > 1;
+    const maintainedSources = canUnmergePaths ? maintainedSourcesForMeasurement(measurement, sources) : null;
+    const canMaintainEdits = !!maintainedSources;
+    const hasMaintainedEdits = canUnmergePaths && mergeSourcesHaveMaintainedEdits(measurement, sources);
     return {
       canUnmergePaths,
       canMaintainEdits,
+      hasMaintainedEdits,
       maintainEditsReason: canMaintainEdits ? '' : UNSAFE_MAINTAIN_REASON,
     };
   }
@@ -1124,8 +1245,9 @@
     if (mode === 'maintain-edits' && !state.canMaintainEdits) {
       return { unmerged: false, measurements: list, measurement, reason: state.maintainEditsReason };
     }
+    const maintainedSources = mode === 'maintain-edits' ? maintainedSourcesForMeasurement(measurement, sources) : null;
     const restored = mode === 'maintain-edits'
-      ? sources.map(source => measurementFromMaintainedSource(source, { pxPerInch }))
+      ? maintainedSources.map(source => measurementFromMaintainedSource(source, { pxPerInch }))
       : sources.map(sourceOriginalMeasurement);
     const measurements = [
       ...list.slice(0, index),

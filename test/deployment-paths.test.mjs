@@ -61,7 +61,7 @@ test('index delegates app startup to one module entrypoint', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
-  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=[^"]+"><\/script>/);
+  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=unmerge-flow-1"><\/script>/);
   assert.doesNotMatch(html, /<script src="src\/app\/pointer-controller\.js"><\/script>/);
   assert.doesNotMatch(html, /<script>\s*pdfjsLib\.GlobalWorkerOptions/);
   assert.match(main, /import '\.\/export-utils\.js';/);
@@ -70,6 +70,7 @@ test('index delegates app startup to one module entrypoint', async () => {
   assert.match(main, /import '\.\/app\/sidebar-view\.js\?v=single-page-tabs-1';/);
   assert.match(main, /import '\.\/app\/sidebar-controller\.js\?v=single-page-tabs-1';/);
   assert.match(main, /import '\.\/app\/path-style-renderer\.js\?v=preview-panel-icon-1';/);
+  assert.match(main, /import '\.\/app\/unmerge-path-modal\.js\?v=unmerge-auto-1';/);
   assert.match(main, /import '\.\/app\/pointer-controller\.js';/);
   assert.match(main, /const pdfjsLib = window\.pdfjsLib;/);
 });

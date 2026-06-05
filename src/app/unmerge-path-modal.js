@@ -24,6 +24,10 @@
         showStatus('Select a merged Path first.');
         return false;
       }
+      if (unmergeState.hasMaintainedEdits === false) {
+        state.pendingUnmergePathId = measurement.id;
+        return perform('original');
+      }
       state.pendingUnmergePathId = measurement.id;
       const maintainButton = getElement('unmergeMaintain');
       const reason = getElement('unmergeMaintainReason');

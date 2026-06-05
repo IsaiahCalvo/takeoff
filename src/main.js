@@ -10,8 +10,8 @@ import './app/path-template-store.js'; import './app/path-template-view.js?v=pre
 import './app/state.js'; import './app/selection-controller.js?v=marquee-group-drag-1';
 import './app/geometry.js';
 import './app/measurements.js';
-import './app/run-details.js'; import './app/run-detail-modal.js'; import './app/measurement-commands.js';
-import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js';
+import './app/run-details.js'; import './app/run-detail-modal.js'; import './app/measurement-commands.js?v=unmerge-maintain-1';
+import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js?v=unmerge-auto-1';
 import './app/page-state.js';
 import './app/continuous-scroll.js';
 import './app/continuous-renderer.js';

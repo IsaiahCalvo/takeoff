@@ -1862,6 +1862,92 @@ test('unmergePaths can restore originals or maintain safely mapped mixed edits',
   ]);
 });
 
+test('unmergePaths maintains edits made to merged line geometry without updated source memory', async () => {
+  const commands = await loadCommands();
+  const first = linePath(240, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    name: 'First',
+    snapConnections: [{ endpoint: 'end', targetId: 241, targetEndpoint: 'start' }],
+  });
+  const second = linePath(241, [{ x: 10, y: 0 }, { x: 20, y: 0 }], {
+    name: 'Second',
+  });
+  const third = linePath(242, [{ x: 20, y: 0 }, { x: 35, y: 0 }], {
+    name: 'Third',
+  });
+  const firstMerge = commands.mergeSnappedEndpointPaths([first, second], {
+    sourceId: 240,
+    sourceEndpoint: 'end',
+    targetId: 241,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 });
+  firstMerge.measurement.snapConnections = [{ endpoint: 'end', targetId: 242, targetEndpoint: 'start' }];
+  const secondMerge = commands.mergeSnappedEndpointPaths([firstMerge.measurement, third], {
+    sourceId: 240,
+    sourceEndpoint: 'end',
+    targetId: 242,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 });
+  const merged = secondMerge.measurement;
+
+  assert.equal(commands.unmergePathState(merged).hasMaintainedEdits, false);
+
+  merged.points = [{ x: 0, y: 0 }, { x: 12, y: 3 }, { x: 23, y: -2 }, { x: 38, y: 1 }];
+  commands.finalizeMeasurementGeometry(merged, { pxPerInch: 2 });
+
+  const state = commands.unmergePathState(merged);
+  assert.equal(state.canUnmergePaths, true);
+  assert.equal(state.canMaintainEdits, true);
+  assert.equal(state.hasMaintainedEdits, true);
+
+  const maintained = commands.unmergePaths([merged], merged.id, { mode: 'maintain-edits', pxPerInch: 2 });
+  assert.equal(maintained.unmerged, true);
+  assert.deepEqual(plain(maintained.measurements.map(measurement => measurement.name)), ['First', 'Second', 'Third']);
+  assert.deepEqual(plain(maintained.measurements[0].points), [{ x: 0, y: 0 }, { x: 12, y: 3 }]);
+  assert.deepEqual(plain(maintained.measurements[1].points), [{ x: 12, y: 3 }, { x: 23, y: -2 }]);
+  assert.deepEqual(plain(maintained.measurements[2].points), [{ x: 23, y: -2 }, { x: 38, y: 1 }]);
+});
+
+test('unmergePaths maintains legacy line-only merged paths stored as generic path geometry', async () => {
+  const commands = await loadCommands();
+  const first = linePath(260, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    name: 'First',
+    snapConnections: [{ endpoint: 'end', targetId: 261, targetEndpoint: 'start' }],
+  });
+  const second = linePath(261, [{ x: 10, y: 0 }, { x: 20, y: 0 }], {
+    name: 'Second',
+  });
+  const result = commands.mergeSnappedEndpointPaths([first, second], {
+    sourceId: 260,
+    sourceEndpoint: 'end',
+    targetId: 261,
+    targetEndpoint: 'start',
+  }, { pxPerInch: 2 });
+  const merged = result.measurement;
+  merged.drawType = 'path';
+  merged.shape.active = 'path';
+
+  const unchanged = commands.unmergePathState(merged);
+  assert.equal(unchanged.canUnmergePaths, true);
+  assert.equal(unchanged.canMaintainEdits, true);
+  assert.equal(unchanged.hasMaintainedEdits, false);
+
+  merged.mergeMemory.sources[0].current.points = [{ x: 0, y: 0 }, { x: 12, y: 3 }];
+  merged.mergeMemory.sources[1].current.points = [{ x: 12, y: 3 }, { x: 20, y: 0 }];
+  merged.points = [{ x: 0, y: 0 }, { x: 12, y: 3 }, { x: 20, y: 0 }];
+  commands.finalizeMeasurementGeometry(merged, { pxPerInch: 2 });
+
+  const state = commands.unmergePathState(merged);
+  assert.equal(state.canUnmergePaths, true);
+  assert.equal(state.canMaintainEdits, true);
+  assert.equal(state.hasMaintainedEdits, true);
+
+  const maintained = commands.unmergePaths([merged], merged.id, { mode: 'maintain-edits', pxPerInch: 2 });
+  assert.equal(maintained.unmerged, true);
+  assert.deepEqual(plain(maintained.measurements.map(measurement => measurement.name)), ['First', 'Second']);
+  assert.deepEqual(plain(maintained.measurements[0].points), [{ x: 0, y: 0 }, { x: 12, y: 3 }]);
+  assert.deepEqual(plain(maintained.measurements[1].points), [{ x: 12, y: 3 }, { x: 20, y: 0 }]);
+});
+
 test('unmergePathState disables maintain edits when portion boundaries are unsafe', async () => {
   const commands = await loadCommands();
   const line = linePath(150, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
