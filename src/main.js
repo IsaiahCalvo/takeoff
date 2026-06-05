@@ -376,7 +376,7 @@ function closeContextMenu() { contextMenu.classList.remove('show'); state.contex
 function activePathForNewRun(draft = null) { return draft?.activePath || window.TakeoffPathTemplates.activePathForState(state); }
 
 function openContextMenu(clientX, clientY, measurementId = null, target = null) {
-  if (measurementId != null) selection.selectSingle(measurementId);
+  if (measurementId != null) selection.selectForContextMenu(measurementId);
   state.contextTarget = target;
   const canActOnRun = state.selectedId != null, targetedMeasurement = measurementId != null ? state.measurements.find(x => x.id === measurementId) : null;
   const addButton = contextMenu.querySelector('[data-action="add-anchor"]'), removeButton = contextMenu.querySelector('[data-action="remove-anchor"]');
@@ -386,7 +386,7 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
   removeButton.disabled = !canRemoveAnchor;
   for (const action of ['cut', 'copy', 'rotate']) contextMenu.querySelector(`[data-action="${action}"]`).disabled = !canActOnRun;
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
-  contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target, measurements: state.measurements });
+  contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target, measurements: state.measurements, selectedIds: selection.currentIds() });
   contextMenuController.applyVisibilityMenuState({ contextMenu, measurement: targetedMeasurement, state, stateStore });
   contextMenu.classList.add('show');
   contextMenuController.positionContextMenu({ contextMenu, clientX, clientY, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight });
@@ -2489,7 +2489,7 @@ function buildMeasItem(m, sidebarMeta = {}) {
     e.preventDefault();
     if (onOtherPage) await goToPage(m.page);
     setMode('selection');
-    selection.selectSingle(m.id);
+    selection.selectForContextMenu(m.id);
     renderList();
     redraw();
     openContextMenu(e.clientX, e.clientY, m.id, { kind: 'sidebar-row', measurementId: m.id });

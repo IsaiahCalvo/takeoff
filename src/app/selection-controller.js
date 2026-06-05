@@ -32,6 +32,19 @@
       set(id == null ? [] : [id], { primary: id ?? null });
     }
 
+    function selectForContextMenu(id) {
+      if (id == null) {
+        selectSingle(id);
+        return 'single';
+      }
+      if (isSelected(id)) {
+        set(currentIds(), { primary: id });
+        return 'preserve';
+      }
+      selectSingle(id);
+      return 'single';
+    }
+
     function add(ids) {
       const next = normalize([...currentIds(), ...ids]);
       set(next, { primary: state.selectedId ?? next[0] ?? null });
@@ -94,7 +107,7 @@
       if (visibleSelectedIds.length !== selectedIds.length) set(visibleSelectedIds, { primary: visibleSelectedIds[0] ?? null });
     }
 
-    return { currentIds, set, selectSingle, selectFromClick, clear: () => set([]), add, remove, isSelected, deleteMeasurement, deleteSelectedMeasurements, filterVisible };
+    return { currentIds, set, selectSingle, selectForContextMenu, selectFromClick, clear: () => set([]), add, remove, isSelected, deleteMeasurement, deleteSelectedMeasurements, filterVisible };
   }
 
   window.TakeoffSelectionController = { createSelectionController };

@@ -1,5 +1,15 @@
 (function () {
-  function conversionMenuState({ measurement, measurementModel, measurementCommands, target, measurements } = {}) {
+  function selectedMergeConnection({ measurement, measurementCommands, target, measurements, selectedIds } = {}) {
+    if (!measurement || !target || !measurementCommands?.mergeConnectionForSelectedMeasurements) return null;
+    return measurementCommands.mergeConnectionForSelectedMeasurements({
+      measurements,
+      selectedIds,
+      measurement,
+      target,
+    });
+  }
+
+  function conversionMenuState({ measurement, measurementModel, measurementCommands, target, measurements, selectedIds } = {}) {
     const canConvertToLine = !!(measurement && measurementModel?.isFreehandMeasurement(measurement));
     const canConvertToFreehand = !!(measurement && measurementModel?.isLineMeasurement(measurement));
     const canContinuePath = !!(
@@ -11,7 +21,10 @@
     const canMergePaths = !!(
       measurement
       && target
-      && measurementCommands?.mergeConnectionForTarget?.({ measurements, measurement, target })
+      && (
+        measurementCommands?.mergeConnectionForTarget?.({ measurements, measurement, target })
+        || selectedMergeConnection({ measurement, measurementCommands, target, measurements, selectedIds })
+      )
     );
     const canUnmergePaths = !!(
       measurement
@@ -51,8 +64,8 @@
     return { left, top, ...size };
   }
 
-  function applyConversionMenuState({ contextMenu, measurement, measurementModel, measurementCommands, target, measurements } = {}) {
-    const state = conversionMenuState({ measurement, measurementModel, measurementCommands, target, measurements });
+  function applyConversionMenuState({ contextMenu, measurement, measurementModel, measurementCommands, target, measurements, selectedIds } = {}) {
+    const state = conversionMenuState({ measurement, measurementModel, measurementCommands, target, measurements, selectedIds });
     setButtonState(contextMenu?.querySelector('[data-action="convert-to-line"]'), state.canConvertToLine);
     setButtonState(contextMenu?.querySelector('[data-action="convert-to-freehand"]'), state.canConvertToFreehand);
     setButtonState(contextMenu?.querySelector('[data-action="continue-path"]'), state.canContinuePath);
@@ -288,19 +301,29 @@
     redraw,
     recordHistory,
     showStatus,
+    focusMeasurementName,
   } = {}) {
-    if (!state || !target || target.kind !== 'anchor-hit') return false;
+    if (!state || !target) return false;
     const measurementId = target.measurementId ?? state.selectedId;
     const measurement = state.measurements?.find(item => item.id === measurementId);
     if (!measurement) return false;
-    const connection = measurementCommands?.mergeConnectionForTarget?.({
-      measurements: state.measurements,
+    const connection = target.kind === 'anchor-hit'
+      ? measurementCommands?.mergeConnectionForTarget?.({
+        measurements: state.measurements,
+        measurement,
+        target,
+      })
+      : null;
+    const selectedConnection = connection || selectedMergeConnection({
       measurement,
+      measurementCommands,
       target,
+      measurements: state.measurements,
+      selectedIds: state.selectedIds,
     });
-    if (!connection) return false;
+    if (!selectedConnection) return false;
     const historyBefore = createHistorySnapshot();
-    const result = measurementCommands.mergeSnappedEndpointPaths(state.measurements, connection, {
+    const result = measurementCommands.mergeSnappedEndpointPaths(state.measurements, selectedConnection, {
       pxPerInch: scaleForPage(measurement.page),
     });
     if (!result?.merged) return false;

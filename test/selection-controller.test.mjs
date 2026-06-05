@@ -42,3 +42,17 @@ test('plain click on an already-selected measurement preserves the selected grou
   assert.deepEqual(plain(state.selectedIds), [1, 2]);
   assert.equal(state.selectedId, 1);
 });
+
+test('context menu selection preserves selected group and promotes the clicked measurement', async () => {
+  const selectionModule = await loadSelectionController();
+  const state = { selectedId: 1, selectedIds: [1, 2] };
+  const selection = selectionModule.createSelectionController({ state });
+
+  assert.equal(selection.selectForContextMenu(2), 'preserve');
+  assert.deepEqual(plain(state.selectedIds), [1, 2]);
+  assert.equal(state.selectedId, 2);
+
+  assert.equal(selection.selectForContextMenu(3), 'single');
+  assert.deepEqual(plain(state.selectedIds), [3]);
+  assert.equal(state.selectedId, 3);
+});

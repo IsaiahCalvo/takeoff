@@ -1940,6 +1940,40 @@ test('mergeConnectionForTarget requires snapped terminal endpoints and compatibl
   }), null);
 });
 
+test('mergeConnectionForSelectedMeasurements finds a snapped terminal endpoint pair in the selection', async () => {
+  const commands = await loadCommands();
+  const compatibleA = linePath(10, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 11, targetEndpoint: 'start' }],
+  });
+  const compatibleB = linePath(11, [{ x: 10, y: 0 }, { x: 20, y: 0 }]);
+  const unselected = linePath(12, [{ x: 10, y: 0 }, { x: 20, y: 0 }]);
+  const stale = linePath(13, [{ x: 0, y: 0 }, { x: 9, y: 0 }], {
+    snapConnections: [{ endpoint: 'end', targetId: 11, targetEndpoint: 'start' }],
+  });
+
+  assert.deepEqual(plain(commands.mergeConnectionForSelectedMeasurements({
+    measurements: [compatibleA, compatibleB],
+    selectedIds: [10, 11],
+    measurement: compatibleB,
+  })), {
+    sourceId: 10,
+    sourceEndpoint: 'end',
+    targetId: 11,
+    targetEndpoint: 'start',
+  });
+
+  assert.equal(commands.mergeConnectionForSelectedMeasurements({
+    measurements: [compatibleA, unselected],
+    selectedIds: [10],
+    measurement: compatibleA,
+  }), null);
+  assert.equal(commands.mergeConnectionForSelectedMeasurements({
+    measurements: [stale, compatibleB],
+    selectedIds: [13, 11],
+    measurement: stale,
+  }), null);
+});
+
 test('mergeConnectionForTarget allows mixed terminal endpoints and rejects nonterminal or endpoint-to-segment snaps', async () => {
   const commands = await loadCommands();
   const line = linePath(160, [{ x: 0, y: 0 }, { x: 10, y: 0 }], {

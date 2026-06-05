@@ -607,6 +607,44 @@
     return null;
   }
 
+  function isEndpoint(value) {
+    return value === 'start' || value === 'end';
+  }
+
+  function mergeConnectionForSelectedMeasurements({ measurements, selectedIds, measurement } = {}) {
+    const selected = new Set((selectedIds || []).filter(id => id != null).map(String));
+    if (selected.size < 2) return null;
+    const focusedId = measurement?.id != null ? String(measurement.id) : null;
+    if (focusedId && !selected.has(focusedId)) return null;
+
+    const list = measurements || [];
+    const byId = id => list.find(item => item && String(item.id) === String(id));
+    for (const source of list) {
+      if (!source || !selected.has(String(source.id))) continue;
+      for (const connection of source.snapConnections || []) {
+        const sourceEndpoint = connection.endpoint;
+        const targetEndpoint = connection.targetEndpoint;
+        if (!isEndpoint(sourceEndpoint) || !isEndpoint(targetEndpoint)) continue;
+        if (!selected.has(String(connection.targetId))) continue;
+
+        const target = byId(connection.targetId);
+        if (!target || (focusedId && String(source.id) !== focusedId && String(target.id) !== focusedId)) continue;
+        if (
+          compatibleMergeMeasurements(source, target)
+          && connectionMatchesGeometry(source, sourceEndpoint, target, targetEndpoint)
+        ) {
+          return {
+            sourceId: source.id,
+            sourceEndpoint,
+            targetId: target.id,
+            targetEndpoint,
+          };
+        }
+      }
+    }
+    return null;
+  }
+
   function appendUniquePoint(points, point) {
     if (!point) return;
     if (!points.length || !samePoint(points[points.length - 1], point)) points.push(clonePoint(point));
@@ -1199,6 +1237,7 @@
     clearEndpointSnapConnections,
     setEndpointSnapConnection,
     mergeConnectionForTarget,
+    mergeConnectionForSelectedMeasurements,
     mergeSnappedEndpointPaths,
     unmergePathState,
     unmergePaths,
