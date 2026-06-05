@@ -283,12 +283,12 @@ test('applyMeasurementGroupDrag moves every selected measurement by one shared d
   assert.deepEqual(plain(second.rotationFrame), { x: 38, y: 18, width: 10, height: 1, cx: 43, cy: 18.5 });
 });
 
-test('applyRotationDrag rotates geometry, snaps when shifted, and rebuilds the frame', async () => {
+test('applyRotationDrag rotates geometry, snaps when shifted, and keeps the frame size stable', async () => {
   const workflow = await loadPointerWorkflow();
   const measurement = {
     id: 11,
     rotationAngle: 0,
-    points: [{ x: 2, y: 0 }, { x: 0, y: 2 }],
+    points: [{ x: 2, y: 0 }, { x: 0, y: 2 }, { x: 4, y: 2 }],
     shape: {
       active: 'line',
       previousFreehand: {
@@ -296,7 +296,7 @@ test('applyRotationDrag rotates geometry, snaps when shifted, and rebuilds the f
       },
     },
   };
-  const frame = { x: -2, y: -2, width: 4, height: 4, cx: 0, cy: 0, angle: 0 };
+  const frame = { x: -2, y: -2, width: 8, height: 6, cx: 0, cy: 0, angle: 0 };
   const drag = workflow.createRotationDrag({
     measurement,
     frame,
@@ -310,12 +310,28 @@ test('applyRotationDrag rotates geometry, snaps when shifted, and rebuilds the f
     cursor: { x: Math.cos(13 * Math.PI / 180), y: Math.sin(13 * Math.PI / 180) },
     shiftKey: true,
     constrainGeometry: (points, segments) => ({ points, segments }),
-    createRotationFrame: () => ({ x: -3, y: -3, width: 6, height: 6, cx: 0, cy: 0, angle: 0 }),
+    createRotationFrame: source => {
+      const xs = source.points.map(point => point.x);
+      const ys = source.points.map(point => point.y);
+      const minX = Math.min(...xs);
+      const minY = Math.min(...ys);
+      const maxX = Math.max(...xs);
+      const maxY = Math.max(...ys);
+      return {
+        x: minX - 1,
+        y: minY - 1,
+        width: maxX - minX + 2,
+        height: maxY - minY + 2,
+        cx: (minX + maxX) / 2,
+        cy: (minY + maxY) / 2,
+        angle: 0,
+      };
+    },
   });
 
   assert.equal(result.nextAngle, 15);
   assert.equal(measurement.rotationAngle, 15);
-  assert.equal(measurement.rotationFrame.angle, 15);
+  assert.deepEqual(plain(measurement.rotationFrame), { x: -2, y: -2, width: 8, height: 6, cx: 0, cy: 0, angle: 15 });
   assert.ok(Math.abs(measurement.points[0].x - 1.9319) < 0.0001);
   assert.ok(Math.abs(measurement.points[0].y - 0.5176) < 0.0001);
   assert.ok(Math.abs(measurement.points[1].x - -0.5176) < 0.0001);

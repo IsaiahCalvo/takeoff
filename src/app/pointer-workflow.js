@@ -238,6 +238,7 @@
     measurement,
     center,
     originalAngle,
+    originalFrame = null,
     originalPoints,
     originalSegments = null,
     originalShape = null,
@@ -268,7 +269,15 @@
     if (rotatedShape) measurement.shape = rotatedShape;
     if (rotatedMergeMemory) measurement.mergeMemory = rotatedMergeMemory;
     measurement.rotationAngle = normalizedAngle;
-    measurement.rotationFrame = createRotationFrame(measurement);
+    measurement.rotationFrame = originalFrame
+      ? {
+        ...originalFrame,
+        x: originalFrame.x + constrainedDelta.dx,
+        y: originalFrame.y + constrainedDelta.dy,
+        cx: originalFrame.cx + constrainedDelta.dx,
+        cy: originalFrame.cy + constrainedDelta.dy,
+      }
+      : createRotationFrame(measurement);
     if (measurement.rotationFrame) measurement.rotationFrame.angle = normalizedAngle;
 
     return { nextAngle: normalizedAngle, rotateDelta };
@@ -290,6 +299,7 @@
       measurement,
       center: drag.center,
       originalAngle: drag.originalAngle,
+      originalFrame: drag.originalFrame,
       originalPoints: drag.originalPoints,
       originalSegments: drag.originalSegments,
       originalShape: drag.originalShape,
@@ -311,6 +321,7 @@
       measurement,
       center,
       originalAngle: measurement.rotationAngle || 0,
+      originalFrame: measurement.rotationFrame ? { ...measurement.rotationFrame } : null,
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
       originalShape: cloneShape(measurement.shape),
