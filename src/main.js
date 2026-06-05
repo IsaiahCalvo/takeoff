@@ -1225,16 +1225,15 @@ stage.addEventListener('mousedown', (e) => {
       const drawInfo = placementPointInfo(p, { page: draft?.page || null, excludeMeasurementIds });
       if (!drawInfo) return;
       if (draft) {
-        const raw = draft.rawPoints;
-        const last = raw[raw.length - 1];
-        if (!last || distancePx(last, drawInfo.point) > 0.5) raw.push(drawInfo.point);
+        measurementWorkflows.applyFreehandDraftClick({ draft, point: drawInfo.point, distancePx });
+        const raw = draft.rawPoints || []; draft.previewSegments = raw.length > 2 ? buildFreehandSegments(raw, 8) : [];
         recordDraftEndpointSnap(draft, draft.continuation?.endpoint || 'end', drawInfo.snap);
-        finishFreehandMeasurement();
+        redraw();
         e.preventDefault();
         return;
       }
       state.inProgress = null;
-      state.freehandDraft = { page: drawInfo.page, rawPoints: [drawInfo.point], previewSegments: [], snapConnections: {}, activePath: activePathForNewRun() };
+      state.freehandDraft = { page: drawInfo.page, rawPoints: [drawInfo.point], anchorPoints: [drawInfo.point], previewSegments: [], snapConnections: {}, activePath: activePathForNewRun() };
       recordDraftEndpointSnap(state.freehandDraft, 'start', drawInfo.snap);
       redraw();
       e.preventDefault();
@@ -1483,7 +1482,7 @@ function currentInputState(target = null) {
     selectedId: state.selectedId,
     selectedIds: state.selectedIds,
     isPanning: state.isPanning,
-    inProgressPointCount: state.inProgress?.points?.length || 0,
+    inProgressPointCount: measurementWorkflows.activeMeasurePointCount({ inProgress: state.inProgress, freehandDraft: state.freehandDraft }),
   };
 }
 
@@ -1540,8 +1539,8 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   if (inputAction.action === 'finish-measurement') {
-    finishMeasurement();
-    return;
+    if (state.freehandDraft) finishFreehandMeasurement(); else if (state.inProgress) finishMeasurement();
+    e.preventDefault(); return;
   }
   if (inputAction.action === 'delete-selection') {
     const historyBefore = createHistorySnapshot();
@@ -2355,6 +2354,7 @@ function redraw(previewTo) {
       : polylineLengthPx(raw);
     const liveLabel = scaleForPage(page) ? `${formatLen(pxToInches(livePx, page))} ${unitModel.unitLabel(state.unit)}` : 'no scale';
     const drawRaw = continuousMeasurements.stackPointsForPage(state, page, raw);
+    const drawAnchors = continuousMeasurements.stackPointsForPage(state, page, state.freehandDraft.anchorPoints?.length ? state.freehandDraft.anchorPoints : raw);
     const drawSegments = continuousMeasurements.stackSegmentsForPage(state, page, state.freehandDraft.previewSegments);
     if (state.freehandDraft.previewSegments?.length) {
       drawBezierSegments(drawSegments, {
@@ -2377,7 +2377,7 @@ function redraw(previewTo) {
         labelColor: '#b6ff3c',
       });
     }
-    drawEndpointAnchors(drawRaw, '#b6ff3c');
+    drawEndpointAnchors(drawAnchors, '#b6ff3c');
   }
   marqueeSelection.draw();
   lengthEditController.bindActiveCanvasLengthInput();

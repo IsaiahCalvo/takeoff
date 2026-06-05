@@ -48,6 +48,40 @@
     };
   }
 
+  function defaultDistancePx(a, b) {
+    const ax = Number(a?.x) || 0;
+    const ay = Number(a?.y) || 0;
+    const bx = Number(b?.x) || 0;
+    const by = Number(b?.y) || 0;
+    return Math.hypot(ax - bx, ay - by);
+  }
+
+  function applyFreehandDraftClick({
+    draft,
+    point,
+    distancePx = defaultDistancePx,
+    minDistance = 0.5,
+  } = {}) {
+    if (!draft || !point) return { draft: draft || null, appended: false, finished: false };
+    if (!Array.isArray(draft.rawPoints)) draft.rawPoints = [];
+    if (!Array.isArray(draft.anchorPoints)) draft.anchorPoints = [];
+    const raw = draft.rawPoints;
+    const last = raw[raw.length - 1];
+    const distance = last && typeof distancePx === 'function' ? distancePx(last, point) : Infinity;
+    const appended = !last || !Number.isFinite(distance) || distance > minDistance;
+    if (appended) raw.push(point);
+    const lastAnchor = draft.anchorPoints[draft.anchorPoints.length - 1];
+    const anchorDistance = lastAnchor && typeof distancePx === 'function' ? distancePx(lastAnchor, point) : Infinity;
+    if (!lastAnchor || !Number.isFinite(anchorDistance) || anchorDistance > minDistance) draft.anchorPoints.push(point);
+    return { draft, appended, finished: false };
+  }
+
+  function activeMeasurePointCount({ inProgress = null, freehandDraft = null } = {}) {
+    const freehandCount = freehandDraft?.rawPoints?.length || 0;
+    if (freehandCount) return freehandCount;
+    return inProgress?.points?.length || 0;
+  }
+
   function recomputeMeasurementLength(measurement, { pxPerInch, measureLengthPx } = {}) {
     if (!measurement || !measureLengthPx) return false;
     measurement.lengthPx = measureLengthPx(measurement);
@@ -60,6 +94,8 @@
     resolveActiveMeasureDrawMode,
     deleteMeasurementResult,
     appendMeasurementResult,
+    applyFreehandDraftClick,
+    activeMeasurePointCount,
     recomputeMeasurementLength,
   };
 })();

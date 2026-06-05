@@ -113,7 +113,7 @@
     state.freehandDraft = null;
     const continuation = { measurementId: measurement.id, endpoint };
     if (isCurveMeasurement(measurement)) {
-      state.freehandDraft = { page: measurement.page || currentPage(), rawPoints: [{ ...point }], previewSegments: [], continuation };
+      state.freehandDraft = { page: measurement.page || currentPage(), rawPoints: [{ ...point }], anchorPoints: [{ ...point }], previewSegments: [], continuation };
     } else {
       state.inProgress = { type: 'measure', page: measurement.page || currentPage(), points: [{ ...point }], continuation };
     }

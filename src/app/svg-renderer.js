@@ -461,9 +461,8 @@
       if (!points || points.length < 1) return;
       const group = svgNode('g');
       drawSvg.appendChild(group);
-      const endpoints = points.length === 1 ? [points[0]] : [points[0], points[points.length - 1]];
       const r = overlayPageSize(5);
-      for (const point of endpoints) {
+      for (const point of points) {
         group.appendChild(svgNode('circle', {
           cx: point.x,
           cy: point.y,

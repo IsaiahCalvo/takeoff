@@ -149,3 +149,36 @@ test('active measure draw mode stays locked after modifier changes mid-run', asy
     altKey: false,
   }), 'freehand');
 });
+
+test('freehand draft clicks append points without completing the draft', async () => {
+  const workflows = await loadMeasurementWorkflows();
+  const draft = {
+    page: 1,
+    rawPoints: [{ x: 10, y: 20 }],
+    previewSegments: [],
+  };
+
+  const result = workflows.applyFreehandDraftClick({
+    draft,
+    point: { x: 25, y: 35 },
+    distancePx: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+  });
+
+  assert.equal(result.draft, draft);
+  assert.equal(result.finished, false);
+  assert.equal(result.appended, true);
+  assert.deepEqual(plain(draft.rawPoints), [{ x: 10, y: 20 }, { x: 25, y: 35 }]);
+  assert.deepEqual(plain(draft.anchorPoints), [{ x: 25, y: 35 }]);
+});
+
+test('active measure point count includes freehand draft points for Enter completion', async () => {
+  const workflows = await loadMeasurementWorkflows();
+
+  assert.equal(workflows.activeMeasurePointCount({
+    freehandDraft: { rawPoints: [{ x: 0, y: 0 }, { x: 10, y: 10 }, { x: 20, y: 20 }] },
+  }), 3);
+  assert.equal(workflows.activeMeasurePointCount({
+    inProgress: { points: [{ x: 0, y: 0 }, { x: 10, y: 10 }] },
+  }), 2);
+  assert.equal(workflows.activeMeasurePointCount({}), 0);
+});
