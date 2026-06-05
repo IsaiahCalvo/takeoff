@@ -282,6 +282,14 @@ test('bottom-left HUD exposes Snap to paths as an icon-only pressed toggle', asy
   assert.match(styles, /\.snap-toggle\[aria-pressed="true"\] svg\s*\{[^}]*drop-shadow/);
   assert.match(main, /snapToggle\.addEventListener\('click'/);
   assert.match(main, /snapToggle\.setAttribute\('aria-pressed', state\.snapToPaths \? 'true' : 'false'\)/);
+  assert.match(main, /function shouldIgnoreStagePointerTarget\(target\) \{/);
+  assert.match(main, /typeof pointerController\?\.shouldIgnoreStagePointerTarget === 'function'/);
+  assert.match(main, /shouldIgnoreStagePointerTarget\(e\.target\)/);
+  assert.doesNotMatch(main, /pointerController\.shouldIgnoreStagePointerTarget\(e\.target\)/);
+  assert.match(main, /function stopStageToolPointer\(e\) \{ e\.stopPropagation\(\); \}/);
+  assert.match(main, /snapToggle\.addEventListener\('pointerdown', stopStageToolPointer\)/);
+  assert.match(main, /snapToggle\.addEventListener\('mousedown', stopStageToolPointer\)/);
+  assert.match(main, /snapToggle\.addEventListener\('click', \(e\) => \{ e\.stopPropagation\(\);/);
   assert.doesNotMatch(main, /snapToggle\.classList\.toggle\('active'/);
 });
 

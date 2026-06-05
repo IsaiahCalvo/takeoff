@@ -989,8 +989,8 @@ $('btn-pan').classList.add('active');
 // ------- Zoom buttons -------
 $('zoomIn').addEventListener('click', (e) => { e.stopPropagation(); zoomAt(stageCenter(), 1.25, 'button'); });
 $('zoomOut').addEventListener('click', (e) => { e.stopPropagation(); zoomAt(stageCenter(), 0.8, 'button'); });
-function syncSnapToggle() { snapToggle.setAttribute('aria-pressed', state.snapToPaths ? 'true' : 'false'); snapToggle.classList.remove('active'); }
-snapToggle.addEventListener('click', () => { state.snapToPaths = !state.snapToPaths; state.snapFeedback = null; syncSnapToggle(); redrawActivePreview(); });
+function syncSnapToggle() { snapToggle.setAttribute('aria-pressed', state.snapToPaths ? 'true' : 'false'); snapToggle.classList.remove('active'); } function stopStageToolPointer(e) { e.stopPropagation(); }
+snapToggle.addEventListener('pointerdown', stopStageToolPointer); snapToggle.addEventListener('mousedown', stopStageToolPointer); snapToggle.addEventListener('click', (e) => { e.stopPropagation(); state.snapToPaths = !state.snapToPaths; state.snapFeedback = null; syncSnapToggle(); redrawActivePreview(); });
 syncSnapToggle();
 $('zoomFit').addEventListener('click', (e) => {
   e.stopPropagation();
@@ -1049,7 +1049,7 @@ function shouldSuppressPointPlacement(e) {
     suppressPointUntil: state.suppressPointUntil,
   });
 }
-
+function shouldIgnoreStagePointerTarget(target) { return typeof pointerController?.shouldIgnoreStagePointerTarget === 'function' ? pointerController.shouldIgnoreStagePointerTarget(target) : false; }
 // ------- Wheel: Ctrl+wheel = zoom, plain wheel = scroll (deltaX horizontal, deltaY vertical) -------
 stage.addEventListener('wheel', (e) => {
   e.preventDefault();
@@ -1088,7 +1088,12 @@ stage.addEventListener('contextmenu', (e) => {
   redraw();
 });
 
-stage.addEventListener('pointerdown', pointerMarquee.pointerDown); stage.addEventListener('mousedown', (e) => {
+stage.addEventListener('pointerdown', (e) => {
+  if (shouldIgnoreStagePointerTarget(e.target)) return;
+  pointerMarquee.pointerDown(e);
+});
+stage.addEventListener('mousedown', (e) => {
+  if (shouldIgnoreStagePointerTarget(e.target)) return;
   if (!state.baseW) return;
   if (e.button !== 2) closeContextMenu();
   if (e.button !== 0 && e.button !== 1) return; if (state.marqueeSelection) { e.preventDefault(); return; }

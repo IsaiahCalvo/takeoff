@@ -45,3 +45,15 @@ test('detects active drags and finishes them when the pointer button is gone', a
   assert.equal(pointer.shouldFinishPointerDragOnMove({ dragLabel: { measurementId: 1 } }, 1), false);
   assert.equal(pointer.shouldFinishPointerDragOnMove({ dragLabel: { measurementId: 1 } }, 0), true);
 });
+
+test('identifies UI controls inside the stage so clicks do not place points', async () => {
+  const pointer = await loadPointerController();
+  const button = { tagName: 'BUTTON', parentElement: null };
+  const iconPath = { tagName: 'path', parentElement: button };
+  const drawCanvas = { tagName: 'CANVAS', parentElement: null };
+
+  assert.equal(pointer.shouldIgnoreStagePointerTarget?.(button), true);
+  assert.equal(pointer.shouldIgnoreStagePointerTarget?.(iconPath), true);
+  assert.equal(pointer.shouldIgnoreStagePointerTarget?.(drawCanvas), false);
+  assert.equal(pointer.shouldIgnoreStagePointerTarget?.(null), false);
+});
