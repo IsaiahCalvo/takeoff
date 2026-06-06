@@ -25,6 +25,16 @@ test('isTextEntryTarget ignores editable form fields but allows read-only inputs
   assert.equal(input.isTextEntryTarget({ tagName: 'DIV', isContentEditable: true }), true);
 });
 
+test('isBrowserZoomWheel identifies modified wheel gestures used by browser zoom', async () => {
+  const input = await loadInputController();
+
+  assert.equal(input.isBrowserZoomWheel({ ctrlKey: true, metaKey: false }), true);
+  assert.equal(input.isBrowserZoomWheel({ ctrlKey: false, metaKey: true }), true);
+  assert.equal(input.isBrowserZoomWheel({ ctrlKey: false, metaKey: false, shiftKey: true }), false);
+  assert.equal(input.isBrowserZoomWheel({}), false);
+  assert.equal(input.isBrowserZoomWheel(null), false);
+});
+
 test('describeKeyDown maps command shortcuts before single-key modes', async () => {
   const input = await loadInputController();
   const state = { mode: 'measure', inProgressPointCount: 2, selectedId: 9, spaceHeld: false };

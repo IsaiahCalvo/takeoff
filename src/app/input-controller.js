@@ -20,6 +20,10 @@
     return !!(state.inProgressPointCount || (state.mode === 'selection' && hasSelection(state)));
   }
 
+  function isBrowserZoomWheel(event) {
+    return !!(event && (event.ctrlKey || event.metaKey));
+  }
+
   function hasSelection(state = {}) {
     return state.selectedId != null || !!state.selectedIds?.length;
   }
@@ -79,6 +83,7 @@
 
   window.TakeoffInputController = {
     isTextEntryTarget,
+    isBrowserZoomWheel,
     describeKeyDown,
     describeKeyUp,
   };

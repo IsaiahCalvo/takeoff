@@ -189,7 +189,7 @@ const pathDock = window.TakeoffPathDock.createPathDockController({ root: pathDoc
 const homeTabs = Array.from(document.querySelectorAll('[data-home-tab]')), homePanels = Array.from(document.querySelectorAll('[data-home-panel]')), homeTemplateCount = $('homeTemplateCount'), mergePathsFeatureEnabled = () => contextMenuController.mergePathsFeatureEnabled?.() === true;
 function updateHomeTemplateCount() { if (homeTemplateCount) homeTemplateCount.textContent = String(Array.isArray(state.pathTemplates) ? state.pathTemplates.length : 0).padStart(2, '0'); }
 function setHomeTab(tabName) { homeTabs.forEach((tab) => { const active = tab.dataset.homeTab === tabName; tab.classList.toggle('active', active); tab.setAttribute('aria-selected', active ? 'true' : 'false'); }); homePanels.forEach((panel) => { const active = panel.dataset.homePanel === tabName; panel.classList.toggle('active', active); panel.hidden = !active; if (active) panel.focus({ preventScroll: true }); }); }
-homeTabs.forEach((tab) => tab.addEventListener('click', () => setHomeTab(tab.dataset.homeTab))); document.querySelector('.home-main')?.addEventListener('wheel', (event) => { const panel = homePanels.find((item) => !item.hidden); if (!panel || panel.scrollHeight <= panel.clientHeight) return; const before = panel.scrollTop; panel.scrollTop += event.deltaY; if (panel.scrollTop !== before) event.preventDefault(); }, { passive: false }); homePanels.forEach((panel) => panel.addEventListener('keydown', (event) => { const steps = { PageDown: panel.clientHeight * 0.8, PageUp: panel.clientHeight * -0.8, ArrowDown: 48, ArrowUp: -48 }; const delta = steps[event.key]; if (!delta || panel.scrollHeight <= panel.clientHeight) return; const before = panel.scrollTop; panel.scrollTop += delta; if (panel.scrollTop !== before) event.preventDefault(); }));
+homeTabs.forEach((tab) => tab.addEventListener('click', () => setHomeTab(tab.dataset.homeTab))); document.querySelector('.home-main')?.addEventListener('wheel', (event) => { if (inputController.isBrowserZoomWheel(event)) { event.preventDefault(); return; } const panel = homePanels.find((item) => !item.hidden); if (!panel || panel.scrollHeight <= panel.clientHeight) return; const before = panel.scrollTop; panel.scrollTop += event.deltaY; if (panel.scrollTop !== before) event.preventDefault(); }, { passive: false }); homePanels.forEach((panel) => panel.addEventListener('keydown', (event) => { const steps = { PageDown: panel.clientHeight * 0.8, PageUp: panel.clientHeight * -0.8, ArrowDown: 48, ArrowUp: -48 }; const delta = steps[event.key]; if (!delta || panel.scrollHeight <= panel.clientHeight) return; const before = panel.scrollTop; panel.scrollTop += delta; if (panel.scrollTop !== before) event.preventDefault(); }));
 $('pathTemplatesHome')?.addEventListener('click', () => queueMicrotask(updateHomeTemplateCount)); updateHomeTemplateCount();
 
 const pdfDetailTile = window.TakeoffPdfDetailTile.createPdfDetailTileController({
@@ -504,6 +504,8 @@ const pdfPageCache = window.TakeoffPdfPageCache;
 const inputController = window.TakeoffInputController;
 const sidebarModel = window.TakeoffSidebar;
 const performanceController = window.TakeoffPerformanceController.createPerformanceController({ logger: performanceLogger, state, stage, viewerModel, desiredPdfRenderScale, desiredPdfDetailTileScale, cacheSet, cacheHasUsable, renderPdfPage, renderPdfDetailTile: options => pdfDetailTile.renderNow(options), usesPdfDetailTile, showStatus });
+
+window.addEventListener('wheel', (event) => { if (inputController.isBrowserZoomWheel(event)) event.preventDefault(); }, { passive: false, capture: true });
 
 function scaleForPage(page) { return state.pageScales[page] || (page === currentPage() ? state.pxPerInch : null); }
 function pxToInches(px, page = currentPage()) { return unitModel.pxToInches(px, scaleForPage(page)); }
@@ -1049,7 +1051,7 @@ function shouldIgnoreStagePointerTarget(target) { return typeof pointerControlle
 // ------- Wheel: Ctrl+wheel = zoom, plain wheel = scroll (deltaX horizontal, deltaY vertical) -------
 stage.addEventListener('wheel', (e) => {
   e.preventDefault();
-  if (e.ctrlKey || e.metaKey) {
+  if (inputController.isBrowserZoomWheel(e)) {
     const factor = e.deltaY < 0 ? 1.12 : 1/1.12;
     zoomAt({ clientX: e.clientX, clientY: e.clientY }, factor, 'wheel');
   } else {

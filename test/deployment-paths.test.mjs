@@ -380,6 +380,14 @@ test('zoom controls do not bubble into tool dismissal handlers', async () => {
   assert.match(zoomOutHandler, /zoomAt\(stageCenter\(\),\s*0\.8,\s*'button'\)/);
 });
 
+test('modified wheel gestures are blocked from triggering browser page zoom globally', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(main, /window\.addEventListener\('wheel',\s*\(event\) => \{[\s\S]*?inputController\.isBrowserZoomWheel\(event\)[\s\S]*?event\.preventDefault\(\);[\s\S]*?\},\s*\{\s*passive:\s*false,\s*capture:\s*true\s*\}\);/);
+  assert.match(main, /home-main'\)\?\.addEventListener\('wheel',\s*\(event\) => \{ if \(inputController\.isBrowserZoomWheel\(event\)\)/);
+  assert.match(main, /stage\.addEventListener\('wheel',\s*\(e\) => \{[\s\S]*?if \(inputController\.isBrowserZoomWheel\(e\)\)/);
+});
+
 test('freehand completion keeps the app in measure mode', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const finishFreehand = main.match(/function finishFreehandMeasurement\(\) \{[\s\S]*?\n\}/)?.[0] || '';
