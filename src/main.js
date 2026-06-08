@@ -337,7 +337,7 @@ function setMode(m, opts = {}) {
   stage.classList.toggle('selection', m === 'selection');
   stage.classList.toggle('pan', m === 'pan');
   stage.classList.toggle('erase', m === 'erase');
-  if (m !== 'measure' && m !== 'calibrate') {
+  if (m !== 'measure' && m !== 'calibrate' && !opts.transient) {
     state.inProgress = null; state.freehandDraft = null; state.snapFeedback = null;
   }
   if (m !== 'selection') { selection.clear(); state.marqueeSelection = null; endRotateMode(); }
@@ -985,8 +985,8 @@ $('btn-pan').classList.add('active');
 // ------- Zoom buttons -------
 $('zoomIn').addEventListener('click', (e) => { e.stopPropagation(); zoomAt(stageCenter(), 1.25, 'button'); });
 $('zoomOut').addEventListener('click', (e) => { e.stopPropagation(); zoomAt(stageCenter(), 0.8, 'button'); });
-function syncSnapToggle() { snapToggle.setAttribute('aria-pressed', state.snapToPaths ? 'true' : 'false'); snapToggle.classList.remove('active'); } function stopStageToolPointer(e) { e.stopPropagation(); }
-snapToggle.addEventListener('pointerdown', stopStageToolPointer); snapToggle.addEventListener('mousedown', stopStageToolPointer); snapToggle.addEventListener('click', (e) => { e.stopPropagation(); state.snapToPaths = !state.snapToPaths; state.snapFeedback = null; syncSnapToggle(); redrawActivePreview(); });
+function syncSnapToggle() { snapToggle.setAttribute('aria-pressed', state.snapToPaths ? 'true' : 'false'); snapToggle.classList.remove('active'); } function toggleSnapToPaths() { state.snapToPaths = !state.snapToPaths; state.snapFeedback = null; syncSnapToggle(); redrawActivePreview(); } function stopStageToolPointer(e) { e.stopPropagation(); }
+snapToggle.addEventListener('pointerdown', stopStageToolPointer); snapToggle.addEventListener('mousedown', stopStageToolPointer); snapToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleSnapToPaths(); });
 syncSnapToggle();
 $('zoomFit').addEventListener('click', (e) => {
   e.stopPropagation();
@@ -1289,7 +1289,7 @@ stage.addEventListener('mousemove', (e) => {
   if (state.marqueeSelection) { marqueeSelection.update(e); return; }
   if (snapPreviewChanged && !state.inProgress && !state.freehandDraft) redraw();
 
-  if (state.freehandDraft) {
+  if (state.freehandDraft && state.mode === 'measure') {
     const raw = state.freehandDraft.rawPoints;
     const previewPoint = continuousMeasurements.localPointForPage(state, state.freehandDraft.page, state.cursorImg);
     const excludeMeasurementIds = state.freehandDraft.continuation?.measurementId ? [state.freehandDraft.continuation.measurementId] : [];
@@ -1370,7 +1370,7 @@ stage.addEventListener('mousemove', (e) => {
   const labelHoverId = findLabelHit(state.cursorImg)?.measurementId ?? null;
   if (labelHoverId !== state.hoverLabelId) { state.hoverLabelId = labelHoverId; redraw(state.inProgress ? getEffectiveCursor() : undefined); }
 
-  if (state.inProgress) {
+  if (state.inProgress && (state.mode === 'measure' || state.mode === 'calibrate')) {
     // live preview (snapped to 45° when Shift is held)
     const preview = getEffectiveCursor();
     redraw(preview);
@@ -1549,11 +1549,8 @@ window.addEventListener('keydown', (e) => {
     e.preventDefault();
     return;
   }
-  if (inputAction.action === 'save-performance-log') {
-    e.preventDefault();
-    performanceController.savePerformanceLog();
-    return;
-  }
+  if (inputAction.action === 'save-performance-log') { e.preventDefault(); performanceController.savePerformanceLog(); return; }
+  if (inputAction.action === 'toggle-snap-to-paths') { toggleSnapToPaths(); e.preventDefault(); return; }
   if (inputAction.action === 'set-mode') {
     setMode(inputAction.mode);
     return;
