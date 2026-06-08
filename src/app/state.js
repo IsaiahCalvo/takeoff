@@ -225,6 +225,7 @@
       maxPdfRenderScale: 12,
       maxPdfDetailTileScale: 40,
       maxPdfBitmapEdge: 15000,
+      maxImageBitmapEdge: 4096,
       baseW: 0,
       baseH: 0,
       zoom: 1,

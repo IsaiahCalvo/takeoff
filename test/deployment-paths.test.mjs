@@ -493,6 +493,14 @@ test('continuous page layer is prewarmed before the first toggle', async () => {
   assert.match(main, /scheduleContinuousLayerPrewarm\(eligibility\)/);
 });
 
+test('continuous page prewarm is deferred off the initial upload paint', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const schedulePrewarm = main.match(/function scheduleContinuousLayerPrewarm\([\s\S]*?\nasync function prewarmContinuousLayer/)?.[0] || '';
+
+  assert.match(schedulePrewarm, /setTimeout\(/);
+  assert.doesNotMatch(schedulePrewarm, /Promise\.resolve\(\)\.then/);
+});
+
 test('viewport transforms are constrained to keep the page in view', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const applyTransform = main.match(/function applyTransform\(\) \{[\s\S]*?\n\}/)?.[0] || '';

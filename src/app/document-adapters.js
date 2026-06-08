@@ -4,7 +4,7 @@
       pdf,
       pdfPages: pdf.numPages,
       pdfPage: 1,
-      continuousScrollMode: pdf.numPages > 1,
+      continuousScrollMode: false,
       imageBitmap: null,
     };
   }
@@ -20,19 +20,41 @@
     };
   }
 
+  function boundedBitmapSize({ width, height, maxBitmapEdge }) {
+    const maxEdge = Number(maxBitmapEdge);
+    if (!Number.isFinite(maxEdge) || maxEdge <= 0) return { width, height };
+    const largest = Math.max(width, height);
+    if (!largest || largest <= maxEdge) return { width, height };
+    const scale = maxEdge / largest;
+    return {
+      width: Math.max(1, Math.round(width * scale)),
+      height: Math.max(1, Math.round(height * scale)),
+    };
+  }
+
   function renderImageBitmapToCanvas({
     image,
+    maxBitmapEdge = null,
     baseCanvas,
     baseCtx,
     configureCanvasCssSize,
     configureDrawCanvas,
   }) {
     const state = createImageDocumentState(image);
-    baseCanvas.width = state.baseW;
-    baseCanvas.height = state.baseH;
+    const bitmapSize = boundedBitmapSize({
+      width: state.baseW,
+      height: state.baseH,
+      maxBitmapEdge,
+    });
+    baseCanvas.width = bitmapSize.width;
+    baseCanvas.height = bitmapSize.height;
     configureCanvasCssSize(baseCanvas, state.baseW, state.baseH);
     configureDrawCanvas();
-    baseCtx.drawImage(image, 0, 0);
+    if (bitmapSize.width === state.baseW && bitmapSize.height === state.baseH) {
+      baseCtx.drawImage(image, 0, 0);
+    } else {
+      baseCtx.drawImage(image, 0, 0, bitmapSize.width, bitmapSize.height);
+    }
     return state;
   }
 

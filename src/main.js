@@ -146,10 +146,10 @@ function pageBoxForViewportAnchor(page = state.pdfPage) { return state.continuou
 function constrainViewportPan() { const rect = stage.getBoundingClientRect(), box = pageBoxForViewportAnchor(state.pdfPage); const pan = viewerModel.constrainPanToBounds({ panX: state.panX, panY: state.panY, zoom: state.zoom, stageWidth: rect.width, stageHeight: rect.height, baseWidth: state.baseW, baseHeight: state.baseH, focusWidth: box?.width, focusHeight: box?.height, margin: VIEWPORT_BOUND_MARGIN }); state.panX = pan.panX; state.panY = pan.panY; }
 function captureViewportAnchor(page = state.pdfPage) { const rect = stage.getBoundingClientRect(); const anchor = viewerModel.pageAnchorAtScreenPoint({ screenX: rect.width / 2, screenY: rect.height / 2, panX: state.panX, panY: state.panY, zoom: state.zoom, pageBox: pageBoxForViewportAnchor(page), baseWidth: state.baseW, baseHeight: state.baseH }); return anchor ? { ...anchor, page } : null; }
 function restoreViewportAnchor(anchor) { const pan = viewerModel.panForPageAnchor({ anchor, zoom: state.zoom, pageBox: pageBoxForViewportAnchor(anchor?.page), baseWidth: state.baseW, baseHeight: state.baseH }); if (pan) { state.panX = pan.panX; state.panY = pan.panY; } }
-let continuousPrewarmPromise = null;
+let continuousPrewarmPromise = null, continuousPrewarmTimer = null;
 let continuousPrewarmKey = 0;
-function invalidateContinuousPrewarm() { continuousPrewarmKey += 1; continuousPrewarmPromise = null; state.cachedContinuousPageLayout = null; }
-function scheduleContinuousLayerPrewarm(eligibility = continuousEligibility()) { const pages = continuousGroupPages(eligibility); if (!state.pdf || state.continuousScrollMode || !eligibility.eligible || cachedContinuousLayerMatches(pages) || continuousPrewarmPromise) return; const key = continuousPrewarmKey; continuousPrewarmPromise = Promise.resolve().then(() => prewarmContinuousLayer(key, pages)).finally(() => { if (key === continuousPrewarmKey) continuousPrewarmPromise = null; }); }
+function invalidateContinuousPrewarm() { continuousPrewarmKey += 1; continuousPrewarmPromise = null; if (continuousPrewarmTimer) { clearTimeout(continuousPrewarmTimer); continuousPrewarmTimer = null; } state.cachedContinuousPageLayout = null; }
+function scheduleContinuousLayerPrewarm(eligibility = continuousEligibility()) { const pages = continuousGroupPages(eligibility); if (!state.pdf || state.continuousScrollMode || !eligibility.eligible || cachedContinuousLayerMatches(pages) || continuousPrewarmPromise || continuousPrewarmTimer) return; const key = continuousPrewarmKey; continuousPrewarmTimer = setTimeout(() => { continuousPrewarmTimer = null; if (key !== continuousPrewarmKey) return; continuousPrewarmPromise = prewarmContinuousLayer(key, pages).finally(() => { if (key === continuousPrewarmKey) continuousPrewarmPromise = null; }); }, 250); }
 async function prewarmContinuousLayer(key, pages) { const stillCurrent = () => { const eligibility = continuousEligibility(); return key === continuousPrewarmKey && state.pdf && !state.continuousScrollMode && eligibility.eligible && continuousRenderer.samePageNumbers(continuousGroupPages(eligibility), pages); }; if (!stillCurrent()) return false; const baseScale = usesPdfDetailTile() ? pdfDetailTile.baseRenderScale(desiredPdfRenderScale()) : desiredPdfRenderScale(); const result = await continuousRenderer.renderContinuousPdf({ pageCount: state.pdfPages, pages, requestedScale: baseScale, maxBitmapEdge: state.maxPdfBitmapEdge, cacheGet, renderPage: (page, requestedScale) => renderPageToCanvas(page, requestedScale, { reason: 'continuous-prewarm' }), isCurrent: stillCurrent, canvas: baseCanvas, context: baseCtx, pageLayer: $('continuousBasePages'), activatePageLayer: false, configureCanvasCssSize }); if (!result || !stillCurrent()) return false; state.cachedContinuousPageLayout = result.layout; return true; }
 
 // distinct, dark-bg-friendly palette (red reserved for erase hover)
@@ -295,6 +295,17 @@ async function switchDocument(id) {
   await restoreDocument(doc);
 }
 
+function renderImageToBaseCanvas(image) {
+  return documentAdapters.renderImageBitmapToCanvas({
+    image,
+    maxBitmapEdge: state.maxImageBitmapEdge,
+    baseCanvas,
+    baseCtx,
+    configureCanvasCssSize,
+    configureDrawCanvas,
+  });
+}
+
 async function restoreDocument(doc) {
   stateStore.restoreDocumentState(state, doc);
   updateHistoryButtons();
@@ -304,12 +315,7 @@ async function restoreDocument(doc) {
   if (state.pdf) {
     await renderPdfPage({ fit: false, resetInteraction: false });
   } else if (state.imageBitmap) {
-    baseCanvas.width = state.imageBitmap.width;
-    baseCanvas.height = state.imageBitmap.height;
-    configureCanvasCssSize(baseCanvas, state.imageBitmap.width, state.imageBitmap.height);
-    configureDrawCanvas();
-    baseCtx.clearRect(0, 0, baseCanvas.width, baseCanvas.height);
-    baseCtx.drawImage(state.imageBitmap, 0, 0);
+    Object.assign(state, renderImageToBaseCanvas(state.imageBitmap));
     pdfDetailTile.clear();
     onPageReady({ fit: false, resetInteraction: false });
     applyTransform();
@@ -674,13 +680,7 @@ async function loadFile(file) {
       showStatus(`Loaded ${fileInfo.displayName}`);
     } else {
       const img = await createImageBitmap(file);
-      Object.assign(state, documentAdapters.renderImageBitmapToCanvas({
-        image: img,
-        baseCanvas,
-        baseCtx,
-        configureCanvasCssSize,
-        configureDrawCanvas,
-      }));
+      Object.assign(state, renderImageToBaseCanvas(img));
       state.pdfFileName = fileInfo.displayName || file.name || 'Untitled';
       updatePerformanceLogContext({ renderEngine: 'image' });
       onPageReady();
