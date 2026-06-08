@@ -124,6 +124,7 @@ test('buildPageGroupMarkup renders page dropdown summary safely', async () => {
     page: 3,
     title: 'Page <3>',
     runCountText: '2 runs',
+    averageText: 'Avg/run 6.25 ft',
     unscaledText: '1 unscaled excluded',
     hiddenText: '1 hidden',
     totalText: '12.50',
@@ -139,8 +140,11 @@ test('buildPageGroupMarkup renders page dropdown summary safely', async () => {
   assert.match(markup, /class="page-group-chevron"/);
   assert.match(markup, /M4\.5 7\.5 8 11l3\.5-3\.5/);
   assert.match(markup, /class="page-group-title">Page &lt;3&gt;<\/span>/);
+  assert.match(markup, /class="page-group-summary"/);
   assert.match(markup, /class="page-group-total"><strong>12\.50<\/strong><span>ft<\/span>/);
   assert.match(markup, /2 runs/);
+  assert.match(markup, /class="path-group-average page-group-average">Avg\/run 6\.25 ft<\/span>/);
+  assert.match(markup, /class="page-group-summary"[\s\S]*class="path-group-average page-group-average">Avg\/run 6\.25 ft<\/span>/);
   assert.match(markup, /1 unscaled excluded/);
   assert.match(markup, /1 hidden/);
   assert.doesNotMatch(markup, /class="path-group-marker"/);
@@ -151,7 +155,9 @@ test('buildCategoryHeaderMarkup renders category label and summary safely', asyn
   const markup = view.buildCategoryHeaderMarkup({
     key: 'category:power',
     name: 'Power <Branch>',
-    summaryText: '2 paths · 4 runs',
+    summaryText: '4 runs',
+    averageText: 'Avg/run 4.56 ft',
+    hiddenText: '2 hidden',
     totalText: '18.25',
     totalUnitText: 'ft',
     color: '#36d399',
@@ -168,9 +174,13 @@ test('buildCategoryHeaderMarkup renders category label and summary safely', asyn
   assert.match(markup, /class="tail"/);
   assert.match(markup, /class="anchor-dot"/);
   assert.match(markup, /class="path-category-title">Power &lt;Branch&gt;<\/span>/);
-  assert.match(markup, /class="path-category-summary">2 paths · 4 runs<\/span>/);
+  assert.match(markup, /class="path-category-summary">4 runs<\/span>/);
+  assert.match(markup, /class="path-group-average path-category-average">Avg\/run 4\.56 ft<\/span>/);
+  assert.match(markup, /class="path-category-control-top"/);
   assert.match(markup, /class="path-category-total"><strong>18\.25<\/strong><span>ft<\/span>/);
   assert.match(markup, /class="path-category-status" aria-hidden="true"/);
+  assert.match(markup, /class="path-category-hidden path-category-hidden-total">2 hidden<\/span>/);
+  assert.match(markup, /class="path-category-controls"[\s\S]*class="path-category-hidden path-category-hidden-total">2 hidden<\/span>/);
   assert.match(markup, /class="path-category-bulb"/);
   assert.match(markup, /M14\.5 19\.5H9\.5/);
   assert.match(markup, /M12\.7857 8\.5L10\.6429 11\.5H13\.6429L11\.5 14\.5/);
@@ -238,7 +248,8 @@ test('buildCategoryHeaderMarkup renders approved hidden category icon styling', 
   assert.match(markup, /class="path-category-bulb"/);
   assert.doesNotMatch(markup, /M12\.7857 8\.5L10\.6429 11\.5H13\.6429L11\.5 14\.5/);
   assert.doesNotMatch(markup, /#f00|#ff0000|red/i);
-  assert.match(markup, /class="path-category-hidden">1 hidden<\/span>/);
+  assert.match(markup, /class="path-category-hidden path-category-hidden-total">1 hidden<\/span>/);
+  assert.match(markup, /class="path-category-controls"[\s\S]*class="path-category-hidden path-category-hidden-total">1 hidden<\/span>/);
   assert.match(markup, /data-next-visible="true"/);
   assert.match(markup, /aria-pressed="false"/);
   assert.match(markup, /aria-label="Show Low Voltage category"/);

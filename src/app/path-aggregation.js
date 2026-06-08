@@ -303,7 +303,11 @@
       scaledRunCount: 0,
       unscaledRunCount: 0,
       visibleRunCount: 0,
+      visibleScaledRunCount: 0,
+      visibleUnscaledRunCount: 0,
       hiddenRunCount: 0,
+      hiddenScaledRunCount: 0,
+      hiddenUnscaledRunCount: 0,
       hasHiddenRuns: false,
       totalsByUnit: {},
       allTotalsByUnit: {},
@@ -336,9 +340,13 @@
     else group.unscaledRunCount += 1;
     if (run.isVisible) {
       group.visibleRunCount += 1;
+      if (run.scaled) group.visibleScaledRunCount += 1;
+      else group.visibleUnscaledRunCount += 1;
       addTotals(group.visibleTotalsByUnit, run.totalsByUnit);
     } else {
       group.hiddenRunCount += 1;
+      if (run.scaled) group.hiddenScaledRunCount += 1;
+      else group.hiddenUnscaledRunCount += 1;
       addTotals(group.hiddenTotalsByUnit, run.totalsByUnit);
     }
     group.hasHiddenRuns = group.hiddenRunCount > 0;
@@ -385,7 +393,11 @@
       scaledRunCount: 0,
       unscaledRunCount: 0,
       visibleRunCount: 0,
+      visibleScaledRunCount: 0,
+      visibleUnscaledRunCount: 0,
       hiddenRunCount: 0,
+      hiddenScaledRunCount: 0,
+      hiddenUnscaledRunCount: 0,
       hasHiddenRuns: false,
       totalsByUnit: {},
       allTotalsByUnit: {},
@@ -409,9 +421,13 @@
     else category.unscaledRunCount += 1;
     if (run.isVisible) {
       category.visibleRunCount += 1;
+      if (run.scaled) category.visibleScaledRunCount += 1;
+      else category.visibleUnscaledRunCount += 1;
       addTotals(category.visibleTotalsByUnit, run.totalsByUnit);
     } else {
       category.hiddenRunCount += 1;
+      if (run.scaled) category.hiddenScaledRunCount += 1;
+      else category.hiddenUnscaledRunCount += 1;
       addTotals(category.hiddenTotalsByUnit, run.totalsByUnit);
     }
     category.hasHiddenRuns = category.hiddenRunCount > 0;
@@ -509,7 +525,11 @@
     let scaledRunCount = 0;
     let unscaledRunCount = 0;
     let visibleRunCount = 0;
+    let visibleScaledRunCount = 0;
+    let visibleUnscaledRunCount = 0;
     let hiddenRunCount = 0;
+    let hiddenScaledRunCount = 0;
+    let hiddenUnscaledRunCount = 0;
 
     (measurements || []).forEach((measurement, sourceIndex) => {
       const page = measurementPage(measurement);
@@ -540,9 +560,13 @@
       addTotals(allTotalsByUnit, run.totalsByUnit);
       if (run.isVisible) {
         visibleRunCount += 1;
+        if (run.scaled) visibleScaledRunCount += 1;
+        else visibleUnscaledRunCount += 1;
         addTotals(visibleTotalsByUnit, run.totalsByUnit);
       } else {
         hiddenRunCount += 1;
+        if (run.scaled) hiddenScaledRunCount += 1;
+        else hiddenUnscaledRunCount += 1;
         addTotals(hiddenTotalsByUnit, run.totalsByUnit);
       }
       aggregatePageSet.add(page);
@@ -564,7 +588,11 @@
       scaledRunCount,
       unscaledRunCount,
       visibleRunCount,
+      visibleScaledRunCount,
+      visibleUnscaledRunCount,
       hiddenRunCount,
+      hiddenScaledRunCount,
+      hiddenUnscaledRunCount,
       hasHiddenRuns: hiddenRunCount > 0,
       units: units.slice(),
       totalsByUnit,

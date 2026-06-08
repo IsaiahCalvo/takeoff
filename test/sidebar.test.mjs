@@ -40,6 +40,7 @@ test('buildSidebarModel summarizes the current page tab', async () => {
   assert.deepEqual(plain(model.measurementsForTab.map(m => m.id)), [1, 2, 4]);
   assert.equal(model.totalLenText, '11.00');
   assert.equal(model.runCountText, '3 runs · 1 unscaled excluded');
+  assert.equal(model.averageText, 'Avg/run 5.50 ft');
   assert.equal(model.totalUnitText, 'ft');
   assert.deepEqual(plain(model.pathGroups.map(group => ({
     displayName: group.displayName,
@@ -92,6 +93,7 @@ test('buildSidebarModel groups all measurements by page for all pages', async ()
 
   assert.equal(model.totalLenText, '15.00');
   assert.equal(model.runCountText, '3 runs · 1 unscaled excluded');
+  assert.equal(model.averageText, 'Avg/page 7.50 ft');
   assert.equal(model.effectiveSidebarTab, 'all');
   assert.equal(model.showScopeTabs, true);
   assert.equal(model.totalHeadingText, 'Grand Total');
@@ -104,6 +106,7 @@ test('buildSidebarModel groups all measurements by page for all pages', async ()
     hiddenText: section.hiddenText,
     totalText: section.totalText,
     totalUnitText: section.totalUnitText,
+    averageText: section.averageText,
     collapsed: section.collapsed,
   }))), [{
     page: 1,
@@ -114,6 +117,7 @@ test('buildSidebarModel groups all measurements by page for all pages', async ()
     hiddenText: '',
     totalText: '10.00',
     totalUnitText: 'ft',
+    averageText: 'Avg/run 10.00 ft',
     collapsed: false,
   }, {
     page: 2,
@@ -124,6 +128,7 @@ test('buildSidebarModel groups all measurements by page for all pages', async ()
     hiddenText: '',
     totalText: '5.00',
     totalUnitText: 'ft',
+    averageText: 'Avg/run 5.00 ft',
     collapsed: true,
   }]);
 });
@@ -188,6 +193,7 @@ test('buildSidebarModel renders template Path names and uncategorized sections w
     key: section.key,
     name: section.name,
     summaryText: section.summaryText,
+    averageText: section.averageText,
     color: section.color,
     pathStyle: section.pathStyle,
     pathGroups: section.pathGroups,
@@ -196,7 +202,8 @@ test('buildSidebarModel renders template Path names and uncategorized sections w
     {
       key: 'category:low-voltage',
       name: 'Low Voltage',
-      summaryText: '2 paths · 2 runs',
+      summaryText: '2 runs',
+      averageText: 'Avg/run 7.50 ft',
       color: '#7d8a91',
       pathStyle: null,
       pathGroups: [],
@@ -205,7 +212,8 @@ test('buildSidebarModel renders template Path names and uncategorized sections w
     {
       key: 'category-path:path%3Adefault%3Apath',
       name: 'Branch Feeder',
-      summaryText: '1 path · 1 run',
+      summaryText: '1 run',
+      averageText: 'Avg/run 4.00 ft',
       color: '#ff5500',
       pathStyle: {
         stroke: { color: '#ff5500', style: 'dashed' },
@@ -217,7 +225,8 @@ test('buildSidebarModel renders template Path names and uncategorized sections w
     {
       key: 'category-path:legacy%3Apath',
       name: 'Uncategorized',
-      summaryText: '1 path · 1 run',
+      summaryText: '1 run',
+      averageText: 'Avg/run —',
       color: '#7d8a91',
       pathStyle: null,
       pathGroups: [],
@@ -250,11 +259,13 @@ test('buildSidebarModel labels id-only categories with the category id', async (
     key: section.key,
     name: section.name,
     summaryText: section.summaryText,
+    averageText: section.averageText,
   }))), [
     {
       key: 'category:security',
       name: 'security',
-      summaryText: '1 path · 1 run',
+      summaryText: '1 run',
+      averageText: 'Avg/run 6.00 ft',
     },
   ]);
 });
@@ -311,6 +322,7 @@ test('buildSidebarModel uses visible category totals while retaining hidden cate
     hiddenRunCount: section.hiddenRunCount,
     hiddenText: section.hiddenText,
     totalText: section.totalText,
+    averageText: section.averageText,
     pathGroupCount: section.pathGroups.length,
   }))), [
     {
@@ -322,6 +334,7 @@ test('buildSidebarModel uses visible category totals while retaining hidden cate
       hiddenRunCount: 1,
       hiddenText: '1 hidden',
       totalText: '0.00',
+      averageText: 'Avg/run —',
       pathGroupCount: 0,
     },
     {
@@ -333,6 +346,7 @@ test('buildSidebarModel uses visible category totals while retaining hidden cate
       hiddenRunCount: 0,
       hiddenText: '',
       totalText: '5.00',
+      averageText: 'Avg/run 5.00 ft',
       pathGroupCount: 0,
     },
   ]);
@@ -378,6 +392,7 @@ test('buildSidebarModel page sections use visible totals and hidden counts', asy
     runCountText: section.runCountText,
     hiddenText: section.hiddenText,
     totalText: section.totalText,
+    averageText: section.averageText,
     ids: section.measurements.map(measurement => measurement.id),
   }))), [
     {
@@ -386,6 +401,7 @@ test('buildSidebarModel page sections use visible totals and hidden counts', asy
       runCountText: '1 run',
       hiddenText: '1 hidden',
       totalText: '0.00',
+      averageText: 'Avg/run —',
       ids: ['cat6-a'],
     },
     {
@@ -394,6 +410,7 @@ test('buildSidebarModel page sections use visible totals and hidden counts', asy
       runCountText: '1 run',
       hiddenText: '',
       totalText: '5.00',
+      averageText: 'Avg/run 5.00 ft',
       ids: ['feeder-a'],
     },
   ]);

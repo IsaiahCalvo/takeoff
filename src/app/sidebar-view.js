@@ -115,6 +115,7 @@
     page = 1,
     title = 'Page 1',
     runCountText = '0 runs',
+    averageText = '',
     unscaledText = '',
     hiddenText = '',
     totalText = '0.00',
@@ -124,6 +125,9 @@
   } = {}) {
     const unscaledMarkup = unscaledText
       ? `<span class="path-group-chip path-group-chip-warn">${escapeHtml(unscaledText)}</span>`
+      : '';
+    const averageMarkup = averageText
+      ? `<span class="path-group-average page-group-average">${escapeHtml(averageText)}</span>`
       : '';
     const hiddenMarkup = hiddenText
       ? `<span class="path-group-chip path-group-chip-muted">${escapeHtml(hiddenText)}</span>`
@@ -139,7 +143,10 @@
             ${hiddenMarkup}
           </span>
         </span>
-        <span class="page-group-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
+        <span class="page-group-summary">
+          <span class="page-group-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
+          ${averageMarkup}
+        </span>
       </button>
     `;
   }
@@ -207,6 +214,7 @@
     key = '',
     name = 'Uncategorized',
     summaryText = '',
+    averageText = '',
     categoryVisible = true,
     hiddenText = '',
     totalText = '0.00',
@@ -219,8 +227,11 @@
     const summaryMarkup = summaryText
       ? `<span class="path-category-summary">${escapeHtml(summaryText)}</span>`
       : '';
+    const averageMarkup = averageText
+      ? `<span class="path-group-average path-category-average">${escapeHtml(averageText)}</span>`
+      : '';
     const hiddenMarkup = hiddenText
-      ? `<span class="path-category-hidden">${escapeHtml(hiddenText)}</span>`
+      ? `<span class="path-category-hidden path-category-hidden-total">${escapeHtml(hiddenText)}</span>`
       : '';
     const actionText = isVisible ? 'Hide' : 'Show';
     return `
@@ -230,12 +241,15 @@
           <span class="path-category-title">${escapeHtml(name)}</span>
           <span class="path-category-meta">
             ${summaryMarkup}
-            ${hiddenMarkup}
+            ${averageMarkup}
           </span>
         </span>
         <span class="path-category-controls">
-          <span class="path-category-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
-          <span class="path-category-status${isVisible ? '' : ' off'}" aria-hidden="true">${categoryBulbIconMarkup(isVisible)}</span>
+          <span class="path-category-control-top">
+            <span class="path-category-total"><strong>${escapeHtml(totalText)}</strong><span>${escapeHtml(totalUnitText)}</span></span>
+            <span class="path-category-status${isVisible ? '' : ' off'}" aria-hidden="true">${categoryBulbIconMarkup(isVisible)}</span>
+          </span>
+          ${hiddenMarkup}
         </span>
       </button>
     `;

@@ -105,6 +105,27 @@
     return '—';
   }
 
+  function formatAverageByCount(totalsByUnit, unit, count, label = 'Avg/run') {
+    const scaledCount = Number(count || 0);
+    if (!Number.isFinite(scaledCount) || scaledCount <= 0) return `${label} —`;
+    const total = Number(totalsByUnit?.[unit] || 0);
+    const unitText = UNIT_LABEL[unit] || unit;
+    return `${label} ${(total / scaledCount).toFixed(2)} ${unitText}`;
+  }
+
+  function visibleScaledCount(source) {
+    return Number(source?.visibleScaledRunCount || 0);
+  }
+
+  function formatAggregationAverage(aggregation, unit, effectiveSidebarTab, resolvedPageCount) {
+    if (effectiveSidebarTab === 'all') {
+      if (visibleScaledCount(aggregation) <= 0) return 'Avg/page —';
+      const pageCount = Math.max(1, Number(resolvedPageCount || 1));
+      return formatAverageByCount(aggregation?.totalsByUnit, unit, pageCount, 'Avg/page');
+    }
+    return formatAverageByCount(aggregation?.totalsByUnit, unit, visibleScaledCount(aggregation));
+  }
+
   function addTotals(target, totals) {
     for (const [unit, value] of Object.entries(totals || {})) {
       target[unit] = (target[unit] || 0) + value;
@@ -249,6 +270,7 @@
       hiddenText: formatHiddenRunCount(section),
       totalText: formatTotalsByUnit(section.visibleTotalsByUnit, unit, visibleSource),
       totalUnitText: UNIT_LABEL[unit] || unit,
+      averageText: formatAverageByCount(section.visibleTotalsByUnit, unit, section.visibleScaledRunCount),
     };
   }
 
@@ -307,7 +329,8 @@
       pathGroups: [],
       pathCount,
       runCount: category.runCount || 0,
-      summaryText: `${pathCount} path${pathCount === 1 ? '' : 's'} · ${formatPathRunCount(category)}`,
+      summaryText: formatPathRunCount(category),
+      averageText: formatAverageByCount(category.totalsByUnit, unit, visibleScaledCount(category)),
       totalText: formatPathTotal(category, unit),
       totalUnitText: UNIT_LABEL[unit] || unit,
     };
@@ -375,6 +398,7 @@
       activeSummary,
       totalLenText: formatPathTotal(pathRunAggregation, unit),
       runCountText: formatAggregationRunCount(pathRunAggregation),
+      averageText: formatAggregationAverage(pathRunAggregation, unit, effectiveSidebarTab, resolvedPageCount),
       totalUnitText: UNIT_LABEL[unit],
       effectiveSidebarTab,
       isSinglePage,

@@ -37,6 +37,7 @@ import './app/svg-renderer.js';
 import './app/history.js?v=merge-name-counters-1';
 import './app/units.js';
 import './app/tooltip-controller.js';
+import './app/average-qa-fixture.js';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 // ------- State -------
 const ONBOARDING_STATUS_KEY = 'cableRunStatusSeen';
@@ -2592,11 +2593,14 @@ function renderList() {
 
   $('totalLen').textContent = model.totalLenText;
   $('runCount').textContent = model.runCountText;
+  $('averageMetric').textContent = model.averageText || '';
   $('totalUnit').textContent = unitModel.unitLabel(state.unit);
 }
 
 // init
 try { state.onboardingStatusSeen = localStorage.getItem(ONBOARDING_STATUS_KEY) === '1'; } catch (_) { /* ignore */ }
+window.TakeoffAverageQaFixture?.loadIfRequested?.({ state, resetDocState, baseCanvas, baseCtx,
+  configureCanvasCssSize, configureDrawCanvas, onPageReady, setMode, saveActiveDocument });
 applyTransform();
 updateStatus();
 updateExportButtons();
