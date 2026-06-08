@@ -388,6 +388,28 @@ test('paintContinuousPageShells exposes a full continuous layout before offscree
   assert.deepEqual(calls, [['clearRect', 0, 0, 1, 1]]);
 });
 
+test('buildContinuousShellLayout uses per-page metadata for unrendered placeholders', async () => {
+  const renderer = await loadContinuousRenderer();
+
+  const layout = renderer.buildContinuousShellLayout({
+    pages: [1, 2, 3],
+    entries: [{ page: 1, cssWidth: 100, cssHeight: 50 }],
+    pageInfos: [
+      { pageNumber: 2, cssWidth: 80, cssHeight: 120 },
+      { pageNumber: 3, cssWidth: 140, cssHeight: 70 },
+    ],
+    pageGap: 10,
+  });
+
+  assert.deepEqual(plain(layout.pages), [
+    { page: 1, x: 20, y: 0, width: 100, height: 50 },
+    { page: 2, x: 30, y: 60, width: 80, height: 120 },
+    { page: 3, x: 0, y: 190, width: 140, height: 70 },
+  ]);
+  assert.equal(layout.width, 140);
+  assert.equal(layout.height, 260);
+});
+
 test('renderContinuousPdf can prewarm a hidden page layer without touching the active canvas', async () => {
   const renderer = await loadContinuousRenderer();
   const canvas = { width: 640, height: 480, style: { display: 'block', width: '640px', height: '480px' } };

@@ -13,6 +13,16 @@
     return { width, height: Math.max(1, y - pageGap), pageGap, pages };
   }
 
+  function buildContinuousShellLayout({ pages = [], entries = [], pageInfos = [], pageGap = DEFAULT_PAGE_GAP } = {}) {
+    const entryByPage = new Map(entries.map(entry => [entry.page, entry]));
+    const infoByPage = new Map(pageInfos.map(info => [Number(info.page ?? info.pageNumber), info]));
+    const fallback = entries[0] || pageInfos[0] || { cssWidth: 1, cssHeight: 1 };
+    return buildContinuousPageLayout(pages.map(page => {
+      const source = entryByPage.get(page) || infoByPage.get(page) || fallback;
+      return { page, cssWidth: source.cssWidth, cssHeight: source.cssHeight };
+    }), { pageGap });
+  }
+
   function requestedPageNumbers(pageCount, pages = null) {
     const count = Number(pageCount);
     if (!Number.isInteger(count) || count <= 0) return [];
@@ -333,6 +343,7 @@
 
   window.TakeoffContinuousRenderer = {
     buildContinuousPageLayout,
+    buildContinuousShellLayout,
     requestedPageNumbers,
     layoutPageNumbers,
     samePageNumbers,

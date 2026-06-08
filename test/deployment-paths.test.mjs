@@ -530,6 +530,17 @@ test('new PDFs render the first visible state through continuous mode', async ()
   assert.match(loadFile, /await renderPdfPage\(\)/);
 });
 
+test('continuous placeholder layout reads individual PDF page dimensions', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const renderContinuous = main.match(/async function renderContinuousPdfPage[\s\S]*?\n\}/)?.[0] || '';
+  const shellLayout = main.match(/async function continuousShellLayout[\s\S]*?\n/)?.[0] || '';
+
+  assert.match(main, /state\.pdf\.getPageInfo\(page\)/);
+  assert.match(shellLayout, /continuousRenderer\.buildContinuousShellLayout/);
+  assert.match(renderContinuous, /continuousShellLayout\(pages,\s*entries\)/);
+  assert.doesNotMatch(renderContinuous, /cssWidth:\s*\(entries\.find\([\s\S]*\|\|\s*current\)\.cssWidth/);
+});
+
 test('viewport transforms are constrained to keep the page in view', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
   const applyTransform = main.match(/function applyTransform\(\) \{[\s\S]*?\n\}/)?.[0] || '';
