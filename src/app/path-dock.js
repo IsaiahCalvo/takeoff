@@ -280,11 +280,13 @@
 
   function renderOverflowHtml(model) {
     const disabled = model.overflowCount === 0 ? ' disabled' : '';
+    const label = model.overflowCount > 0 ? `+${model.overflowCount}` : '•••';
+    const title = model.overflowCount > 0 ? `${model.overflowCount} more Path${model.overflowCount === 1 ? '' : 's'}` : 'More Paths';
     const items = model.overflowPaths.map(renderPathTileHtml).join('');
     return `
       <div class="path-dock-overflow">
-        <button class="path-dock-overflow-toggle" type="button"${disabled} aria-haspopup="menu" aria-expanded="${model.overflow.open ? 'true' : 'false'}" ${dataAttributes(model.overflow.data)}>
-          <span class="path-dock-overflow-label">${model.overflowCount} more Path${model.overflowCount === 1 ? '' : 's'}</span>
+        <button class="path-dock-overflow-toggle" type="button"${disabled} aria-haspopup="menu" aria-expanded="${model.overflow.open ? 'true' : 'false'}" title="${escapeAttribute(title)}" ${dataAttributes(model.overflow.data)}>
+          <span class="path-dock-overflow-label">${escapeText(label)}</span>
         </button>
       </div>
       ${model.overflow.open ? `<div class="path-dock-overflow-menu" role="menu" aria-label="Overflow Paths">${items}</div>` : ''}

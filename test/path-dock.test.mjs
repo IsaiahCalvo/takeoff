@@ -211,6 +211,8 @@ test('renders Path tiles with stable action data and two-anchor previews', async
   assert.match(html, /data-path-dock-path-id="data"/);
   assert.match(html, /data-path-dock-active="true"/);
   assert.match(html, /data-action="path-dock-close-overflow"/);
+  assert.match(html, /title="2 more Paths"/);
+  assert.match(html, /<span class="path-dock-overflow-label">\+2<\/span>/);
   assert.equal((html.match(/data-path-dock-preview="true"/g) || []).length, 4);
   assert.equal(html.includes(`d="${renderer.PATH_STYLE_PREVIEW_GEOMETRY.pathD}"`), true);
   assert.equal((html.match(/<circle /g) || []).length, 8);
