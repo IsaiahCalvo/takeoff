@@ -487,18 +487,41 @@ test('continuous toggle stores one document-level on off state', async () => {
 test('continuous page layer is prewarmed before the first toggle', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
+  assert.match(main, /import '\.\/app\/continuous-renderer\.js'; import '\.\/app\/continuous-prewarm\.js';/);
+  assert.match(main, /TakeoffContinuousPrewarm/);
   assert.match(main, /function scheduleContinuousLayerPrewarm/);
+  assert.match(main, /continuousPrewarmController\.schedule\(eligibility\)/);
+  assert.match(main, /onReady:\s*activateDefaultContinuousScroll/);
   assert.match(main, /activatePageLayer:\s*false/);
   assert.match(main, /state\.cachedContinuousPageLayout\s*=\s*result\.layout/);
   assert.match(main, /scheduleContinuousLayerPrewarm\(eligibility\)/);
 });
 
-test('continuous page prewarm is deferred off the initial upload paint', async () => {
+test('continuous page prewarm is deferred off upload paint and consumed by toggle', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
-  const schedulePrewarm = main.match(/function scheduleContinuousLayerPrewarm\([\s\S]*?\nasync function prewarmContinuousLayer/)?.[0] || '';
+  const prewarm = await readFile(new URL('../src/app/continuous-prewarm.js', import.meta.url), 'utf8');
+  const renderContinuous = main.match(/async function renderContinuousPdfPage[\s\S]*?\n\}/)?.[0] || '';
+  const toggleHandler = main.match(/\$\('continuousScrollToggle'\)\.addEventListener\('click'[\s\S]*?\n\}\);/)?.[0] || '';
 
-  assert.match(schedulePrewarm, /setTimeout\(/);
-  assert.doesNotMatch(schedulePrewarm, /Promise\.resolve\(\)\.then/);
+  assert.match(prewarm, /setTimer\([\s\S]*,\s*0\)/);
+  assert.match(prewarm, /activatePending/);
+  assert.match(prewarm, /onReady/);
+  assert.match(renderContinuous, /continuousPrewarmController\.activatePending\(pages\)/);
+  assert.match(toggleHandler, /state\.continuousScrollAutoEnable = false/);
+  assert.doesNotMatch(prewarm, /Promise\.resolve\(\)\.then/);
+});
+
+test('new PDFs default into continuous mode after the hidden layer is ready', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const state = await readFile(new URL('../src/app/state.js', import.meta.url), 'utf8');
+  const adapters = await readFile(new URL('../src/app/document-adapters.js', import.meta.url), 'utf8');
+  const activateDefault = main.match(/async function activateDefaultContinuousScroll[\s\S]*?\n\n/)?.[0] || '';
+
+  assert.match(state, /continuousScrollAutoEnable:\s*false/);
+  assert.match(adapters, /continuousScrollAutoEnable:\s*pdf\.numPages > 1/);
+  assert.match(activateDefault, /state\.continuousScrollAutoEnable/);
+  assert.match(activateDefault, /state\.continuousScrollMode = true/);
+  assert.match(activateDefault, /renderPdfPage\(\{\s*fit:\s*false,\s*resetInteraction:\s*false,\s*preRender:\s*false,\s*reason:\s*'continuous-default'/);
 });
 
 test('viewport transforms are constrained to keep the page in view', async () => {

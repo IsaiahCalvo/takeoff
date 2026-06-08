@@ -45,6 +45,7 @@ test('createInitialState returns fresh mutable collections and current defaults'
   assert.equal(b.unit, 'ft');
   assert.equal('pdfEngineChoice' in b, false);
   assert.equal(b.continuousScrollMode, false);
+  assert.equal(b.continuousScrollAutoEnable, false);
   assert.equal(b.continuousPageLayout, null);
   assert.equal(b.historyLimit, 100);
   assert.equal(b.MAX_CACHE, 20);
@@ -126,6 +127,7 @@ test('resetDocumentState clears active document data while preserving app-level 
   assert.equal(state.pdfPages, 0);
   assert.equal(state.pdfPage, 1);
   assert.equal(state.continuousScrollMode, false);
+  assert.equal(state.continuousScrollAutoEnable, false);
   assert.equal(state.continuousPageLayout, null);
   assert.equal(state.imageBitmap, null);
   assert.equal(state.baseW, 0);
@@ -233,6 +235,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.pdfPage, 3);
   assert.equal(state.pdfPages, 9);
   assert.equal(state.continuousScrollMode, true);
+  assert.equal(state.continuousScrollAutoEnable, false);
   assert.equal(state.continuousPageLayout, null);
   assert.equal(state.imageBitmap, doc.imageBitmap);
   assert.equal(state.baseW, 100);

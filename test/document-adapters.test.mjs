@@ -24,6 +24,7 @@ test('createPdfDocumentState starts multi-page PDFs in single-page mode for fast
   assert.equal(state.pdfPages, 7);
   assert.equal(state.pdfPage, 1);
   assert.equal(state.continuousScrollMode, false);
+  assert.equal(state.continuousScrollAutoEnable, true);
   assert.equal(state.imageBitmap, null);
 });
 

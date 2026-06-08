@@ -5,6 +5,7 @@
       pdfPages: pdf.numPages,
       pdfPage: 1,
       continuousScrollMode: false,
+      continuousScrollAutoEnable: pdf.numPages > 1,
       imageBitmap: null,
     };
   }
