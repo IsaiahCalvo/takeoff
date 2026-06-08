@@ -13,7 +13,9 @@
     const tag = target.tagName;
     if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
     if (tag !== 'INPUT') return false;
-    return !target.readOnly && !target.disabled;
+    if (target.readOnly || target.disabled) return false;
+    const editableTypes = new Set(['', 'text', 'search', 'url', 'tel', 'email', 'password', 'number', 'date', 'datetime-local', 'month', 'time', 'week']);
+    return editableTypes.has(String(target.type || '').toLowerCase());
   }
 
   function shouldRedrawForShift(state) {
@@ -36,6 +38,7 @@
     if (isCommand && key === 'd') return { action: 'duplicate', preventDefault: true };
     if (isCommand && key === 'x') return { action: 'cut', preventDefault: true };
     if (isCommand && key === 'v') return { action: 'paste', preventDefault: true };
+    if (key === 'x') return { action: 'toggle-snap-to-paths', preventDefault: true };
 
     if (isSpaceKey(event)) {
       if (!state.spaceHeld && state.mode !== 'pan') {

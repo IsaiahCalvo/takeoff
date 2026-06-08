@@ -25,6 +25,16 @@ test('isTextEntryTarget ignores editable form fields but allows read-only inputs
   assert.equal(input.isTextEntryTarget({ tagName: 'DIV', isContentEditable: true }), true);
 });
 
+test('isTextEntryTarget allows non-text input controls to keep global hotkeys active', async () => {
+  const input = await loadInputController();
+
+  assert.equal(input.isTextEntryTarget({ tagName: 'INPUT', type: 'file', readOnly: false, disabled: false }), false);
+  assert.equal(input.isTextEntryTarget({ tagName: 'INPUT', type: 'checkbox', readOnly: false, disabled: false }), false);
+  assert.equal(input.isTextEntryTarget({ tagName: 'INPUT', type: 'button', readOnly: false, disabled: false }), false);
+  assert.equal(input.isTextEntryTarget({ tagName: 'INPUT', type: 'number', readOnly: false, disabled: false }), true);
+  assert.equal(input.isTextEntryTarget({ tagName: 'INPUT', type: 'text', readOnly: false, disabled: false }), true);
+});
+
 test('describeKeyDown maps command shortcuts before single-key modes', async () => {
   const input = await loadInputController();
   const state = { mode: 'measure', inProgressPointCount: 2, selectedId: 9, spaceHeld: false };
@@ -76,6 +86,20 @@ test('describeKeyDown maps mode hotkeys and skips text targets', async () => {
   assert.deepEqual(plain(input.describeKeyDown({ key: 'p' }, {})), { action: 'set-mode', mode: 'pan' });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'e' }, {})), { action: 'set-mode', mode: 'erase' });
   assert.deepEqual(plain(input.describeKeyDown({ key: 'f' }, {})), { action: 'fit-view' });
+});
+
+test('describeKeyDown maps X to the Snap to paths toggle', async () => {
+  const input = await loadInputController();
+
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'x' }, {})), {
+    action: 'toggle-snap-to-paths',
+    preventDefault: true,
+  });
+  assert.deepEqual(plain(input.describeKeyDown({ key: 'X', shiftKey: true }, {})), {
+    action: 'toggle-snap-to-paths',
+    preventDefault: true,
+  });
+  assert.equal(input.describeKeyDown({ key: 'x' }, { target: { tagName: 'INPUT', readOnly: false } }), null);
 });
 
 test('describeKeyDown maps Shift+L to performance log save', async () => {

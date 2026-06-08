@@ -112,3 +112,119 @@ test('freehand clicks add anchors and Enter commits the path', {
 
   await rm(tempDir, { recursive: true, force: true });
 });
+test('Space pan pauses active freehand draft point collection', {
+  skip: process.env.CI === 'true' ? 'Playwright browser flow is local-only; CI runs static and unit coverage.' : false,
+}, async (t) => {
+  let chromium;
+  try {
+    ({ chromium } = await import('playwright'));
+  } catch (_) {
+    t.skip('Playwright is not available in this environment.');
+    return;
+  }
+
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'takeoff-freehand-pause-'));
+  const imagePath = path.join(tempDir, 'plan.png');
+  await writeFile(imagePath, pngBuffer(800, 600));
+
+  await withViteServer(async (baseUrl) => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+      await page.goto(baseUrl);
+      await page.locator('#fileInput').setInputFiles(imagePath);
+      await page.waitForFunction(() => !document.body.classList.contains('no-document'));
+
+      await page.locator('#measureModeToggle').click();
+      await page.locator('.measure-mode-option[data-value="freehand"]').click();
+      await page.locator('#baseCanvas').waitFor({ state: 'visible' });
+
+      const canvasBox = await page.locator('#baseCanvas').boundingBox();
+      assert.ok(canvasBox, 'draw canvas is visible');
+      const start = { x: canvasBox.x + 180, y: canvasBox.y + 180 };
+      await page.mouse.click(start.x, start.y);
+
+      const pathCountBeforeSpace = await page.locator('#drawSvg path').count();
+      await page.keyboard.down('Space');
+      await page.mouse.move(start.x + 40, start.y + 10);
+      await page.mouse.move(start.x + 80, start.y + 20);
+      await page.mouse.move(start.x + 120, start.y + 35);
+      assert.equal(await page.locator('#drawSvg path').count(), pathCountBeforeSpace, 'Space-held movement should not grow the freehand preview');
+      await page.keyboard.up('Space');
+
+      await page.mouse.click(start.x + 160, start.y + 50);
+      await page.keyboard.press('Enter');
+      await page.locator('.meas-item').waitFor({ state: 'visible' });
+      assert.equal(await page.locator('.meas-item').count(), 1);
+    } finally {
+      await browser.close();
+    }
+  });
+
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+test('Snap hotkey toggles paths and Space pan preserves an active line draft', {
+  skip: process.env.CI === 'true' ? 'Playwright browser flow is local-only; CI runs static and unit coverage.' : false,
+}, async (t) => {
+  let chromium;
+  try {
+    ({ chromium } = await import('playwright'));
+  } catch (_) {
+    t.skip('Playwright is not available in this environment.');
+    return;
+  }
+
+  const tempDir = await mkdtemp(path.join(os.tmpdir(), 'takeoff-hotkey-pan-'));
+  const imagePath = path.join(tempDir, 'plan.png');
+  await writeFile(imagePath, pngBuffer(800, 600));
+
+  await withViteServer(async (baseUrl) => {
+    const browser = await chromium.launch();
+    try {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+      await page.goto(baseUrl);
+      await page.locator('#fileInput').setInputFiles(imagePath);
+      await page.waitForFunction(() => !document.body.classList.contains('no-document'));
+      await page.locator('#baseCanvas').waitFor({ state: 'visible' });
+
+      const snapToggle = page.locator('#snapToPaths');
+      await snapToggle.waitFor({ state: 'visible' });
+      assert.equal(await snapToggle.getAttribute('aria-pressed'), 'false');
+      await page.locator('#fileInput').focus();
+      await page.keyboard.press('x');
+      assert.equal(await snapToggle.getAttribute('aria-pressed'), 'true');
+      await page.keyboard.press('x');
+      assert.equal(await snapToggle.getAttribute('aria-pressed'), 'false');
+
+      await page.locator('#measureModeToggle').click();
+      await page.locator('.measure-mode-option[data-value="line"]').click();
+
+      const canvasBox = await page.locator('#baseCanvas').boundingBox();
+      assert.ok(canvasBox, 'draw canvas is visible');
+      const start = { x: canvasBox.x + 180, y: canvasBox.y + 180 };
+      const end = { x: canvasBox.x + 360, y: canvasBox.y + 240 };
+
+      await page.mouse.click(start.x, start.y);
+      assert.equal(await page.locator('.meas-item').count(), 0, 'line draft should not commit after one point');
+      assert.equal(await page.locator('#drawSvg circle').count(), 1, 'line draft should show its first anchor');
+
+      await page.keyboard.down('Space');
+      await page.mouse.move(start.x, start.y);
+      await page.mouse.down();
+      await page.mouse.move(start.x + 60, start.y + 40);
+      await page.mouse.up();
+      assert.ok(await page.locator('#drawSvg circle').count() >= 1, 'Space pan should keep the line draft visible');
+      await page.keyboard.up('Space');
+
+      await page.mouse.click(end.x, end.y);
+      await page.keyboard.press('Enter');
+      await page.locator('.meas-item').waitFor({ state: 'visible' });
+      assert.equal(await page.locator('.meas-item').count(), 1);
+    } finally {
+      await browser.close();
+    }
+  });
+
+  await rm(tempDir, { recursive: true, force: true });
+});

@@ -328,6 +328,13 @@ test('bottom-left HUD exposes Snap to paths as an icon-only pressed toggle', asy
   assert.doesNotMatch(main, /snapToggle\.classList\.toggle\('active'/);
 });
 
+test('transient Space pan preserves active path drafts', async () => {
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(main, /setMode\('pan', \{ transient: true \}\)/);
+  assert.match(main, /m !== 'measure' && m !== 'calibrate' && !opts\.transient/);
+});
+
 test('measure Path Dock floats above the bottom-left HUD without lifting it', async () => {
   const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
   const dockRule = styles.match(/^\.path-dock-root\s*\{[^}]+\}/m)?.[0] || '';
