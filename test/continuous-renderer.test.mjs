@@ -339,6 +339,55 @@ test('renderContinuousPdf paints individual page canvases when a page layer is s
   assert.deepEqual(calls.filter(call => call[0] === 'drawImage'), []);
 });
 
+test('paintContinuousPageShells exposes a full continuous layout before offscreen pages render', async () => {
+  const renderer = await loadContinuousRenderer();
+  const canvas = { width: 640, height: 480, style: { display: 'block' } };
+  const context = { clearRect: (...args) => calls.push(['clearRect', ...args]) };
+  const calls = [];
+  const pageLayer = {
+    hidden: true,
+    style: {},
+    children: [],
+    replaceChildren() { this.children = []; },
+    appendChild(child) { this.children.push(child); },
+  };
+  const rendered = { canvas: { id: 'page-1', style: {}, dataset: {} }, cssWidth: 100, cssHeight: 50 };
+  const layout = renderer.buildContinuousPageLayout([
+    { page: 1, cssWidth: 100, cssHeight: 50 },
+    { page: 2, cssWidth: 100, cssHeight: 50 },
+    { page: 3, cssWidth: 100, cssHeight: 50 },
+  ], { pageGap: 10 });
+  const placeholders = [];
+
+  const painted = renderer.paintContinuousPageShells({
+    layer: pageLayer,
+    canvas,
+    context,
+    entries: [{ ...rendered, page: 1 }],
+    layout,
+    activate: true,
+    createPlaceholder: page => {
+      const placeholder = { id: `placeholder-${page.page}`, style: {}, dataset: {} };
+      placeholders.push(placeholder);
+      return placeholder;
+    },
+  });
+
+  assert.equal(painted, true);
+  assert.equal(pageLayer.hidden, false);
+  assert.equal(pageLayer.children.length, 3);
+  assert.equal(pageLayer.children[0].id, 'page-1');
+  assert.deepEqual(pageLayer.children.slice(1).map(child => child.id), ['placeholder-2', 'placeholder-3']);
+  assert.deepEqual(placeholders.map(child => child.dataset.rendered), ['false', 'false']);
+  assert.equal(rendered.canvas.dataset.rendered, 'true');
+  assert.equal(pageLayer.children[1].style.top, '60px');
+  assert.equal(pageLayer.children[2].style.top, '120px');
+  assert.equal(canvas.width, 1);
+  assert.equal(canvas.height, 1);
+  assert.equal(canvas.style.display, 'none');
+  assert.deepEqual(calls, [['clearRect', 0, 0, 1, 1]]);
+});
+
 test('renderContinuousPdf can prewarm a hidden page layer without touching the active canvas', async () => {
   const renderer = await loadContinuousRenderer();
   const canvas = { width: 640, height: 480, style: { display: 'block', width: '640px', height: '480px' } };

@@ -203,6 +203,54 @@
     return true;
   }
 
+  function styleContinuousPageElement(element, page, rendered) {
+    element.style.left = `${page.x}px`;
+    element.style.top = `${page.y}px`;
+    element.style.width = `${page.width}px`;
+    element.style.height = `${page.height}px`;
+    if (element.dataset) {
+      element.dataset.page = String(page.page);
+      element.dataset.rendered = rendered ? 'true' : 'false';
+    }
+    return element;
+  }
+
+  function paintContinuousPageShells({ layer, canvas, context, entries = [], layout, activate = true, createPlaceholder = null }) {
+    if (!layer || !layout) return false;
+    const entryByPage = new Map(entries.map(entry => [entry.page, entry]));
+    layer.replaceChildren();
+    layer.hidden = !activate;
+    layer.style.width = `${layout.width}px`;
+    layer.style.height = `${layout.height}px`;
+    for (const page of layout.pages) {
+      const entry = entryByPage.get(page.page);
+      const element = entry?.canvas || createPlaceholder?.(page) || document.createElement('canvas');
+      if (!entry) { element.width = 1; element.height = 1; }
+      styleContinuousPageElement(element, page, Boolean(entry));
+      layer.appendChild(element);
+    }
+    if (!activate) return true;
+    canvas.width = 1;
+    canvas.height = 1;
+    canvas.style.display = 'none';
+    context.clearRect(0, 0, 1, 1);
+    return true;
+  }
+
+  function continuousLayerPageElement(layer, page) {
+    return Array.from(layer?.children || []).find(child => Number(child?.dataset?.page) === page) || null;
+  }
+
+  function replaceContinuousLayerPage({ layer, entry, pageBox }) {
+    if (!layer || !entry?.canvas || !pageBox) return false;
+    const existing = continuousLayerPageElement(layer, pageBox.page);
+    styleContinuousPageElement(entry.canvas, pageBox, true);
+    if (existing && typeof layer.replaceChild === 'function') layer.replaceChild(entry.canvas, existing);
+    else if (existing && Array.isArray(layer.children)) layer.children[layer.children.indexOf(existing)] = entry.canvas;
+    else layer.appendChild(entry.canvas);
+    return true;
+  }
+
   function clearContinuousPageLayer(layer, canvas) {
     if (layer) {
       layer.replaceChildren();
@@ -297,6 +345,9 @@
     continuousRenderScale,
     paintContinuousPages,
     paintContinuousPageLayer,
+    paintContinuousPageShells,
+    replaceContinuousLayerPage,
+    continuousLayerPageElement,
     clearContinuousPageLayer,
     renderContinuousPdf,
     nearestPageForViewport,

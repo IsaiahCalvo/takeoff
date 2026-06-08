@@ -4,8 +4,8 @@
       pdf,
       pdfPages: pdf.numPages,
       pdfPage: 1,
-      continuousScrollMode: false,
-      continuousScrollAutoEnable: pdf.numPages > 1,
+      continuousScrollMode: pdf.numPages > 1,
+      continuousScrollAutoEnable: false,
       imageBitmap: null,
     };
   }

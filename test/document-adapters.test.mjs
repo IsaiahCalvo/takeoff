@@ -15,7 +15,7 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-test('createPdfDocumentState starts multi-page PDFs in single-page mode for fast first paint', async () => {
+test('createPdfDocumentState starts multi-page PDFs in continuous mode from first paint', async () => {
   const adapters = await loadDocumentAdapters();
   const pdf = { numPages: 7 };
   const state = adapters.createPdfDocumentState(pdf);
@@ -23,8 +23,8 @@ test('createPdfDocumentState starts multi-page PDFs in single-page mode for fast
   assert.equal(state.pdf, pdf);
   assert.equal(state.pdfPages, 7);
   assert.equal(state.pdfPage, 1);
-  assert.equal(state.continuousScrollMode, false);
-  assert.equal(state.continuousScrollAutoEnable, true);
+  assert.equal(state.continuousScrollMode, true);
+  assert.equal(state.continuousScrollAutoEnable, false);
   assert.equal(state.imageBitmap, null);
 });
 
