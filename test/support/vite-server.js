@@ -30,8 +30,9 @@ async function waitForServer(baseUrl, child, timeoutMs = 6000) {
 export async function withViteServer(callback) {
   const port = await getFreePort();
   const baseUrl = `http://127.0.0.1:${port}`;
-  const viteBin = path.join(process.cwd(), 'node_modules/.bin/vite');
-  const vite = spawn(viteBin, [
+  const viteScript = path.join(process.cwd(), 'node_modules/vite/bin/vite.js');
+  const vite = spawn(process.execPath, [
+    viteScript,
     '--host',
     '127.0.0.1',
     '--port',

@@ -138,6 +138,19 @@ test('saveMeasurementRunDetails normalizes details and replaces only the target 
   assert.equal(missing.measurement, null);
 });
 
+test('toggleMeasurementLock flips lock state and reports the next state', async () => {
+  const commands = await loadCommands();
+  const measurement = { id: 'run-1', name: 'Run 1' };
+
+  assert.deepEqual(plain(commands.toggleMeasurementLock(measurement)), { updated: true, locked: true });
+  assert.equal(measurement.locked, true);
+
+  assert.deepEqual(plain(commands.toggleMeasurementLock(measurement)), { updated: true, locked: false });
+  assert.equal(measurement.locked, false);
+
+  assert.deepEqual(plain(commands.toggleMeasurementLock(null)), { updated: false, locked: false });
+});
+
 test('createLineMeasurement builds a scaled run and clones points', async () => {
   const commands = await loadCommands();
   const points = [{ x: 0, y: 0 }, { x: 3, y: 4 }];

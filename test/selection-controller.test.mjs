@@ -56,3 +56,52 @@ test('context menu selection preserves selected group and promotes the clicked m
   assert.deepEqual(plain(state.selectedIds), [3]);
   assert.equal(state.selectedId, 3);
 });
+
+test('deletion skips measurements that cannot be deleted', async () => {
+  const selectionModule = await loadSelectionController();
+  const state = {
+    selectedId: 1,
+    selectedIds: [1, 2],
+    measurements: [{ id: 1, locked: true }, { id: 2 }],
+  };
+  const updates = [];
+  const selection = selectionModule.createSelectionController({
+    state,
+    setMeasurements(measurements, selectionState) {
+      updates.push({ measurements, selectionState });
+      state.measurements = measurements;
+      state.selectedId = selectionState.selectedId;
+      state.selectedIds = selectionState.selectedIds;
+    },
+    canDeleteMeasurement: measurement => measurement.locked !== true,
+  });
+
+  assert.equal(selection.deleteSelectedMeasurements(), true);
+  assert.deepEqual(plain(state.measurements), [{ id: 1, locked: true }]);
+  assert.deepEqual(plain(state.selectedIds), [1]);
+  assert.equal(state.selectedId, 1);
+  assert.equal(updates.length, 1);
+});
+
+test('single deletion refuses measurements that cannot be deleted', async () => {
+  const selectionModule = await loadSelectionController();
+  const state = {
+    selectedId: 1,
+    selectedIds: [1],
+    measurements: [{ id: 1, locked: true }],
+  };
+  const selection = selectionModule.createSelectionController({
+    state,
+    setMeasurements() {
+      throw new Error('locked measurement should not be removed');
+    },
+    canDeleteMeasurement: measurement => measurement.locked !== true,
+  });
+
+  assert.equal(selection.deleteMeasurement(1, () => {
+    throw new Error('deleteMeasurementResult should not run for locked measurement');
+  }), false);
+  assert.deepEqual(plain(state.measurements), [{ id: 1, locked: true }]);
+  assert.deepEqual(plain(state.selectedIds), [1]);
+  assert.equal(state.selectedId, 1);
+});

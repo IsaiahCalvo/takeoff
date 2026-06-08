@@ -1,5 +1,7 @@
 (function () {
   const pathStyleRenderer = window.TakeoffPathStyleRenderer;
+  const LENGTH_TAG_LOCK_BODY_PATH = 'M8 9V6C8 3.79086 9.79086 2 12 2C14.2091 2 16 3.79086 16 6V9M7 21H17C18.1046 21 19 20.1046 19 19V11C19 9.89543 18.1046 9 17 9H7C5.89543 9 5 9.89543 5 11V19C5 20.1046 5.89543 21 7 21Z';
+  const LENGTH_TAG_LOCK_X_PATH = 'M196.856,198.144c-5.857-5.858-15.355-5.858-21.213,0L165,208.787l-10.644-10.643 c-5.857-5.858-15.355-5.858-21.213,0c-5.858,5.858-5.858,15.355,0,21.213L143.787,230l-10.643,10.644 c-5.858,5.858-5.858,15.355,0,21.213c2.929,2.929,6.768,4.394,10.606,4.394s7.678-1.464,10.606-4.394L165,251.213l10.644,10.644 c2.929,2.929,6.768,4.394,10.606,4.394s7.678-1.464,10.606-4.394c5.858-5.858,5.858-15.355,0-21.213L186.213,230l10.643-10.644 C202.715,213.499,202.715,204.001,196.856,198.144z';
 
   function svgNode(tag, attrs = {}) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -59,6 +61,10 @@
         height: bh + overlayPageSize(6),
       },
     };
+  }
+
+  function labelLockState(opts = {}) {
+    return opts.labelLockState === 'locked' ? opts.labelLockState : null;
   }
 
   function vectorLength(vector) {
@@ -162,16 +168,17 @@
     return current;
   }
 
-  function resolvePathLabelLayout({ labelPosition, labelOffset, label, anchors = [], drawCtx, overlayPageSize }) {
+  function resolvePathLabelLayout({ labelPosition, labelOffset, label, anchors = [], drawCtx, overlayPageSize, labelLockState }) {
     const { point, angle } = labelPosition;
-    const fontSize = overlayPageSize(13);
+    const hasLockIndicator = labelLockState === 'locked';
+    const fontSize = overlayPageSize(hasLockIndicator ? 12 : 13);
     drawCtx.font = `${700} ${fontSize}px 'JetBrains Mono', monospace`;
     const metrics = {
       textWidth: drawCtx.measureText(label).width,
       fontSize,
       padX: overlayPageSize(8),
       padY: overlayPageSize(4),
-      accentW: overlayPageSize(3),
+      accentW: overlayPageSize(hasLockIndicator ? 15 : 3),
     };
     const normal = { x: -Math.sin(angle), y: Math.cos(angle) };
     const baseOffset = overlayPageSize(18);
@@ -260,6 +267,7 @@
     function drawPathLabel(group, points, opts) {
       const labelPosition = geometry.pointAtPolylineT(points, opts.labelT);
       if (!labelPosition) return;
+      const lockState = labelLockState(opts);
       const layout = resolvePathLabelLayout({
         labelPosition,
         labelOffset: opts.labelOffset,
@@ -267,6 +275,7 @@
         anchors: opts.anchors,
         drawCtx,
         overlayPageSize,
+        labelLockState: lockState,
       });
       const { lx, ly, bx, by, bw, bh, fontSize, accentW } = layout;
       if (opts.measurementId != null && opts.labelHitboxes) {
@@ -344,17 +353,40 @@
         stroke: opts.labelColor,
         'stroke-width': overlayPageSize(1.25),
       }));
-      labelGroup.appendChild(svgNode('rect', {
-        class: 'canvas-length-tag-accent',
-        x: bx + overlayPageSize(4),
-        y: by + overlayPageSize(4),
-        width: accentW,
-        height: bh - overlayPageSize(8),
-        rx: overlayPageSize(1.5),
-        ry: overlayPageSize(1.5),
-        fill: opts.labelColor,
-        stroke: 'none',
-      }));
+      if (lockState) {
+        const iconSize = overlayPageSize(13);
+        const iconScale = iconSize / 24;
+        const icon = svgNode('g', {
+          class: `canvas-length-tag-lock-indicator ${lockState}`,
+          transform: `translate(${bx + overlayPageSize(4)} ${by + (bh - iconSize) / 2}) scale(${iconScale})`,
+        });
+        icon.appendChild(svgNode('path', {
+          d: LENGTH_TAG_LOCK_BODY_PATH,
+          fill: 'none',
+          stroke: opts.labelColor,
+          'stroke-width': 2,
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+        }));
+        icon.appendChild(svgNode('path', {
+          d: LENGTH_TAG_LOCK_X_PATH,
+          fill: opts.labelColor,
+          transform: 'matrix(0.05 0 0 0.05 3.75 3.5)',
+        }));
+        labelGroup.appendChild(icon);
+      } else {
+        labelGroup.appendChild(svgNode('rect', {
+          class: 'canvas-length-tag-accent',
+          x: bx + overlayPageSize(4),
+          y: by + overlayPageSize(4),
+          width: accentW,
+          height: bh - overlayPageSize(8),
+          rx: overlayPageSize(1.5),
+          ry: overlayPageSize(1.5),
+          fill: opts.labelColor,
+          stroke: 'none',
+        }));
+      }
       const text = svgNode('text', {
         x: lx + accentW / 2,
         y: ly,

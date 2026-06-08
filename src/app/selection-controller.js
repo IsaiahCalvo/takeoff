@@ -1,6 +1,7 @@
 (function () {
-  function createSelectionController({ state, matches, setMeasurements, endRotateMode } = {}) {
+  function createSelectionController({ state, matches, setMeasurements, endRotateMode, canDeleteMeasurement } = {}) {
     const idMatches = matches || ((a, b) => a === b);
+    const canDelete = canDeleteMeasurement || (() => true);
 
     function normalize(ids) {
       const out = [];
@@ -75,6 +76,8 @@
     }
 
     function deleteMeasurement(id, deleteMeasurementResult) {
+      const measurement = state.measurements?.find(item => idMatches(item?.id, id));
+      if (!measurement || !canDelete(measurement)) return false;
       const remainingSelectedIds = currentIds().filter(selectedId => !idMatches(selectedId, id));
       const result = deleteMeasurementResult({ measurements: state.measurements, selectedId: state.selectedId, deletedId: id });
       const nextSelectedId = result.selectedId != null ? result.selectedId : remainingSelectedIds[0] ?? null;
@@ -87,13 +90,19 @@
       const selectedIds = currentIds();
       if (!selectedIds.length) return false;
       const selected = new Set(selectedIds.map(String));
-      const nextMeasurements = state.measurements.filter(measurement => !selected.has(String(measurement.id)));
+      const removable = new Set((state.measurements || [])
+        .filter(measurement => selected.has(String(measurement.id)) && canDelete(measurement))
+        .map(measurement => String(measurement.id)));
+      if (!removable.size) return false;
+      const nextMeasurements = state.measurements.filter(measurement => !removable.has(String(measurement.id)));
       if (nextMeasurements.length === state.measurements.length) {
         set([]);
         return false;
       }
-      const removedRotateTarget = state.rotateModeId != null && selected.has(String(state.rotateModeId));
-      setMeasurements(nextMeasurements, { selectedId: null, selectedIds: [] });
+      const remainingSelectedIds = selectedIds.filter(id => !removable.has(String(id)));
+      const nextSelectedId = remainingSelectedIds[0] ?? null;
+      const removedRotateTarget = state.rotateModeId != null && removable.has(String(state.rotateModeId));
+      setMeasurements(nextMeasurements, { selectedId: nextSelectedId, selectedIds: remainingSelectedIds });
       if (removedRotateTarget) endRotateMode?.();
       return true;
     }

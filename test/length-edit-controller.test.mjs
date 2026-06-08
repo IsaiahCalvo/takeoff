@@ -203,3 +203,41 @@ test('canvas Length editor uses the shared positive decimal sanitizer and commit
   assert.ok(calls.includes('history'));
   assert.equal(controller.activeCanvasLengthEditId(), null);
 });
+
+test('canvas Length edit refuses locked measurements', async () => {
+  const { sidebar, lengthEdit } = await loadLengthEditController();
+  const calls = [];
+  const measurement = { id: 9, page: 1, lengthInches: 24, locked: true };
+  const state = { selectedId: null, rotateModeId: null, measurements: [measurement] };
+  const controller = createController({ lengthEdit, sidebar, state, calls });
+
+  assert.equal(controller.openCanvasLengthEdit({ measurementId: 9 }), false);
+
+  assert.equal(state.selectedId, null);
+  assert.equal(controller.activeCanvasLengthEditId(), null);
+  assert.deepEqual(calls, ['status:Unlock this measurement before editing Length.']);
+});
+
+test('sidebar Length edit refuses locked measurements', async () => {
+  const { sidebar, lengthEdit } = await loadLengthEditController();
+  const calls = [];
+  const events = [];
+  const measurement = { id: 9, page: 1, lengthInches: 24, locked: true };
+  const state = { selectedId: null, rotateModeId: null, measurements: [measurement] };
+  const controller = createController({ lengthEdit, sidebar, state, calls });
+  const input = createFakeInput(events);
+  const item = {
+    querySelector(selector) {
+      if (selector === '.length') return input;
+      if (selector === '.length-error') return null;
+      return null;
+    },
+  };
+
+  controller.bindSidebarLengthInput(item, measurement);
+  input.listeners.dblclick({ stopPropagation() { events.push('stop'); } });
+
+  assert.equal(state.selectedId, null);
+  assert.deepEqual(events, ['stop']);
+  assert.deepEqual(calls, ['status:Unlock this measurement before editing Length.']);
+});

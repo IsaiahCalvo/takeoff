@@ -252,6 +252,12 @@
     return { updated: true, measurements: nextMeasurements, measurement: updated };
   }
 
+  function toggleMeasurementLock(measurement) {
+    if (!measurement) return { updated: false, locked: false };
+    measurement.locked = measurement.locked !== true;
+    return { updated: true, locked: measurement.locked === true };
+  }
+
   function defaultLabelT(points) {
     if (!points || points.length < 2) return 0.5;
     const total = geometry.polylineLengthPx(points);
@@ -1477,6 +1483,7 @@
     fallbackMeasurementName,
     cleanMeasurementName,
     saveMeasurementRunDetails,
+    toggleMeasurementLock,
     defaultLabelT,
     createLineMeasurement,
     createFreehandMeasurement,

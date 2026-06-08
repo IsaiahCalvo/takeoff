@@ -6,13 +6,13 @@ import './app/path-aggregation.js';
 import './app/sidebar.js?v=single-page-tabs-1';
 import './app/sidebar-view.js?v=single-page-tabs-1';
 import './app/sidebar-controller.js?v=sidebar-row-selection-1';
-import './app/length-edit-controller.js';
+import './app/length-edit-controller.js?v=lock-menu-5';
 import './app/path-templates.js'; import './app/path-style-renderer.js?v=preview-panel-icon-1'; import './app/path-dock.js'; import './app/path-settings.js';
 import './app/path-template-store.js'; import './app/path-template-view.js?v=preview-panel-fit-2';
-import './app/state.js?v=merge-name-counters-1'; import './app/selection-controller.js?v=marquee-group-drag-1';
+import './app/state.js?v=merge-name-counters-1'; import './app/selection-controller.js?v=lock-menu-5';
 import './app/geometry.js';
 import './app/measurements.js';
-import './app/run-details.js'; import './app/run-detail-modal.js'; import './app/measurement-commands.js?v=merge-chain-snaps-1';
+import './app/run-details.js'; import './app/run-detail-modal.js'; import './app/measurement-commands.js?v=lock-menu-5';
 import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js?v=unmerge-auto-1';
 import './app/page-state.js';
 import './app/continuous-scroll.js';
@@ -24,7 +24,7 @@ import './app/pdf-page-cache.js';
 import './app/pdf-engine.js';
 import './app/pdf-detail-tile.js';
 import './app/performance-logger.js'; import './app/performance-controller.js';
-import './app/input-controller.js'; import './app/context-menu-controller.js?v=merge-feature-hidden-1';
+import './app/input-controller.js'; import './app/context-menu-controller.js?v=lock-menu-5';
 import './app/pointer-controller.js';
 import './app/pointer-workflow.js?v=snap-preview-1';
 import './app/document-loader.js';
@@ -33,7 +33,7 @@ import './app/document-store.js?v=merge-name-counters-1';
 import './app/export-controller.js';
 import './app/calibration-controller.js';
 import './app/calibration-workflow.js';
-import './app/svg-renderer.js';
+import './app/svg-renderer.js?v=lock-menu-6';
 import './app/history.js?v=merge-name-counters-1';
 import './app/units.js';
 import './app/tooltip-controller.js';
@@ -176,7 +176,7 @@ const rotationPill = $('rotationPill'), rotationInput = $('rotationInput');
 const undoButton = $('undoButton'), redoButton = $('redoButton');
 const exportWrap = $('exportWrap');
 
-const selection = window.TakeoffSelectionController.createSelectionController({ state, matches: sidebarController.measurementIdMatches, setMeasurements: (measurements, selectionState) => stateStore.setMeasurements(state, measurements, selectionState), endRotateMode });
+const selection = window.TakeoffSelectionController.createSelectionController({ state, matches: sidebarController.measurementIdMatches, setMeasurements: (measurements, selectionState) => stateStore.setMeasurements(state, measurements, selectionState), endRotateMode, canDeleteMeasurement: m => !isMeasurementLocked(m) });
 const marqueeSelection = window.TakeoffMarqueeController.createMarqueeController({ state, hitTesting: window.TakeoffHitTesting, screenToImage, measurementsForSelection: measurementsOnCurrentPage, selection, stage, renderList, redraw, drawSvg, svgNode, overlayPageSize }); const pointerMarquee = window.TakeoffMarqueePointerController.createPointerMarqueeController({ state, screenToImage, lengthLabelNavigationTarget, isPointInBox, findNearestVertex, findLabelHit, findNearestMeasurement, clearActiveFitMode, endRotateMode, marqueeSelection });
 const exportButton = $('exportButton');
 const exportXlsxButton = $('exportXlsx');
@@ -377,18 +377,16 @@ function activePathForNewRun(draft = null) { return draft?.activePath || window.
 function openContextMenu(clientX, clientY, measurementId = null, target = null) {
   if (measurementId != null) selection.selectForContextMenu(measurementId);
   state.contextTarget = target;
-  const canActOnRun = state.selectedId != null, targetedMeasurement = measurementId != null ? state.measurements.find(x => x.id === measurementId) : null;
+  const selectedMeasurement = measurementById(state.selectedId), targetedMeasurement = measurementId != null ? measurementById(measurementId) : null, canActOnRun = !!selectedMeasurement, selectedLocked = isMeasurementLocked(selectedMeasurement), targetLocked = isMeasurementLocked(targetedMeasurement);
   const addButton = contextMenu.querySelector('[data-action="add-anchor"]'), removeButton = contextMenu.querySelector('[data-action="remove-anchor"]');
-  const canEditAnchors = !!(targetedMeasurement && !isMixedMeasurement?.(targetedMeasurement));
+  const canEditAnchors = !!(targetedMeasurement && !targetLocked && !isMixedMeasurement?.(targetedMeasurement));
   const canAddAnchor = !!(canEditAnchors && target && target.kind === 'path-hit'), canRemoveAnchor = !!(canEditAnchors && target && target.kind === 'anchor-hit' && canRemoveAnchorFromTarget(target));
-  addButton.disabled = !canAddAnchor;
-  removeButton.disabled = !canRemoveAnchor;
-  for (const action of ['cut', 'copy', 'rotate']) contextMenu.querySelector(`[data-action="${action}"]`).disabled = !canActOnRun;
+  addButton.disabled = !canAddAnchor; removeButton.disabled = !canRemoveAnchor;
+  for (const action of ['cut', 'copy', 'rotate']) contextMenu.querySelector(`[data-action="${action}"]`).disabled = !canActOnRun || (action !== 'copy' && selectedLocked);
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
   contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target, measurements: state.measurements, selectedIds: selection.currentIds() });
-  contextMenuController.applyVisibilityMenuState({ contextMenu, measurement: targetedMeasurement, state, stateStore });
-  contextMenu.classList.add('show');
-  contextMenuController.positionContextMenu({ contextMenu, clientX, clientY, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight });
+  contextMenuController.applyVisibilityMenuState({ contextMenu, measurement: targetedMeasurement, state, stateStore }); contextMenuController.applyLockMenuState({ contextMenu, measurement: targetedMeasurement });
+  contextMenu.classList.add('show'); contextMenuController.positionContextMenu({ contextMenu, clientX, clientY, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight });
 }
 
 function applyTransform() {
@@ -1102,7 +1100,7 @@ stage.addEventListener('mousedown', (e) => {
   if (e.button === 0 && state.rotateModeId && isPointInBox(p, state.rotationHandleHitbox)) {
     const m = state.measurements.find(x => x.id === state.rotateModeId);
     const frame = getRotationFrame(m);
-    if (m && frame) {
+    if (m && frame && !isMeasurementLocked(m)) {
       clearActiveFitMode();
       state.rotationDrag = pointerWorkflow.createRotationDrag({
         measurement: m,
@@ -1146,7 +1144,7 @@ stage.addEventListener('mousedown', (e) => {
     // Vertex hit first — clicking a node selects its run AND starts drag
     const v = findNearestVertex(p, 10 / state.zoom);
     if (v) {
-      if (handleSelectionHit(v.measurementId)) return;
+      if (handleSelectionHit(v.measurementId)) return; if (isMeasurementLocked(measurementById(v.measurementId))) { renderList(); redraw(); return; }
       state.dragVertex = { ...v, historyBefore: createHistorySnapshot() };
       stage.classList.add('dragging');
       renderList();
@@ -1168,7 +1166,7 @@ stage.addEventListener('mousedown', (e) => {
     if (hitId != null) {
       if (handleSelectionHit(hitId)) return;
       const m = state.measurements.find(x => x.id === hitId);
-      if (m) {
+      if (m && !isMeasurementLocked(m)) {
         const selectedDragMeasurements = selection.isSelected(hitId) ? [m, ...selection.currentIds().map(measurementById).filter(x => x && !sidebarController.measurementIdMatches(x.id, hitId) && (x.page || 1) === (m.page || 1))] : [];
         state.dragMeasurement = selectedDragMeasurements.length > 1 ? pointerWorkflow.createMeasurementGroupDrag({ measurements: selectedDragMeasurements, pointer: localPointForMeasurement(m, p), historyBefore: createHistorySnapshot() }) : pointerWorkflow.createMeasurementDrag({
           measurement: m,
@@ -1566,7 +1564,7 @@ window.addEventListener('keydown', (e) => {
 function isTextEntryTarget(target) { return inputController.isTextEntryTarget(target); }
 
 contextMenu.addEventListener('click', (e) => {
-  const action = e.target.closest('button')?.dataset.action;
+  const action = e.target.closest('button')?.dataset.action, menuTarget = state.contextTarget;
   if (!action) return;
   let handledAnchorAction = false;
   if (action === 'add-anchor') handledAnchorAction = addAnchorFromContext();
@@ -1580,6 +1578,7 @@ contextMenu.addEventListener('click', (e) => {
   if (action === 'duplicate') duplicateSelectedMeasurement();
   if (action === 'paste') pasteCopiedMeasurement();
   if (action === 'rotate') beginRotateMode(state.selectedId);
+  if (action === 'toggle-lock') contextMenuController.toggleSelectedMeasurementLock({ state, measurementCommands, measurementById, contextTarget: menuTarget, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
   if (action === 'toggle-path-visibility') contextMenuController.toggleSelectedPathVisibility({ state, stateStore, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
   if (action === 'toggle-category-visibility') contextMenuController.toggleSelectedCategoryVisibility({ state, stateStore, createHistorySnapshot, renderList, redraw, recordHistory, showStatus });
   if (action === 'convert-to-line' || action === 'convert-to-freehand') contextMenuController.convertSelectedMeasurement({ nextShape: action === 'convert-to-line' ? 'line' : 'freehand', state, measurementCommands, scaleForPage, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
@@ -1745,7 +1744,7 @@ function copySelectedMeasurement() {
   return true;
 }
 function duplicateSelectedMeasurement() { const selected = state.measurements.find(m => m.id === state.selectedId); if (!selected) { showStatus('Select a measurement before duplicating.', 1800, { force: true }); return false; } const historyBefore = createHistorySnapshot(); const duplicated = measurementCommands.createDuplicateMeasurement({ source: selected, id: Date.now(), existingMeasurements: state.measurements, palette: PALETTE, pageScales: state.pageScales, pxPerInch: scaleForPage(selected.page), pageSize: continuousMeasurements.pageSize(state, selected.page), constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, selected.page) }); if (!duplicated) return false; const result = measurementWorkflows.appendMeasurementResult({ measurements: state.measurements, measurement: duplicated, selectedId: state.selectedId, selectAppended: true }); stateStore.setMeasurements(state, result.measurements, { selectedId: result.selectedId }); setContinuousCurrentPage(duplicated.page); recordHistory(historyBefore, 'run duplicate'); renderList(); redraw(); showStatus(`Duplicated ${duplicated.name}`); return true; }
-function cutSelectedMeasurement() {
+function cutSelectedMeasurement() { if (isMeasurementLocked(measurementById(state.selectedId))) { showStatus('Unlock this measurement before cutting.'); return false; }
   const historyBefore = createHistorySnapshot();
   if (!copySelectedMeasurement()) return false;
   deleteMeasurementFromState(state.selectedId);
@@ -1853,14 +1852,14 @@ function applyVertexDrag(m, drag, point) {
 function canRemoveAnchorFromTarget(target) {
   if (!target || target.kind !== 'anchor-hit') return false;
   const m = state.measurements.find(x => x.id === target.measurementId);
-  return measurementCommands.canRemoveAnchorFromMeasurement(m);
+  return !isMeasurementLocked(m) && measurementCommands.canRemoveAnchorFromMeasurement(m);
 }
 
 function addAnchorFromContext() {
   const target = state.contextTarget;
   if (!target || target.kind !== 'path-hit') return false;
   const m = state.measurements.find(x => x.id === target.measurementId);
-  if (!m) return false;
+  if (!m || isMeasurementLocked(m)) return false;
   const historyBefore = createHistorySnapshot();
   const labelPoint = currentMeasurementLabelPoint(m);
   if (!measurementCommands.addAnchorToMeasurement(m, continuousMeasurements.localizeTarget(state, m, target))) return false;
@@ -1874,7 +1873,7 @@ function removeAnchorFromContext() {
   const target = state.contextTarget;
   if (!target || target.kind !== 'anchor-hit' || !canRemoveAnchorFromTarget(target)) return false;
   const m = state.measurements.find(x => x.id === target.measurementId);
-  if (!m) return false;
+  if (!m || isMeasurementLocked(m)) return false;
   const historyBefore = createHistorySnapshot();
   const labelPoint = currentMeasurementLabelPoint(m);
   if (!measurementCommands.removeAnchorFromMeasurement(m, target)) return false;
@@ -1900,14 +1899,14 @@ function findNearestPathPoint(p, tol) { return window.TakeoffHitTesting.findNear
 function findNearestMeasurement(p, tol) { return window.TakeoffHitTesting.findNearestMeasurement(measurementsOnCurrentPage(), p, tol); }
 function findLabelHit(p) { return window.TakeoffHitTesting.findLabelHit(state.labelHitboxes, p, overlayPageSize(6)); }
 function isPointInBox(p, box) { return window.TakeoffHitTesting.isPointInBox(p, box); }
-function measurementById(id) { return state.measurements.find(measurement => sidebarController.measurementIdMatches(measurement.id, id)) || null; }
+function measurementById(id) { return state.measurements.find(measurement => sidebarController.measurementIdMatches(measurement.id, id)) || null; } function isMeasurementLocked(measurement) { return measurement?.locked === true; }
 function lengthLabelNavigationTarget(target) { return target?.closest?.('[data-length-label-nav="true"]') || null; }
 function revealMeasurementInSidebar(measurement) { const measurementId = measurement?.id ?? measurement; let row = sidebarController.revealMeasurementRow({ root: measList, measurementId }); if (row) return row; const fallbackTab = measurement?.page === currentPage() ? 'page' : 'all'; if (state.sidebarTab !== fallbackTab) { state.sidebarTab = fallbackTab; renderList(); row = sidebarController.revealMeasurementRow({ root: measList, measurementId }); } return row; }
 function navigateLengthLabelToSidebar(navTarget) { const measurement = measurementById(navTarget?.dataset?.measurementId); if (!measurement || !isMeasurementVisibleForPathCategories(measurement)) return false; clearActiveFitMode(); endRotateMode(); setMode('selection'); selection.selectSingle(measurement.id); renderList(); revealMeasurementInSidebar(measurement); redraw(); return true; }
 
 function beginRotateMode(id) {
   const m = state.measurements.find(x => x.id === id);
-  if (!m) return false;
+  if (!m || isMeasurementLocked(m)) return false;
   m.rotationFrame = createRotationFrame(m);
   m.rotationAngle = m.rotationFrame?.angle || normalizeDegrees(m.rotationAngle || 0);
   setMode('selection');
@@ -2014,6 +2013,7 @@ function updateRotationPill() {
 function commitRotationInput() {
   const m = state.measurements.find(x => x.id === state.rotateModeId);
   if (!m) return;
+  if (isMeasurementLocked(m)) { updateRotationPill(); return; }
   const raw = String(rotationInput.value || '').trim();
   const parsed = raw === '' ? NaN : Number(raw);
   if (!Number.isFinite(parsed)) {
@@ -2323,7 +2323,7 @@ function redraw(previewTo) {
       label: m.lengthInches != null ? `${formatLen(m.lengthInches)} ${unitModel.unitLabel(state.unit)}` : 'no scale',
       labelColor: color,
       measurementId: m.id, labelT: m.labelT,
-      labelOffset: m.labelOffset, labelNavVisible: state.hoverLabelId === m.id,
+      labelOffset: m.labelOffset, labelNavVisible: state.hoverLabelId === m.id, labelLockState: isMeasurementLocked(m) ? 'locked' : null,
       labelEdit: lengthEditController.canvasLengthEditStateForMeasurement(m),
     });
   }

@@ -247,6 +247,52 @@ test('drawPolyline adds a hover-only label navigation chevron for saved labels',
   assert.ok(Number(nav.attrs.transform.match(/translate\(([-\d.]+)/)?.[1]) > labelHitboxes[0].x + labelHitboxes[0].width - 3);
 });
 
+test('drawPolyline replaces the floating label accent only while locked', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawPolyline([{ x: 0, y: 0 }, { x: 80, y: 0 }], {
+    color: '#36d399',
+    labelColor: '#36d399',
+    label: '12.50 ft',
+    labelT: 0.5,
+    measurementId: 'locked-run',
+    labelLockState: 'locked',
+  });
+  measurementRenderer.drawPolyline([{ x: 0, y: 20 }, { x: 80, y: 20 }], {
+    color: '#36d399',
+    labelColor: '#36d399',
+    label: '12.50 ft',
+    labelT: 0.5,
+    measurementId: 'unlocked-run',
+  });
+
+  const lockedLabel = drawSvg.children[0].children.find(child => child.attrs?.class === 'canvas-length-tag');
+  const unlockedLabel = drawSvg.children[1].children.find(child => child.attrs?.class === 'canvas-length-tag');
+  assert.ok(lockedLabel, 'locked saved label should render a label group');
+  assert.ok(unlockedLabel, 'unlocked saved label should render a label group');
+  assert.equal(lockedLabel.children.some(child => child.attrs?.class === 'canvas-length-tag-accent'), false);
+  assert.equal(unlockedLabel.children.some(child => child.attrs?.class === 'canvas-length-tag-accent'), true);
+
+  const lockedIndicator = lockedLabel.children.find(child => child.attrs?.class === 'canvas-length-tag-lock-indicator locked');
+  assert.ok(lockedIndicator, 'locked label should render the lock indicator');
+  assert.equal(unlockedLabel.children.some(child => child.attrs?.class?.includes('canvas-length-tag-lock-indicator')), false);
+  assert.equal(lockedIndicator.children[0].attrs.d, 'M8 9V6C8 3.79086 9.79086 2 12 2C14.2091 2 16 3.79086 16 6V9M7 21H17C18.1046 21 19 20.1046 19 19V11C19 9.89543 18.1046 9 17 9H7C5.89543 9 5 9.89543 5 11V19C5 20.1046 5.89543 21 7 21Z');
+  assert.match(lockedIndicator.children[1].attrs.d, /^M196\.856,198\.144/);
+  assert.ok(Number(lockedLabel.children.find(child => child.tag === 'text').attrs['font-size']) < 13);
+});
+
 test('drawBezierSegments keeps floating labels clear of curve anchors', async () => {
   const renderer = await loadRenderer();
   const drawSvg = {

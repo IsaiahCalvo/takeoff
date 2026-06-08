@@ -160,6 +160,10 @@
     function openCanvasLengthEdit(labelHit) {
       const measurement = measurementById(labelHit?.measurementId);
       if (!measurement) return false;
+      if (measurement.locked === true) {
+        showStatus('Unlock this measurement before editing Length.');
+        return false;
+      }
       if (!scaleForPage(measurement.page) || measurement.lengthInches == null) {
         showStatus('Set a page scale before editing Length.');
         return false;
@@ -209,6 +213,10 @@
         commit: value => commitMeasurementLengthEdit(measurement, value),
       });
       const startLengthEdit = () => {
+        if (measurement.locked === true) {
+          showStatus('Unlock this measurement before editing Length.');
+          return;
+        }
         if (!scaleForPage(measurement.page) || measurement.lengthInches == null) {
           showStatus('Set a page scale before editing Length.');
           return;

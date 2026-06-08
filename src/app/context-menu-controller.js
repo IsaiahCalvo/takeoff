@@ -12,10 +12,12 @@
   }
 
   function conversionMenuState({ measurement, measurementModel, measurementCommands, target, measurements, selectedIds } = {}) {
-    const canConvertToLine = !!(measurement && measurementModel?.isFreehandMeasurement(measurement));
-    const canConvertToFreehand = !!(measurement && measurementModel?.isLineMeasurement(measurement));
+    const locked = measurement?.locked === true;
+    const canConvertToLine = !!(measurement && !locked && measurementModel?.isFreehandMeasurement(measurement));
+    const canConvertToFreehand = !!(measurement && !locked && measurementModel?.isLineMeasurement(measurement));
     const canContinuePath = !!(
       measurement
+      && !locked
       && target
       && !measurementModel?.isMixedMeasurement?.(measurement)
       && measurementCommands?.continuationEndpointRole?.(measurement, target)
@@ -99,6 +101,15 @@
     return { canTogglePath, canToggleCategory, pathVisible, categoryVisible, categoryKey };
   }
 
+  function applyLockMenuState({ contextMenu, measurement } = {}) {
+    const button = contextMenu?.querySelector('[data-action="toggle-lock"]');
+    const canToggleLock = !!measurement;
+    const locked = measurement?.locked === true;
+    setButtonState(button, canToggleLock);
+    if (button) button.textContent = locked ? 'Unlock' : 'Lock';
+    return { canToggleLock, locked };
+  }
+
   function beginContinuePath({
     state,
     target,
@@ -114,7 +125,7 @@
     if (!state || !target || target.kind !== 'anchor-hit') return false;
     const measurementId = target.measurementId ?? state.selectedId;
     const measurement = state.measurements?.find(item => item.id === measurementId);
-    if (!measurement) return false;
+    if (!measurement || measurement.locked === true) return false;
     const endpoint = measurementCommands?.continuationEndpointRole?.(measurement, target);
     if (!endpoint) return false;
     const points = measurement.points || [];
@@ -224,7 +235,7 @@
     focusMeasurementName,
   } = {}) {
     const measurement = state?.measurements?.find(item => item.id === state.selectedId);
-    if (!measurement) return false;
+    if (!measurement || measurement.locked === true) return false;
     const historyBefore = createHistorySnapshot();
     const ok = nextShape === 'line'
       ? measurementCommands.convertFreehandMeasurementToLine(measurement, { pxPerInch: scaleForPage(measurement.page) })
@@ -291,6 +302,37 @@
     return true;
   }
 
+  function toggleSelectedMeasurementLock({
+    state,
+    measurementCommands,
+    measurementById,
+    contextTarget,
+    createHistorySnapshot,
+    endRotateMode,
+    renderList,
+    redraw,
+    recordHistory,
+    showStatus,
+  } = {}) {
+    const targetId = contextTarget?.measurementId ?? state?.contextTarget?.measurementId ?? state?.selectedId;
+    const selected = typeof measurementById === 'function'
+      ? measurementById(targetId)
+      : state?.measurements?.find(m => m.id === targetId);
+    if (!selected) {
+      showStatus('Select a measurement before locking.');
+      return false;
+    }
+    const historyBefore = createHistorySnapshot();
+    const result = measurementCommands?.toggleMeasurementLock?.(selected);
+    if (!result?.updated) return false;
+    if (result.locked && state.rotateModeId === selected.id) endRotateMode();
+    renderList();
+    redraw();
+    recordHistory(historyBefore, result.locked ? 'run lock' : 'run unlock');
+    showStatus(`${result.locked ? 'Locked' : 'Unlocked'} ${selected.name || 'measurement'}`);
+    return true;
+  }
+
   function mergeSnappedPaths({
     state,
     target,
@@ -351,12 +393,14 @@
     positionContextMenu,
     applyConversionMenuState,
     applyVisibilityMenuState,
+    applyLockMenuState,
     beginContinuePath,
     finishLineContinuation,
     finishFreehandContinuation,
     convertSelectedMeasurement,
     toggleSelectedPathVisibility,
     toggleSelectedCategoryVisibility,
+    toggleSelectedMeasurementLock,
     mergeSnappedPaths,
   };
 })();

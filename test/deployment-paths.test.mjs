@@ -61,7 +61,7 @@ test('index delegates app startup to one module entrypoint', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
-  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=measure-fix-1"><\/script>/);
+  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=lock-menu-6"><\/script>/);
   assert.doesNotMatch(html, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
   assert.doesNotMatch(html, /<script src="src\/app\/pointer-controller\.js"><\/script>/);
   assert.doesNotMatch(html, /<script>\s*pdfjsLib\.GlobalWorkerOptions/);
@@ -73,11 +73,13 @@ test('index delegates app startup to one module entrypoint', async () => {
   assert.match(main, /import '\.\/app\/sidebar-view\.js\?v=single-page-tabs-1';/);
   assert.match(main, /import '\.\/app\/sidebar-controller\.js\?v=sidebar-row-selection-1';/);
   assert.match(main, /import '\.\/app\/state\.js\?v=merge-name-counters-1';/);
-  assert.match(main, /import '\.\/app\/measurement-commands\.js\?v=merge-chain-snaps-1';/);
-  assert.match(main, /import '\.\/app\/context-menu-controller\.js\?v=merge-feature-hidden-1';/);
+  assert.match(main, /import '\.\/app\/selection-controller\.js\?v=lock-menu-5';/);
+  assert.match(main, /import '\.\/app\/measurement-commands\.js\?v=lock-menu-5';/);
+  assert.match(main, /import '\.\/app\/context-menu-controller\.js\?v=lock-menu-5';/);
   assert.match(main, /import '\.\/app\/document-store\.js\?v=merge-name-counters-1';/);
   assert.match(main, /import '\.\/app\/history\.js\?v=merge-name-counters-1';/);
   assert.match(main, /import '\.\/app\/path-style-renderer\.js\?v=preview-panel-icon-1';/);
+  assert.match(main, /import '\.\/app\/svg-renderer\.js\?v=lock-menu-6';/);
   assert.match(main, /import '\.\/app\/unmerge-path-modal\.js\?v=unmerge-auto-1';/);
   assert.match(main, /import '\.\/app\/pointer-controller\.js';/);
   assert.match(main, /pdfjsLib\.GlobalWorkerOptions\.workerSrc = pdfWorkerUrl;/);
@@ -548,7 +550,10 @@ test('canvas Length editor is rendered inline with the floating SVG tag', async 
   assert.doesNotMatch(html, /id="lengthEditPill"/);
   assert.doesNotMatch(html, /id="lengthEditInput"/);
   assert.doesNotMatch(styles, /\.length-edit-pill/);
-  assert.match(renderer, /const fontSize = overlayPageSize\(13\);/);
+  assert.match(renderer, /const hasLockIndicator = labelLockState === 'locked';/);
+  assert.doesNotMatch(renderer, /LENGTH_TAG_LOCK_CHECK_PATH/);
+  assert.doesNotMatch(renderer, /labelLockState === 'unlocked'/);
+  assert.match(renderer, /const fontSize = overlayPageSize\(hasLockIndicator \? 12 : 13\);/);
   assert.match(renderer, /foreignObject/);
   assert.match(renderer, /canvasLengthEditInput/);
   assert.match(renderer, /'font-family': "'JetBrains Mono', monospace"/);

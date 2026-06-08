@@ -20,7 +20,7 @@ async function loadController() {
 
 function createContextMenu() {
   const buttons = new Map();
-  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path', 'merge-paths', 'unmerge-paths', 'toggle-path-visibility', 'toggle-category-visibility']) {
+  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path', 'merge-paths', 'unmerge-paths', 'toggle-path-visibility', 'toggle-category-visibility', 'toggle-lock']) {
     buttons.set(action, { hidden: false, disabled: false, textContent: '' });
   }
   return {
@@ -62,6 +62,160 @@ test('positionContextMenu clamps the rendered menu inside the viewport', async (
   assert.equal(menu.style.top, '72px');
 });
 
+test('applyLockMenuState labels lock and unlock for the target measurement', async () => {
+  const { controller } = await loadController();
+  const menu = createContextMenu();
+
+  let result = controller.applyLockMenuState({ contextMenu: menu, measurement: { id: 7 } });
+
+  assert.deepEqual(plain(result), { canToggleLock: true, locked: false });
+  assert.equal(menu.buttons.get('toggle-lock').hidden, false);
+  assert.equal(menu.buttons.get('toggle-lock').disabled, false);
+  assert.equal(menu.buttons.get('toggle-lock').textContent, 'Lock');
+
+  result = controller.applyLockMenuState({ contextMenu: menu, measurement: { id: 7, locked: true } });
+
+  assert.deepEqual(plain(result), { canToggleLock: true, locked: true });
+  assert.equal(menu.buttons.get('toggle-lock').textContent, 'Unlock');
+});
+
+test('applyLockMenuState hides lock action when no measurement is targeted', async () => {
+  const { controller } = await loadController();
+  const menu = createContextMenu();
+
+  const result = controller.applyLockMenuState({ contextMenu: menu, measurement: null });
+
+  assert.deepEqual(plain(result), { canToggleLock: false, locked: false });
+  assert.equal(menu.buttons.get('toggle-lock').hidden, true);
+  assert.equal(menu.buttons.get('toggle-lock').disabled, true);
+});
+
+test('toggleSelectedMeasurementLock resolves selected ids with the app matcher', async () => {
+  const { controller } = await loadController();
+  const calls = [];
+  const measurement = { id: 8, name: 'Run 8' };
+  const state = { selectedId: '8', rotateModeId: 8, measurements: [measurement] };
+
+  assert.equal(controller.toggleSelectedMeasurementLock({
+    state,
+    measurementById(id) {
+      return state.measurements.find(item => String(item.id) === String(id)) || null;
+    },
+    measurementCommands: {
+      toggleMeasurementLock(target) {
+        calls.push(['toggle', target.id]);
+        target.locked = target.locked !== true;
+        return { updated: true, locked: target.locked === true };
+      },
+    },
+    createHistorySnapshot: () => ({ before: true }),
+    endRotateMode: () => calls.push(['end-rotate']),
+    renderList: () => calls.push(['render-list']),
+    redraw: () => calls.push(['redraw']),
+    recordHistory: (before, label) => calls.push(['history', before.before, label]),
+    showStatus: text => calls.push(['status', text]),
+  }), true);
+
+  assert.equal(measurement.locked, true);
+  assert.deepEqual(calls, [
+    ['toggle', 8],
+    ['end-rotate'],
+    ['render-list'],
+    ['redraw'],
+    ['history', true, 'run lock'],
+    ['status', 'Locked Run 8'],
+  ]);
+});
+
+test('toggleSelectedMeasurementLock locks the context-menu target before the previous selection', async () => {
+  const { controller } = await loadController();
+  const calls = [];
+  const selected = { id: 1, name: 'Run 1' };
+  const target = { id: 2, name: 'Run 2' };
+  const state = {
+    selectedId: 1,
+    contextTarget: { kind: 'anchor-hit', measurementId: '2' },
+    rotateModeId: 2,
+    measurements: [selected, target],
+  };
+
+  assert.equal(controller.toggleSelectedMeasurementLock({
+    state,
+    measurementById(id) {
+      return state.measurements.find(item => String(item.id) === String(id)) || null;
+    },
+    measurementCommands: {
+      toggleMeasurementLock(measurement) {
+        calls.push(['toggle', measurement.id]);
+        measurement.locked = measurement.locked !== true;
+        return { updated: true, locked: measurement.locked === true };
+      },
+    },
+    createHistorySnapshot: () => ({ before: true }),
+    endRotateMode: () => calls.push(['end-rotate']),
+    renderList: () => calls.push(['render-list']),
+    redraw: () => calls.push(['redraw']),
+    recordHistory: (before, label) => calls.push(['history', before.before, label]),
+    showStatus: text => calls.push(['status', text]),
+  }), true);
+
+  assert.equal(selected.locked, undefined);
+  assert.equal(target.locked, true);
+  assert.deepEqual(calls, [
+    ['toggle', 2],
+    ['end-rotate'],
+    ['render-list'],
+    ['redraw'],
+    ['history', true, 'run lock'],
+    ['status', 'Locked Run 2'],
+  ]);
+});
+
+test('toggleSelectedMeasurementLock can use the captured target after the menu closes', async () => {
+  const { controller } = await loadController();
+  const calls = [];
+  const selected = { id: 1, name: 'Run 1' };
+  const target = { id: 2, name: 'Run 2' };
+  const state = {
+    selectedId: 1,
+    contextTarget: null,
+    rotateModeId: 2,
+    measurements: [selected, target],
+  };
+
+  assert.equal(controller.toggleSelectedMeasurementLock({
+    state,
+    contextTarget: { kind: 'path-hit', measurementId: '2' },
+    measurementById(id) {
+      return state.measurements.find(item => String(item.id) === String(id)) || null;
+    },
+    measurementCommands: {
+      toggleMeasurementLock(measurement) {
+        calls.push(['toggle', measurement.id]);
+        measurement.locked = measurement.locked !== true;
+        return { updated: true, locked: measurement.locked === true };
+      },
+    },
+    createHistorySnapshot: () => ({ before: true }),
+    endRotateMode: () => calls.push(['end-rotate']),
+    renderList: () => calls.push(['render-list']),
+    redraw: () => calls.push(['redraw']),
+    recordHistory: (before, label) => calls.push(['history', before.before, label]),
+    showStatus: text => calls.push(['status', text]),
+  }), true);
+
+  assert.equal(selected.locked, undefined);
+  assert.equal(target.locked, true);
+  assert.deepEqual(calls, [
+    ['toggle', 2],
+    ['end-rotate'],
+    ['render-list'],
+    ['redraw'],
+    ['history', true, 'run lock'],
+    ['status', 'Locked Run 2'],
+  ]);
+});
+
 test('positionContextMenu keeps oversized menus anchored in the visible viewport', async () => {
   const { controller } = await loadController();
   const menu = createPositionedContextMenu({ width: 700, height: 600 });
@@ -87,6 +241,28 @@ test('conversionMenuState exposes only Convert to Line for Freehand measurements
     measurementModel: measurements,
   })), {
     canConvertToLine: true,
+    canConvertToFreehand: false,
+    canContinuePath: false,
+    canMergePaths: false,
+    canUnmergePaths: false,
+  });
+});
+
+test('conversionMenuState hides editing actions for locked measurements', async () => {
+  const { controller, measurements } = await loadController();
+  const measurement = {
+    locked: true,
+    shape: { active: 'line' },
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+  };
+
+  assert.deepEqual(plain(controller.conversionMenuState({
+    measurement,
+    measurementModel: measurements,
+    measurementCommands: { continuationEndpointRole: () => 'end' },
+    target: { kind: 'anchor-hit', vertexIndex: 1 },
+  })), {
+    canConvertToLine: false,
     canConvertToFreehand: false,
     canContinuePath: false,
     canMergePaths: false,
