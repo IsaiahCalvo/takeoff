@@ -43,6 +43,16 @@ test('plain click on an already-selected measurement preserves the selected grou
   assert.equal(state.selectedId, 1);
 });
 
+test('modifier click on an edit handle preserves selection for dragging', async () => {
+  const selectionModule = await loadSelectionController();
+  const state = { selectedId: 1, selectedIds: [1] };
+  const selection = selectionModule.createSelectionController({ state });
+
+  assert.equal(selection.selectFromClick(1, { shiftKey: true, editHandle: true }), 'preserve');
+  assert.deepEqual(plain(state.selectedIds), [1]);
+  assert.equal(state.selectedId, 1);
+});
+
 test('context menu selection preserves selected group and promotes the clicked measurement', async () => {
   const selectionModule = await loadSelectionController();
   const state = { selectedId: 1, selectedIds: [1, 2] };

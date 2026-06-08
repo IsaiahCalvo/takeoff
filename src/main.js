@@ -1141,11 +1141,11 @@ stage.addEventListener('mousedown', (e) => {
   }
 
   if (state.mode === 'selection') {
-    const handleSelectionHit = (id) => { clearActiveFitMode(); const action = selection.selectFromClick(id, e); if (action !== 'preserve') { renderList(); redraw(); } if (e.shiftKey || e.altKey) { e.preventDefault(); return true; } return false; };
+    const handleSelectionHit = (id, opts = {}) => { clearActiveFitMode(); const action = selection.selectFromClick(id, opts.editHandle ? { editHandle: true } : e); if (action !== 'preserve') { renderList(); redraw(); } if ((e.shiftKey || e.altKey) && !opts.editHandle) { e.preventDefault(); return true; } return false; };
     // Vertex hit first — clicking a node selects its run AND starts drag
     const v = findNearestVertex(p, 10 / state.zoom);
     if (v) {
-      if (handleSelectionHit(v.measurementId)) return;
+      if (handleSelectionHit(v.measurementId, { editHandle: v.kind === 'curve-control' })) return;
       state.dragVertex = { ...v, historyBefore: createHistorySnapshot() };
       stage.classList.add('dragging');
       renderList();

@@ -61,6 +61,11 @@
     }
 
     function selectFromClick(id, event = {}) {
+      if (event.editHandle) {
+        if (isSelected(id)) return 'preserve';
+        selectSingle(id);
+        return 'single';
+      }
       if (event.altKey || (event.shiftKey && isSelected(id))) {
         remove([id]);
         return 'remove';
