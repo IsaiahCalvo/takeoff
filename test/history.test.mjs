@@ -71,6 +71,7 @@ function baseState() {
       },
     }],
     pageScales: { 1: 2 },
+    pageScaleReferences: { 1: { value: 10, unit: 'yd', distancePx: 360 } },
     pxPerInch: 2,
     nextRunNumber: 6,
     nextMergedPathNumber: 3,
@@ -112,6 +113,7 @@ test('createHistorySnapshot clones editable state', async () => {
   state.measurements[0].shape.previousFreehand.points[0].x = 77;
   state.measurements[0].runDetails.photos[0].metadata.tags.push('mutated');
   state.pageScales[1] = 10;
+  state.pageScaleReferences[1].value = 99;
   state.selectedIds.push(3);
   state.copiedMeasurement.points[0].x = 42;
   state.copiedMeasurement.shape.previousLine.points[0].x = 66;
@@ -124,6 +126,7 @@ test('createHistorySnapshot clones editable state', async () => {
     videos: [],
   });
   assert.equal(snapshot.pageScales[1], 2);
+  assert.deepEqual(plain(snapshot.pageScaleReferences), { 1: { value: 10, unit: 'yd', distancePx: 360 } });
   assert.equal(snapshot.nextRunNumber, 6);
   assert.equal(snapshot.nextMergedPathNumber, 3);
   assert.equal(snapshot.nextMeasurementPanelOrder, 8);
@@ -178,6 +181,7 @@ test('applyHistorySnapshot restores history-owned state and clears transient int
       },
     }],
     pageScales: { 2: 5 },
+    pageScaleReferences: { 2: { value: 12, unit: 'ft', distancePx: 60 } },
     nextRunNumber: 9,
     nextMergedPathNumber: 4,
     nextMeasurementPanelOrder: 11,
@@ -189,9 +193,11 @@ test('applyHistorySnapshot restores history-owned state and clears transient int
 
   history.applyHistorySnapshot(state, snapshot, 2);
   snapshot.measurements[0].shape.previousLine.points[0].x = 99;
+  snapshot.pageScaleReferences[2].value = 99;
 
   assert.equal(state.measurements[0].id, 9);
   assert.equal(state.measurements[0].shape.previousLine.points[0].x, 1);
+  assert.deepEqual(plain(state.pageScaleReferences), { 2: { value: 12, unit: 'ft', distancePx: 60 } });
   assert.equal(state.pxPerInch, 5);
   assert.equal(state.nextRunNumber, 9);
   assert.equal(state.nextMergedPathNumber, 4);

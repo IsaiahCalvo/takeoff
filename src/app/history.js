@@ -7,6 +7,7 @@
     return {
       measurements: cloneValue(source.measurements) || [],
       pageScales: cloneValue(source.pageScales) || {},
+      pageScaleReferences: cloneValue(source.pageScaleReferences) || {},
       pxPerInch: source.pxPerInch,
       nextRunNumber: source.nextRunNumber,
       nextMergedPathNumber: source.nextMergedPathNumber,
@@ -35,6 +36,7 @@
   function applyHistorySnapshot(state, snapshot, currentPage) {
     state.measurements = cloneValue(snapshot.measurements) || [];
     state.pageScales = cloneValue(snapshot.pageScales) || {};
+    state.pageScaleReferences = cloneValue(snapshot.pageScaleReferences) || {};
     state.pxPerInch = state.pageScales[currentPage] || null;
     state.nextRunNumber = snapshot.nextRunNumber ?? state.nextRunNumber ?? 1;
     state.nextMergedPathNumber = snapshot.nextMergedPathNumber ?? state.nextMergedPathNumber ?? 1;

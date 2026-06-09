@@ -11,6 +11,10 @@ async function loadCalibrationController() {
   return sandbox.window.TakeoffCalibrationController;
 }
 
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
 function createClassList() {
   const classes = new Set();
   return {
@@ -211,6 +215,79 @@ test('applyModalState opens the calibration modal with workflow defaults', async
   assert.equal(options[2].classes.has('active'), false);
 });
 
+test('applyCalibrationSourceState renders copied source labels with clear reference text', async () => {
+  const calibration = await loadCalibrationController();
+  const sourceField = createElement({ hidden: true });
+  const sourceInput = createElement();
+  const sourceCombo = createElement();
+  const sourceDisplay = createElement();
+  const sourceOptionsEl = createElement();
+  const sourceTitle = createElement();
+  const sourceScale = createElement();
+  const sourceCount = createElement();
+  const sourceHelper = createElement();
+  const valueInput = createElement({ value: '' });
+  const unitSelect = createElement();
+  const okButton = createElement();
+  const options = [
+    { value: 'new', page: null, pages: [], label: 'New calibration', pageLabel: 'New calibration', helper: '' },
+    {
+      value: 'scale:1',
+      page: 1,
+      pages: [1],
+      pxPerInch: 1,
+      label: 'Page 1: 10 yd = 360.00 px',
+      pageLabel: 'Page 1',
+      scaleLabel: '10 yd = 360.00 px',
+      pageCountLabel: '1 page',
+      helper: 'Uses the scale from this page.',
+    },
+  ];
+
+  calibration.applyCalibrationSourceState({
+    sourceField,
+    sourceInput,
+    sourceCombo,
+    sourceDisplay,
+    sourceOptionsEl,
+    sourceTitle,
+    sourceScale,
+    sourceCount,
+    sourceHelper,
+    valueInput,
+    unitSelect,
+    okButton,
+    options,
+    selectedValue: 'new',
+    isPositiveCalibrationValue: () => false,
+  });
+
+  const copiedOptionMain = sourceOptionsEl.children[1].children[0];
+  assert.equal(copiedOptionMain.children[0].textContent, 'Page 1:');
+  assert.equal(copiedOptionMain.children[1].textContent, '10 yd = 360.00 px');
+
+  calibration.applyCalibrationSourceState({
+    sourceField,
+    sourceInput,
+    sourceCombo,
+    sourceDisplay,
+    sourceOptionsEl,
+    sourceTitle,
+    sourceScale,
+    sourceCount,
+    sourceHelper,
+    valueInput,
+    unitSelect,
+    okButton,
+    options,
+    selectedValue: 'scale:1',
+    isPositiveCalibrationValue: () => false,
+  });
+
+  assert.equal(sourceTitle.textContent, 'Page 1:');
+  assert.equal(sourceScale.textContent, '10 yd = 360.00 px');
+});
+
 test('applyScopeComboState turns the same control into a focused custom page range input', async () => {
   const calibration = await loadCalibrationController();
   const scopeInput = { value: '' };
@@ -370,7 +447,7 @@ test('applyCalibrationSourceState hides compact mode and configures copied calib
   assert.equal(sourceOptionsEl.children.length, 2);
   assert.equal(sourceOptionsEl.children[1].dataset.sourceValue, 'scale:2');
   assert.equal(sourceInput.value, 'scale:2');
-  assert.equal(sourceTitle.textContent, 'Page 1');
+  assert.equal(sourceTitle.textContent, 'Page 1:');
   assert.equal(sourceScale.textContent, '1 ft = 24.00 px');
   assert.equal(sourceScale.hidden, false);
   assert.equal(sourceCount.textContent, '1 page');
@@ -528,4 +605,186 @@ test('createCalibrationModal copies selected source scale to target pages and re
     label: 'scale match',
   }]);
   assert.deepEqual(statuses, ['Scale matched on 2 pages from Page 1.']);
+});
+
+test('createCalibrationModal stores the entered calibration reference on saved pages', async () => {
+  const calibration = await loadCalibrationController();
+  const options = ['this', 'all', 'custom'].map(createScopeOption);
+  const elements = {
+    calibModal: createElement(),
+    calibValue: createElement(),
+    calibOk: createElement(),
+    calibUnit: createElement({ value: 'ft' }),
+    calibSourceField: createElement({ hidden: true }),
+    calibSource: createElement({ value: 'new' }),
+    calibSourceCombo: createElement(),
+    calibSourceDisplay: createElement(),
+    calibSourceOptions: createElement(),
+    calibSourceTitle: createElement(),
+    calibSourceScale: createElement(),
+    calibSourceCount: createElement(),
+    calibSourceHelper: createElement({ hidden: true }),
+    calibScope: createElement({ value: 'this' }),
+    calibScopeCombo: createElement(),
+    calibScopeDisplay: createElement(),
+    calibScopeOptions: createElement({
+      querySelectorAll() {
+        return options;
+      },
+    }),
+    calibScopeMenu: createElement(),
+    calibRange: createElement(),
+    calibCancel: createElement(),
+  };
+  const state = {
+    pageScales: {},
+    pageScaleReferences: {},
+    measurements: [{ page: 2, lengthPx: 0, lengthInches: null }],
+    unit: 'ft',
+    pxPerInch: null,
+    inProgress: null,
+  };
+  const workflow = {
+    initialModalState: unit => ({ value: '', unit, scope: 'this', range: '' }),
+    calibrationSourceOptions: () => [{ value: 'new', page: null, pxPerInch: null, label: 'New calibration', helper: '' }],
+    scopeLabel: scope => `scope:${scope}`,
+    isPositiveCalibrationValue: value => Number(value) > 0,
+    sanitizeCalibrationValueInput: value => value,
+    sanitizePageRangeInput: value => value,
+    calibrationValueNumber: value => Number(value),
+    resolveTargetPages: () => ({ pages: [2], error: null }),
+  };
+  const modal = calibration.createCalibrationModal({
+    root: createElement(),
+    getElement: id => elements[id],
+    state,
+    workflow,
+    unitToInch: () => 36,
+    currentPage: () => 2,
+    totalPages: () => 3,
+    parsePageRange: () => [],
+    computePxPerInch(points, realLength, unit) {
+      assert.equal(points.length, 2);
+      assert.equal(realLength, 10);
+      assert.equal(unit, 'yd');
+      return 1;
+    },
+    distancePx: () => 360,
+    applyScaleToPages({ pageScales, pageScaleReferences, pages, pxPerInch, reference }) {
+      assert.equal(pageScaleReferences, state.pageScaleReferences);
+      assert.deepEqual(plain(reference), { value: 10, unit: 'yd', distancePx: 360 });
+      for (const page of pages) {
+        pageScales[page] = pxPerInch;
+        pageScaleReferences[page] = { ...reference };
+      }
+    },
+    measureLengthPx: () => 0,
+    createHistorySnapshot: () => ({ pageScales: { ...state.pageScales }, pageScaleReferences: { ...state.pageScaleReferences } }),
+    recordHistory() {},
+    updateScaleLabel() {},
+    updatePageLabel() {},
+    setMode(mode) {
+      state.mode = mode;
+    },
+    renderList() {},
+    redraw() {},
+    showStatus() {},
+    alertUser() {},
+    focusLater() {},
+  });
+
+  modal.open({ points: [{ x: 0, y: 0 }, { x: 0, y: 360 }] });
+  elements.calibValue.value = '10';
+  elements.calibUnit.value = 'yd';
+  elements.calibOk.click();
+
+  assert.equal(state.pageScales[2], 1);
+  assert.deepEqual(state.pageScaleReferences[2], { value: 10, unit: 'yd', distancePx: 360 });
+  assert.equal(state.pxPerInch, 1);
+  assert.equal(state.mode, 'measure');
+});
+
+test('createCalibrationModal backfills calibration reference storage for hot-reloaded state', async () => {
+  const calibration = await loadCalibrationController();
+  const options = ['this', 'all', 'custom'].map(createScopeOption);
+  const elements = {
+    calibModal: createElement(),
+    calibValue: createElement(),
+    calibOk: createElement(),
+    calibUnit: createElement({ value: 'ft' }),
+    calibSourceField: createElement({ hidden: true }),
+    calibSource: createElement({ value: 'new' }),
+    calibSourceCombo: createElement(),
+    calibSourceDisplay: createElement(),
+    calibSourceOptions: createElement(),
+    calibSourceTitle: createElement(),
+    calibSourceScale: createElement(),
+    calibSourceCount: createElement(),
+    calibSourceHelper: createElement({ hidden: true }),
+    calibScope: createElement({ value: 'this' }),
+    calibScopeCombo: createElement(),
+    calibScopeDisplay: createElement(),
+    calibScopeOptions: createElement({
+      querySelectorAll() {
+        return options;
+      },
+    }),
+    calibScopeMenu: createElement(),
+    calibRange: createElement(),
+    calibCancel: createElement(),
+  };
+  const state = {
+    pageScales: {},
+    measurements: [],
+    unit: 'ft',
+    pxPerInch: null,
+    inProgress: null,
+  };
+  const workflow = {
+    initialModalState: unit => ({ value: '', unit, scope: 'this', range: '' }),
+    calibrationSourceOptions: ({ pageScaleReferences }) => {
+      assert.deepEqual(plain(pageScaleReferences), {});
+      return [{ value: 'new', page: null, pxPerInch: null, label: 'New calibration', helper: '' }];
+    },
+    scopeLabel: scope => `scope:${scope}`,
+    isPositiveCalibrationValue: value => Number(value) > 0,
+    sanitizeCalibrationValueInput: value => value,
+    sanitizePageRangeInput: value => value,
+    calibrationValueNumber: value => Number(value),
+    resolveTargetPages: () => ({ pages: [1], error: null }),
+  };
+  const modal = calibration.createCalibrationModal({
+    root: createElement(),
+    getElement: id => elements[id],
+    state,
+    workflow,
+    unitToInch: () => 36,
+    currentPage: () => 1,
+    totalPages: () => 2,
+    parsePageRange: () => [],
+    computePxPerInch: () => 1,
+    distancePx: () => 360,
+    applyScaleToPages({ pageScaleReferences, reference }) {
+      assert.equal(pageScaleReferences, state.pageScaleReferences);
+      pageScaleReferences[1] = { ...reference };
+    },
+    measureLengthPx: () => 0,
+    createHistorySnapshot: () => ({}),
+    recordHistory() {},
+    updateScaleLabel() {},
+    updatePageLabel() {},
+    setMode() {},
+    renderList() {},
+    redraw() {},
+    showStatus() {},
+    alertUser() {},
+    focusLater() {},
+  });
+
+  modal.open({ points: [{ x: 0, y: 0 }, { x: 0, y: 360 }] });
+  elements.calibValue.value = '10';
+  elements.calibUnit.value = 'yd';
+  elements.calibOk.click();
+
+  assert.deepEqual(plain(state.pageScaleReferences), { 1: { value: 10, unit: 'yd', distancePx: 360 } });
 });

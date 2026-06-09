@@ -46,10 +46,28 @@
     return { pages: [currentPage], error: null };
   }
 
-  function scaleSummary(pxPerInch, unit, unitToInch) {
-    const unitLabel = unit || 'ft';
-    const inchFactor = typeof unitToInch === 'function' ? unitToInch(unitLabel) : 1;
-    return `1 ${unitLabel} = ${(pxPerInch * inchFactor).toFixed(2)} px`;
+  function normalizedScaleReference(reference, pxPerInch, unitToInch) {
+    const value = Number(reference?.value);
+    const unit = reference?.unit;
+    const unitFactor = typeof unitToInch === 'function' ? unitToInch(unit) : null;
+    if (!Number.isFinite(value) || value <= 0 || !unit || !Number.isFinite(unitFactor) || unitFactor <= 0) return null;
+    const distancePx = Number.isFinite(reference?.distancePx)
+      ? Number(reference.distancePx)
+      : pxPerInch * value * unitFactor;
+    if (!Number.isFinite(distancePx) || distancePx <= 0) return null;
+    return { value, unit, distancePx };
+  }
+
+  function referenceValueLabel(value) {
+    return Number.isInteger(value) ? String(value) : String(value).replace(/0+$/, '').replace(/\.$/, '');
+  }
+
+  function scaleSummary(pxPerInch, unit, unitToInch, reference = null) {
+    const normalizedReference = normalizedScaleReference(reference, pxPerInch, unitToInch);
+    if (normalizedReference) {
+      return `${referenceValueLabel(normalizedReference.value)} ${normalizedReference.unit} = ${normalizedReference.distancePx.toFixed(2)} px`;
+    }
+    return 'Saved scale';
   }
 
   function pageRangeText(pages) {
@@ -85,7 +103,7 @@
       && Math.abs(left - right) <= sameScaleTolerance(left, right);
   }
 
-  function calibrationSourceOptions({ pageScales, currentPage, unit, unitToInch } = {}) {
+  function calibrationSourceOptions({ pageScales, pageScaleReferences, currentPage, unit, unitToInch } = {}) {
     const options = [{
       value: 'new',
       page: null,
@@ -122,11 +140,15 @@
         options.push(group);
       }
       group.pages.push(page);
+      if (!group.reference) {
+        const reference = normalizedScaleReference(pageScaleReferences?.[page], pxPerInch, unitToInch);
+        if (reference) group.reference = reference;
+      }
     }
 
     for (const option of options) {
       if (option.value === 'new') continue;
-      const summary = scaleSummary(option.pxPerInch, unit, unitToInch);
+      const summary = scaleSummary(option.pxPerInch, unit, unitToInch, option.reference);
       option.page = option.pages[0] || null;
       option.pageLabel = pageRangeLabel(option.pages);
       option.scaleLabel = summary;

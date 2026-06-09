@@ -132,6 +132,13 @@
     return child;
   }
 
+  function sourceTitleText(optionModel) {
+    const title = optionModel?.pageLabel || optionModel?.label || 'New calibration';
+    const isCopiedSource = Boolean(optionModel?.pages && optionModel.pages.length);
+    if (!isCopiedSource || title.endsWith(':')) return title;
+    return `${title}:`;
+  }
+
   function sourceOptionFromTarget(target, sourceOptions) {
     let node = target;
     while (node && node !== sourceOptions) {
@@ -155,7 +162,7 @@
 
       const main = sourceOptions.ownerDocument.createElement('span');
       main.className = 'calib-source-option-main';
-      appendSourceText(main, 'calib-source-title', optionModel.pageLabel || optionModel.label);
+      appendSourceText(main, 'calib-source-title', sourceTitleText(optionModel));
       appendSourceText(main, 'calib-source-badge', optionModel.scaleLabel, !optionModel.scaleLabel);
       appendSourceText(main, 'calib-source-badge', optionModel.pageCountLabel, !optionModel.pageCountLabel);
       option.appendChild(main);
@@ -165,6 +172,11 @@
 
   function selectedCalibrationSource(options, selectedValue) {
     return options.find(option => option.value === selectedValue) || options[0] || null;
+  }
+
+  function pageScaleReferencesForState(state) {
+    if (!state.pageScaleReferences) state.pageScaleReferences = {};
+    return state.pageScaleReferences;
   }
 
   function applyCalibrationSourceState({
@@ -194,7 +206,7 @@
     replaceCalibrationSourceOptions({ sourceOptions: sourceOptionsEl, options: sourceOptions, selectedValue: selected?.value });
     if (sourceInput && selected) sourceInput.value = selected.value;
     setSourceMenuOpen({ sourceCombo, sourceDisplay, isOpen: false });
-    setSourceText(sourceTitle, selected?.pageLabel || selected?.label || 'New calibration');
+    setSourceText(sourceTitle, sourceTitleText(selected));
     setSourceText(sourceScale, selected?.scaleLabel || '', !selected?.scaleLabel);
     setSourceText(sourceCount, selected?.pageCountLabel || '', !selected?.pageCountLabel);
     valueInput.disabled = isCopiedCalibration;
@@ -301,6 +313,7 @@
     function buildSourceOptions(unit) {
       return workflow.calibrationSourceOptions({
         pageScales: state.pageScales,
+        pageScaleReferences: pageScaleReferencesForState(state),
         currentPage: currentPage(),
         unit,
         unitToInch,
@@ -353,6 +366,12 @@
       const pxPerInch = isCopiedCalibration
         ? source.pxPerInch
         : computePxPerInch(pendingCalibration.points, value, unit, distancePx);
+      const referenceDistancePx = !isCopiedCalibration && pendingCalibration?.points?.length >= 2
+        ? distancePx(pendingCalibration.points[0], pendingCalibration.points[1])
+        : null;
+      const reference = isCopiedCalibration
+        ? (source.reference || null)
+        : { value, unit, distancePx: referenceDistancePx };
       const targetPageResult = workflow.resolveTargetPages({
         scope: $('calibScope').value,
         currentPage: currentPage(),
@@ -371,8 +390,10 @@
       applyScaleToPages({
         measurements: state.measurements,
         pageScales: state.pageScales,
+        pageScaleReferences: pageScaleReferencesForState(state),
         pages: targetPages,
         pxPerInch,
+        reference,
         measureLengthPx,
       });
       if (targetPages.includes(currentPage())) state.pxPerInch = pxPerInch;

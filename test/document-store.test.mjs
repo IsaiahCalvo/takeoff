@@ -33,6 +33,7 @@ test('createDocumentSnapshot captures persisted document state only when a docum
     activeFitMode: 'page',
     pxPerInch: 4,
     pageScales: { 2: 4 },
+    pageScaleReferences: { 2: { value: 10, unit: 'yd', distancePx: 360 } },
     nextRunNumber: 8,
     nextMergedPathNumber: 3,
     nextMeasurementPanelOrder: 9,
@@ -73,6 +74,7 @@ test('createDocumentSnapshot captures persisted document state only when a docum
   assert.equal(snapshot.nextMeasurementPanelOrder, 9);
   assert.deepEqual(plain(snapshot.continuousScrollPreferences), { '1,2,3': true });
   assert.deepEqual(plain(snapshot.pageScales), { 2: 4 });
+  assert.deepEqual(plain(snapshot.pageScaleReferences), { 2: { value: 10, unit: 'yd', distancePx: 360 } });
   assert.equal(snapshot.measurements[0].shape.previousFreehand.points[0].x, 0);
   assert.equal(snapshot.measurements[0].pathCategoryId, 'low-voltage');
   assert.equal(snapshot.measurements[0].lengthInches, 120);
@@ -96,6 +98,7 @@ test('saveDocumentSnapshot upserts the active document without duplicating tabs'
     pdfPages: 1,
     continuousScrollMode: false,
     pageScales: {},
+    pageScaleReferences: {},
     measurements: [],
     collapsedPageGroups: {},
     continuousScrollPreferences: {},

@@ -53,7 +53,7 @@ test('index uses relative local asset paths for GitHub Pages subpath deploys', a
 test('index keeps app shell styles in an external stylesheet', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 
-  assert.match(html, /<link rel="stylesheet" href="\.\/app\/styles\.css\?v=[^"]+" \/>/);
+  assert.match(html, /<link rel="stylesheet" href="\.\/app\/styles\.css\?v=scale-source-spacing-1" \/>/);
   assert.doesNotMatch(html, /<style>/);
 });
 
@@ -68,6 +68,7 @@ test('index delegates app startup to one module entrypoint', async () => {
   assert.match(main, /import \* as pdfjsLib from 'pdfjs-dist\/build\/pdf\.js';/);
   assert.match(main, /import pdfWorkerUrl from 'pdfjs-dist\/build\/pdf\.worker\.min\.js\?url';/);
   assert.match(main, /import '\.\/export-utils\.js';/);
+  assert.match(main, /import '\.\/calibration-utils\.js\?v=scale-reference-1';/);
   assert.match(main, /import '\.\/app\/path-aggregation\.js';/);
   assert.match(main, /import '\.\/app\/sidebar\.js\?v=single-page-tabs-1';/);
   assert.match(main, /import '\.\/app\/sidebar-view\.js\?v=single-page-tabs-1';/);
@@ -76,6 +77,8 @@ test('index delegates app startup to one module entrypoint', async () => {
   assert.match(main, /import '\.\/app\/measurement-commands\.js\?v=merge-chain-snaps-1';/);
   assert.match(main, /import '\.\/app\/context-menu-controller\.js\?v=merge-feature-hidden-1';/);
   assert.match(main, /import '\.\/app\/document-store\.js\?v=merge-name-counters-1';/);
+  assert.match(main, /import '\.\/app\/calibration-controller\.js\?v=scale-reference-1';/);
+  assert.match(main, /import '\.\/app\/calibration-workflow\.js\?v=scale-reference-1';/);
   assert.match(main, /import '\.\/app\/history\.js\?v=merge-name-counters-1';/);
   assert.match(main, /import '\.\/app\/path-style-renderer\.js\?v=preview-panel-icon-1';/);
   assert.match(main, /import '\.\/app\/unmerge-path-modal\.js\?v=unmerge-auto-1';/);
@@ -160,7 +163,8 @@ test('home shell preserves upload controls and mounts Path Templates', async () 
   assert.match(html, /id="uploadButton"/);
   assert.match(html, /id="emptyUploadButton"/);
   assert.match(styles, /\.path-template-home\s*\{/);
-  assert.match(styles, /body\.no-document #status\s*\{\s*display:\s*none;\s*\}/);
+  assert.match(styles, /body\.no-document #status:not\(\.show\)\s*\{\s*display:\s*none;\s*\}/);
+  assert.doesNotMatch(styles, /body\.no-document #status\s*\{\s*display:\s*none;\s*\}/);
   assert.match(styles, /\.path-template-editor::-webkit-scrollbar\s*\{/);
   assert.match(styles, /scrollbar-color:\s*rgba\(125,\s*138,\s*145,\s*0\.34\)\s*transparent/);
   assert.match(main, /import '\.\/app\/path-template-view\.js\?v=preview-panel-fit-2';/);
@@ -232,7 +236,10 @@ test('calibration apply scope uses one compact combo row', async () => {
   assert.match(hiddenFieldRule, /display:\s*none !important/);
   assert.match(sourceFieldRule, /display:\s*block/);
   assert.match(sourceMainRule, /display:\s*grid/);
-  assert.match(sourceMainRule, /grid-template-columns:\s*minmax\(0,\s*1fr\)\s*96px\s*58px/);
+  assert.match(sourceMainRule, /grid-template-columns:\s*minmax\(68px,\s*1fr\)\s*minmax\(120px,\s*1fr\)\s*max-content/);
+  assert.match(sourceMainRule, /column-gap:\s*12px/);
+  assert.match(styles, /\.calib-source-option-main:has\(\.calib-source-badge\[hidden\]\)/);
+  assert.match(styles, /\.calib-source-badge:last-child\s*\{\s*justify-self:\s*end;/);
   assert.match(sourceMenuRule, /max-height:\s*250px/);
   assert.match(sourceMenuRule, /scrollbar-width:\s*thin/);
 });
@@ -494,7 +501,7 @@ test('continuous toggle stores one document-level on off state', async () => {
 test('continuous page layer is prewarmed before the first toggle', async () => {
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
-  assert.match(main, /import '\.\/app\/continuous-renderer\.js'; import '\.\/app\/continuous-prewarm\.js';/);
+  assert.match(main, /import '\.\/app\/continuous-renderer\.js\?v=shell-layout-1'; import '\.\/app\/continuous-prewarm\.js';/);
   assert.match(main, /TakeoffContinuousPrewarm/);
   assert.match(main, /function scheduleContinuousLayerPrewarm/);
   assert.match(main, /continuousPrewarmController\.schedule\(eligibility\)/);
@@ -526,6 +533,7 @@ test('new PDFs render the first visible state through continuous mode', async ()
   assert.match(state, /continuousScrollAutoEnable:\s*false/);
   assert.match(adapters, /continuousScrollMode:\s*pdf\.numPages > 1/);
   assert.match(adapters, /continuousScrollAutoEnable:\s*false/);
+  assert.match(main, /import '\.\/app\/continuous-renderer\.js\?v=shell-layout-1';/);
   assert.match(loadFile, /Object\.assign\(state,\s*documentAdapters\.createPdfDocumentState/);
   assert.match(loadFile, /await renderPdfPage\(\)/);
 });

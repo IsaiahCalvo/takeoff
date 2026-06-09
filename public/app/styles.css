@@ -37,7 +37,7 @@ body.no-document #uploadButton {
   display: none;
 }
 body.no-document .hud,
-body.no-document #status { display: none; }
+body.no-document #status:not(.show) { display: none; }
 
 /* Top toolbar */
 header {
@@ -3723,9 +3723,13 @@ aside {
   width: 100%;
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px 58px;
+  grid-template-columns: minmax(68px, 1fr) minmax(120px, 1fr) max-content;
   align-items: center;
-  column-gap: 7px;
+  column-gap: 12px;
+}
+.calib-source-main:has(.calib-source-badge[hidden]),
+.calib-source-option-main:has(.calib-source-badge[hidden]) {
+  grid-template-columns: minmax(0, 1fr);
 }
 .calib-source-title {
   min-width: 0;
@@ -3736,7 +3740,7 @@ aside {
   font-weight: 700;
 }
 .calib-source-badge {
-  justify-self: start;
+  justify-self: stretch;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
@@ -3750,6 +3754,10 @@ aside {
   font-size: 10px;
   font-weight: 650;
   line-height: 1.2;
+  text-align: center;
+}
+.calib-source-badge:last-child {
+  justify-self: end;
 }
 .calib-source-options {
   position: absolute;

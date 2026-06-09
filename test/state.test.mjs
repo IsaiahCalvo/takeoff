@@ -43,6 +43,7 @@ test('createInitialState returns fresh mutable collections and current defaults'
   assert.equal(b.mode, 'pan');
   assert.equal(b.drawMode, 'line');
   assert.equal(b.unit, 'ft');
+  assert.deepEqual(plain(b.pageScaleReferences), {});
   assert.equal('pdfEngineChoice' in b, false);
   assert.equal(b.continuousScrollMode, false);
   assert.equal(b.continuousScrollAutoEnable, false);
@@ -96,6 +97,7 @@ test('resetDocumentState clears active document data while preserving app-level 
   state.undoStack = [{ label: 'edit' }];
   state.redoStack = [{ label: 'redo' }];
   state.pageScales = { 4: 5 };
+  state.pageScaleReferences = { 4: { value: 10, unit: 'yd', distancePx: 360 } };
   state.pxPerInch = 5;
   state.inProgress = { points: [] };
   state.freehandDraft = { rawPoints: [] };
@@ -139,6 +141,7 @@ test('resetDocumentState clears active document data while preserving app-level 
   assert.deepEqual(plain(state.undoStack), []);
   assert.deepEqual(plain(state.redoStack), []);
   assert.deepEqual(plain(state.pageScales), {});
+  assert.deepEqual(plain(state.pageScaleReferences), {});
   assert.equal(state.pxPerInch, null);
   assert.equal(state.inProgress, null);
   assert.equal(state.freehandDraft, null);
@@ -194,6 +197,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
     activeFitMode: 'width',
     pxPerInch: 4,
     pageScales: { 3: 4 },
+    pageScaleReferences: { 3: { value: 10, unit: 'yd', distancePx: 360 } },
     measurements: [{
       id: 1,
       shape: {
@@ -245,6 +249,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.equal(state.panY, 20);
   assert.equal(state.activeFitMode, 'width');
   assert.deepEqual(plain(state.pageScales), { 3: 4 });
+  assert.deepEqual(plain(state.pageScaleReferences), { 3: { value: 10, unit: 'yd', distancePx: 360 } });
   assert.deepEqual(plain(state.measurements), [{
     id: 1,
     panelOrder: 1,

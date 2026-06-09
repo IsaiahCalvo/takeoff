@@ -368,6 +368,29 @@ test('applyScaleToPages keeps copied calibration values independent from later s
   assert.equal(measurements[2].lengthInches, 60 / sourceScale);
 });
 
+test('applyScaleToPages copies calibration reference metadata to target pages', async () => {
+  const utils = await loadUtils();
+  const measurements = [{ page: 2, lengthPx: 0, lengthInches: null }];
+  const pageScales = {};
+  const pageScaleReferences = {};
+  const reference = { value: 10, unit: 'yd', distancePx: 360 };
+
+  utils.applyScaleToPages({
+    measurements,
+    pageScales,
+    pageScaleReferences,
+    pages: [2],
+    pxPerInch: 1,
+    reference,
+    measureLengthPx: () => 36,
+  });
+  reference.value = 20;
+
+  assert.deepEqual(pageScales, { 2: 1 });
+  assert.deepEqual(plain(pageScaleReferences), { 2: { value: 10, unit: 'yd', distancePx: 360 } });
+  assert.equal(measurements[0].lengthInches, 36);
+});
+
 test('clearPageScale removes scale and marks page measurements unscaled', async () => {
   const utils = await loadUtils();
   const measurements = [
@@ -375,10 +398,15 @@ test('clearPageScale removes scale and marks page measurements unscaled', async 
     { page: 2, lengthInches: 24 },
   ];
   const pageScales = { 1: 2, 2: 4 };
+  const pageScaleReferences = {
+    1: { value: 10, unit: 'yd', distancePx: 360 },
+    2: { value: 5, unit: 'ft', distancePx: 120 },
+  };
 
-  utils.clearPageScale({ measurements, pageScales, page: 1 });
+  utils.clearPageScale({ measurements, pageScales, pageScaleReferences, page: 1 });
 
   assert.deepEqual(pageScales, { 2: 4 });
+  assert.deepEqual(pageScaleReferences, { 2: { value: 5, unit: 'ft', distancePx: 120 } });
   assert.equal(measurements[0].lengthInches, null);
   assert.equal(measurements[1].lengthInches, 24);
 });

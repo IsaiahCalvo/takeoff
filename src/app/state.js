@@ -237,6 +237,7 @@
       panStart: null,
       pxPerInch: null,
       pageScales: {},
+      pageScaleReferences: {},
       inProgress: null,
       drawMode: 'line',
       freehandDraft: null,
@@ -311,6 +312,7 @@
     state.nextMeasurementPanelOrder = 1;
     clearHistoryState(state);
     state.pageScales = {};
+    state.pageScaleReferences = {};
     state.pxPerInch = null;
     state.inProgress = null;
     state.freehandDraft = null;
@@ -349,6 +351,7 @@
     state.activeFitMode = doc.activeFitMode || null;
     state.pxPerInch = doc.pxPerInch || null;
     state.pageScales = { ...(doc.pageScales || {}) };
+    state.pageScaleReferences = cloneValue(doc.pageScaleReferences) || {};
     state.measurements = normalizeMeasurementPanelOrders(cloneValue(doc.measurements) || []);
     state.nextRunNumber = normalizeGeneratedNameCounter(doc.nextRunNumber, state.measurements, RUN_NAME_PATTERN);
     state.nextMergedPathNumber = normalizeGeneratedNameCounter(doc.nextMergedPathNumber, state.measurements, MERGED_PATH_NAME_PATTERN);

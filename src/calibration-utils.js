@@ -234,15 +234,30 @@
     return { eligible: true, reason: 'eligible', pages, startPage: 1, endPage: pageCount, groupPageCount: pageCount, wholeDocument: true };
   }
 
-  function applyScaleToPages({ measurements, pageScales, pages, pxPerInch, measureLengthPx }) {
+  function cloneScaleReference(reference) {
+    if (!reference || typeof reference !== 'object') return null;
+    const value = Number(reference.value);
+    const unit = reference.unit;
+    const distancePx = Number(reference.distancePx);
+    if (!Number.isFinite(value) || value <= 0 || !unit || !Number.isFinite(distancePx) || distancePx <= 0) return null;
+    return { value, unit, distancePx };
+  }
+
+  function applyScaleToPages({ measurements, pageScales, pageScaleReferences, pages, pxPerInch, reference, measureLengthPx }) {
+    const referenceCopy = cloneScaleReference(reference);
     for (const page of pages || []) {
       pageScales[page] = pxPerInch;
+      if (pageScaleReferences) {
+        if (referenceCopy) pageScaleReferences[page] = { ...referenceCopy };
+        else delete pageScaleReferences[page];
+      }
       recomputeLengthsForPage(measurements, pageScales, page, measureLengthPx);
     }
   }
 
-  function clearPageScale({ measurements, pageScales, page }) {
+  function clearPageScale({ measurements, pageScales, pageScaleReferences, page }) {
     delete pageScales[page];
+    if (pageScaleReferences) delete pageScaleReferences[page];
     for (const measurement of measurements || []) {
       if (measurementPage(measurement) === page) measurement.lengthInches = null;
     }

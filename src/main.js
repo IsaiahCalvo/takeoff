@@ -1,7 +1,7 @@
 import * as pdfjsLib from 'pdfjs-dist/build/pdf.js';
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.js?url';
 import './export-utils.js';
-import './calibration-utils.js'; import './app/decimal-input.js';
+import './calibration-utils.js?v=scale-reference-1'; import './app/decimal-input.js';
 import './app/path-aggregation.js';
 import './app/sidebar.js?v=single-page-tabs-1';
 import './app/sidebar-view.js?v=single-page-tabs-1';
@@ -16,7 +16,7 @@ import './app/run-details.js'; import './app/run-detail-modal.js'; import './app
 import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js?v=unmerge-auto-1';
 import './app/page-state.js';
 import './app/continuous-scroll.js';
-import './app/continuous-renderer.js'; import './app/continuous-prewarm.js';
+import './app/continuous-renderer.js?v=shell-layout-1'; import './app/continuous-prewarm.js';
 import './app/continuous-measurements.js';
 import './app/hit-testing.js'; import './app/marquee-controller.js'; import './app/marquee-pointer-controller.js';
 import './app/viewer.js';
@@ -31,8 +31,8 @@ import './app/document-loader.js';
 import './app/document-adapters.js';
 import './app/document-store.js?v=merge-name-counters-1';
 import './app/export-controller.js';
-import './app/calibration-controller.js';
-import './app/calibration-workflow.js';
+import './app/calibration-controller.js?v=scale-reference-1';
+import './app/calibration-workflow.js?v=scale-reference-1';
 import './app/svg-renderer.js';
 import './app/history.js?v=merge-name-counters-1';
 import './app/units.js';
@@ -357,8 +357,8 @@ function updateStatus() {
     statusEl.classList.remove('show');
     return;
   }
-  statusEl.textContent = 'Upload Image/PDF to begin.';
-  statusEl.classList.add('show');
+  statusEl.textContent = '';
+  statusEl.classList.remove('show');
 }
 function markOnboardingStatusSeen() {
   if (!state.onboardingStatusSeen) {
@@ -2072,7 +2072,7 @@ $('resetScale').addEventListener('click', async () => {
   const affectedCount = calibrationController.countPageMeasurements(state.measurements, p);
   if (!confirm(calibrationController.resetScaleConfirmMessage({ page: p, affectedCount }))) return;
   const historyBefore = createHistorySnapshot();
-  clearPageScale({ measurements: state.measurements, pageScales: state.pageScales, page: p });
+  clearPageScale({ measurements: state.measurements, pageScales: state.pageScales, pageScaleReferences: state.pageScaleReferences, page: p });
   stateStore.syncCurrentPageScale(state, p);
   updateScaleLabel();
   recordHistory(historyBefore, 'scale reset');

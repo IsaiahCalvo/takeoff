@@ -71,6 +71,7 @@
       activeFitMode: state.activeFitMode,
       pxPerInch: state.pxPerInch,
       pageScales: { ...(state.pageScales || {}) },
+      pageScaleReferences: cloneValue(state.pageScaleReferences) || {},
       nextRunNumber: state.nextRunNumber,
       nextMergedPathNumber: state.nextMergedPathNumber,
       nextMeasurementPanelOrder: state.nextMeasurementPanelOrder,

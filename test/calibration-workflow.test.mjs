@@ -161,9 +161,9 @@ test('groups copied calibration source options by unique calibration scale', asy
       page: 1,
       pages: [1, 2, 6],
       pxPerInch: 2,
-      label: 'Pages 1-2,6 (1 ft = 24.00 px)',
+      label: 'Pages 1-2,6 (Saved scale)',
       pageLabel: 'Pages 1-2,6',
-      scaleLabel: '1 ft = 24.00 px',
+      scaleLabel: 'Saved scale',
       pageCountLabel: '3 pages',
       helper: 'Uses the scale from these pages.',
     },
@@ -172,13 +172,39 @@ test('groups copied calibration source options by unique calibration scale', asy
       page: 3,
       pages: [3, 8, 9],
       pxPerInch: 3,
-      label: 'Pages 3,8-9 (1 ft = 36.00 px)',
+      label: 'Pages 3,8-9 (Saved scale)',
       pageLabel: 'Pages 3,8-9',
-      scaleLabel: '1 ft = 36.00 px',
+      scaleLabel: 'Saved scale',
       pageCountLabel: '3 pages',
       helper: 'Uses the scale from these pages.',
     },
   ]);
+});
+
+test('labels copied calibration sources with the original reference distance when available', async () => {
+  const workflow = await loadCalibrationWorkflow();
+
+  assert.deepEqual(plain(workflow.calibrationSourceOptions({
+    pageScales: { 1: 1, 2: 1 },
+    pageScaleReferences: {
+      1: { value: 10, unit: 'yd', distancePx: 360 },
+      2: { value: 10, unit: 'yd', distancePx: 360 },
+    },
+    currentPage: 3,
+    unit: 'ft',
+    unitToInch: unit => unit === 'yd' ? 36 : 12,
+  }))[1], {
+    value: 'scale:1',
+    page: 1,
+    pages: [1, 2],
+    pxPerInch: 1,
+    label: 'Pages 1-2 (10 yd = 360.00 px)',
+    pageLabel: 'Pages 1-2',
+    scaleLabel: '10 yd = 360.00 px',
+    pageCountLabel: '2 pages',
+    helper: 'Uses the scale from these pages.',
+    reference: { value: 10, unit: 'yd', distancePx: 360 },
+  });
 });
 
 test('groups copied calibration sources with the same tolerance used for continuous scroll', async () => {
