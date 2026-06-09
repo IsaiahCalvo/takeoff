@@ -182,3 +182,16 @@ test('active measure point count includes freehand draft points for Enter comple
   }), 2);
   assert.equal(workflows.activeMeasurePointCount({}), 0);
 });
+
+test('switching to calibration cancels an active measure draft', async () => {
+  const workflows = await loadMeasurementWorkflows();
+
+  assert.equal(workflows.shouldCancelDraftOnModeChange({
+    nextMode: 'calibrate',
+    inProgress: { type: 'measure', points: [{ x: 0, y: 0 }] },
+  }), true);
+  assert.equal(workflows.shouldCancelDraftOnModeChange({
+    nextMode: 'calibrate',
+    freehandDraft: { rawPoints: [{ x: 0, y: 0 }] },
+  }), true);
+});

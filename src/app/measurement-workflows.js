@@ -82,6 +82,24 @@
     return inProgress?.points?.length || 0;
   }
 
+  function activeDraftMode({ inProgress = null, freehandDraft = null } = {}) {
+    if (freehandDraft) return 'measure';
+    if (inProgress?.type === 'measure') return 'measure';
+    if (inProgress?.type === 'calib') return 'calibrate';
+    return null;
+  }
+
+  function shouldCancelDraftOnModeChange({
+    nextMode,
+    inProgress = null,
+    freehandDraft = null,
+    transient = false,
+  } = {}) {
+    if (transient) return false;
+    const draftMode = activeDraftMode({ inProgress, freehandDraft });
+    return !!(draftMode && nextMode !== draftMode);
+  }
+
   function recomputeMeasurementLength(measurement, { pxPerInch, measureLengthPx } = {}) {
     if (!measurement || !measureLengthPx) return false;
     measurement.lengthPx = measureLengthPx(measurement);
@@ -96,6 +114,7 @@
     appendMeasurementResult,
     applyFreehandDraftClick,
     activeMeasurePointCount,
+    shouldCancelDraftOnModeChange,
     recomputeMeasurementLength,
   };
 })();

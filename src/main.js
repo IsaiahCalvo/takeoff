@@ -342,7 +342,7 @@ function setMode(m, opts = {}) {
   stage.classList.toggle('selection', m === 'selection');
   stage.classList.toggle('pan', m === 'pan');
   stage.classList.toggle('erase', m === 'erase');
-  if (m !== 'measure' && m !== 'calibrate' && !opts.transient) {
+  if ((m !== 'measure' && m !== 'calibrate' && !opts.transient) || measurementWorkflows.shouldCancelDraftOnModeChange({ nextMode: m, inProgress: state.inProgress, freehandDraft: state.freehandDraft, transient: opts.transient })) {
     state.inProgress = null; state.freehandDraft = null; state.snapFeedback = null;
   }
   if (m !== 'selection') { selection.clear(); state.marqueeSelection = null; endRotateMode(); }
