@@ -83,6 +83,20 @@
     return transformMergeMemory(memory, point => geometry.rotatePoint(point, center, degrees));
   }
 
+  function scaleShape(shape, center, scale) {
+    return transformShape(shape, point => ({
+      x: center.x + (point.x - center.x) * scale,
+      y: center.y + (point.y - center.y) * scale,
+    }));
+  }
+
+  function scaleMergeMemory(memory, center, scale) {
+    return transformMergeMemory(memory, point => ({
+      x: center.x + (point.x - center.x) * scale,
+      y: center.y + (point.y - center.y) * scale,
+    }));
+  }
+
   function firstPointDelta(before, after) {
     return before?.length && after?.length
       ? { dx: after[0].x - before[0].x, dy: after[0].y - before[0].y }
@@ -114,6 +128,86 @@
       point: snap?.point || point,
       snap,
     };
+  }
+
+  function draftAnchorPoints(draft) {
+    return draft?.anchorPoints?.length ? draft.anchorPoints : (draft?.points || []);
+  }
+
+  function measurementAnchorPoints(measurement) {
+    if (Array.isArray(measurement?.points) && measurement.points.length) return measurement.points;
+    return measurementModel?.measurementDisplayPoints
+      ? measurementModel.measurementDisplayPoints(measurement)
+      : [];
+  }
+
+  function continuationPointsForSelfSnap({ measurement = null, draft = null, endpoint = null } = {}) {
+    if (!draft?.continuation || !measurement || (endpoint !== 'start' && endpoint !== 'end')) return null;
+    const basePoints = measurementAnchorPoints(measurement);
+    const draftPoints = draftAnchorPoints(draft);
+    if (!basePoints.length) return draftPoints;
+    if (!draftPoints.length) return basePoints;
+    const additions = draftPoints.slice(1);
+    return endpoint === 'start'
+      ? [...additions.slice().reverse(), ...basePoints]
+      : [...basePoints, ...additions];
+  }
+
+  function endpointPointsForSelfSnap({ measurement = null, draft = null, endpoint = null } = {}) {
+    const continuationPoints = continuationPointsForSelfSnap({ measurement, draft, endpoint });
+    if (continuationPoints) return continuationPoints;
+    if (draft) return draftAnchorPoints(draft);
+    if (!measurement) return [];
+    return measurementModel?.measurementDisplayPoints
+      ? measurementModel.measurementDisplayPoints(measurement)
+      : (measurement.points || []);
+  }
+
+  function selfSnapPointCount({ measurement = null, draft = null, endpoint = null } = {}) {
+    const points = endpointPointsForSelfSnap({ measurement, draft, endpoint });
+    return Array.isArray(points) ? points.length : 0;
+  }
+
+  function resolveEndpointSelfSnap({
+    enabled = false,
+    endpoint = null,
+    point = null,
+    measurement = null,
+    draft = null,
+    tolerance = 0,
+    minPointCount = 3,
+  } = {}) {
+    if (!enabled || !point || (endpoint !== 'start' && endpoint !== 'end')) return null;
+    const points = endpointPointsForSelfSnap({ measurement, draft, endpoint });
+    if (!Array.isArray(points) || points.length < minPointCount) return null;
+    const targetEndpoint = endpoint === 'end' ? 'start' : 'end';
+    const targetPoint = targetEndpoint === 'start' ? points[0] : points[points.length - 1];
+    if (!targetPoint || geometry.distancePx(point, targetPoint) > tolerance) return null;
+    const snappedPoint = clonePoint(targetPoint);
+    return {
+      point: snappedPoint,
+      snap: {
+        kind: 'anchor',
+        measurementId: measurement?.id ?? '__draft__',
+        endpoint: targetEndpoint,
+        point: snappedPoint,
+        selfClosing: true,
+      },
+    };
+  }
+
+  function resolveDraftPreviewPointSnap({
+    enabled = false,
+    point = null,
+    draft = null,
+    tolerance = 0,
+    snapPoint = null,
+  } = {}) {
+    const fallback = { point, snap: null };
+    if (!enabled || !point) return fallback;
+    const selfSnap = resolveEndpointSelfSnap({ enabled, endpoint: 'end', point, draft, tolerance });
+    if (selfSnap) return selfSnap;
+    return typeof snapPoint === 'function' ? (snapPoint(point) || fallback) : fallback;
   }
 
   function isSnapPlacementMode(mode) {
@@ -183,6 +277,41 @@
       originalMergeMemory: cloneValue(measurement.mergeMemory),
       originalAngle: geometry.normalizeDegrees(measurement.rotationAngle || 0),
       originalFrame: { ...frame },
+    };
+  }
+
+  function resizeHandleVector(frame, handle) {
+    const halfW = frame.width / 2;
+    const halfH = frame.height / 2;
+    const map = {
+      n: { x: 0, y: -halfH },
+      ne: { x: halfW, y: -halfH },
+      e: { x: halfW, y: 0 },
+      se: { x: halfW, y: halfH },
+      s: { x: 0, y: halfH },
+      sw: { x: -halfW, y: halfH },
+      w: { x: -halfW, y: 0 },
+      nw: { x: -halfW, y: -halfH },
+    };
+    return map[handle] || null;
+  }
+
+  function createTransformResizeDrag({ measurement, frame, handle, pointer, historyBefore }) {
+    const handleVector = resizeHandleVector(frame, handle);
+    if (!measurement || !frame || !handleVector) return null;
+    return {
+      measurementId: measurement.id,
+      historyBefore,
+      handle,
+      center: { x: frame.cx, y: frame.cy },
+      originalPoints: clonePoints(measurement.points),
+      originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalShape: cloneShape(measurement.shape),
+      originalMergeMemory: cloneValue(measurement.mergeMemory),
+      originalAngle: geometry.normalizeDegrees(measurement.rotationAngle || frame.angle || 0),
+      originalFrame: { ...frame },
+      handleVector,
+      startPointer: clonePoint(pointer),
     };
   }
 
@@ -364,6 +493,57 @@
     });
   }
 
+  function resizeScaleForCursor(drag, cursor) {
+    const unrotated = geometry.rotatePoint(cursor, drag.center, -drag.originalAngle);
+    const current = {
+      x: unrotated.x - drag.center.x,
+      y: unrotated.y - drag.center.y,
+    };
+    const base = drag.handleVector;
+    const baseLengthSq = base.x * base.x + base.y * base.y;
+    if (!baseLengthSq) return 1;
+    return Math.max(0.05, (current.x * base.x + current.y * base.y) / baseLengthSq);
+  }
+
+  function applyTransformResizeDrag({
+    measurement,
+    drag,
+    cursor,
+    constrainGeometry = (points, segments) => ({ points, segments }),
+  }) {
+    const scale = resizeScaleForCursor(drag, cursor);
+    const isCurve = isCurveMeasurement(measurement);
+    const scaledPoints = geometry.scalePointsAround(drag.originalPoints, drag.center, scale);
+    const scaledSegments = isCurve && drag.originalSegments
+      ? geometry.scaleSegmentsAround(drag.originalSegments, drag.center, scale)
+      : null;
+    const constrainedGeometry = constrainGeometry(scaledPoints, isCurve ? scaledSegments : null);
+    const constrainedDelta = firstPointDelta(scaledPoints, constrainedGeometry.points);
+    const scaledShape = drag.originalShape
+      ? translateShape(scaleShape(drag.originalShape, drag.center, scale), constrainedDelta.dx, constrainedDelta.dy)
+      : null;
+    const scaledMergeMemory = drag.originalMergeMemory
+      ? translateMergeMemory(scaleMergeMemory(drag.originalMergeMemory, drag.center, scale), constrainedDelta.dx, constrainedDelta.dy)
+      : null;
+
+    measurement.points = constrainedGeometry.points;
+    if (isCurve && constrainedGeometry.segments) measurement.segments = constrainedGeometry.segments;
+    if (scaledShape) measurement.shape = scaledShape;
+    if (scaledMergeMemory) measurement.mergeMemory = scaledMergeMemory;
+    measurement.rotationFrame = {
+      ...drag.originalFrame,
+      x: drag.center.x - (drag.originalFrame.width * scale) / 2 + constrainedDelta.dx,
+      y: drag.center.y - (drag.originalFrame.height * scale) / 2 + constrainedDelta.dy,
+      width: drag.originalFrame.width * scale,
+      height: drag.originalFrame.height * scale,
+      cx: drag.center.x + constrainedDelta.dx,
+      cy: drag.center.y + constrainedDelta.dy,
+      angle: drag.originalAngle,
+    };
+    measurement.rotationAngle = drag.originalAngle;
+    return { scale };
+  }
+
   function applyMeasurementRotation({
     measurement,
     center,
@@ -390,16 +570,21 @@
     buildContextMenuHit,
     appendPointToDraft,
     resolveSnapPoint,
+    resolveEndpointSelfSnap,
+    selfSnapPointCount,
+    resolveDraftPreviewPointSnap,
     snapFeedbackKey,
     shouldPreviewSnapCursor,
     shouldShowSnappedCursor,
     resolvePointerSnapPreview,
     createRotationDrag,
+    createTransformResizeDrag,
     createMeasurementDrag,
     createMeasurementGroupDrag,
     applyMeasurementDrag,
     applyMeasurementGroupDrag,
     applyRotationDrag,
+    applyTransformResizeDrag,
     applyMeasurementRotation,
   };
 })();

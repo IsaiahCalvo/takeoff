@@ -61,7 +61,7 @@ test('index delegates app startup to one module entrypoint', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
 
-  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=measure-fix-1"><\/script>/);
+  assert.match(html, /<script type="module" src="\.\/src\/main\.js\?v=path-continuation-1"><\/script>/);
   assert.doesNotMatch(html, /cdnjs\.cloudflare\.com\/ajax\/libs\/pdf\.js/);
   assert.doesNotMatch(html, /<script src="src\/app\/pointer-controller\.js"><\/script>/);
   assert.doesNotMatch(html, /<script>\s*pdfjsLib\.GlobalWorkerOptions/);
@@ -74,8 +74,12 @@ test('index delegates app startup to one module entrypoint', async () => {
   assert.match(main, /import '\.\/app\/sidebar-view\.js\?v=single-page-tabs-1';/);
   assert.match(main, /import '\.\/app\/sidebar-controller\.js\?v=sidebar-row-selection-1';/);
   assert.match(main, /import '\.\/app\/state\.js\?v=merge-name-counters-1';/);
-  assert.match(main, /import '\.\/app\/measurement-commands\.js\?v=merge-chain-snaps-1';/);
-  assert.match(main, /import '\.\/app\/context-menu-controller\.js\?v=merge-feature-hidden-1';/);
+  assert.match(main, /import '\.\/app\/measurement-commands\.js\?v=path-continuation-1';/);
+  assert.match(main, /import '\.\/app\/measurements\.js\?v=area-fill-1';/);
+  assert.match(main, /import '\.\/app\/context-menu-controller\.js\?v=path-continuation-1';/);
+  assert.match(main, /import '\.\/app\/pointer-workflow\.js\?v=transform-resize-1';/);
+  assert.match(main, /import '\.\/app\/svg-renderer\.js\?v=area-label-fit-1';/);
+  assert.match(main, /import '\.\/app\/units\.js\?v=unit-squared-1';/);
   assert.match(main, /import '\.\/app\/document-store\.js\?v=merge-name-counters-1';/);
   assert.match(main, /import '\.\/app\/calibration-controller\.js\?v=scale-reference-1';/);
   assert.match(main, /import '\.\/app\/calibration-workflow\.js\?v=scale-reference-1';/);
@@ -292,6 +296,19 @@ test('context menu exposes path and category visibility actions', async () => {
   assert.match(controller, /categoryButton\.textContent = categoryVisible \? 'Hide category' : 'Show category';/);
   assert.match(main, /action === 'toggle-path-visibility'/);
   assert.match(main, /action === 'toggle-category-visibility'/);
+});
+
+test('context menu exposes Area action for closed paths', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+  const controller = await readFile(new URL('../src/app/context-menu-controller.js', import.meta.url), 'utf8');
+  const contextMenu = html.match(/<div id="contextMenu"[\s\S]*?<\/div>/)?.[0] || '';
+
+  assert.match(contextMenu, /data-action="toggle-area"[^>]*hidden>Area<\/button>/);
+  assert.match(controller, /function applyAreaMenuState/);
+  assert.match(controller, /function toggleSelectedArea/);
+  assert.match(main, /action === 'toggle-area'/);
+  assert.match(main, /areaOverlayForMeasurement/);
 });
 
 test('context menu keeps edit clipboard actions without Duplicate', async () => {

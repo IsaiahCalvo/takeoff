@@ -489,7 +489,7 @@
   }
 
   function continuationEndpointRole(measurement, target) {
-    if (!measurement || !target || target.kind !== 'anchor-hit') return null;
+    if (!measurement || !target || !['anchor-hit', 'line-anchor', 'curve-anchor'].includes(target.kind)) return null;
     if (measurementModel.isMixedMeasurement?.(measurement)) return null;
     if (measurementModel.isCurveMeasurement(measurement)) {
       if (!Array.isArray(measurement.segments) || !measurement.segments.length) return null;
@@ -538,6 +538,29 @@
     if (targetId == null || (targetEndpoint !== 'start' && targetEndpoint !== 'end')) return false;
     measurement.snapConnections.push({ endpoint, targetId, targetEndpoint });
     return true;
+  }
+
+  function breakAreaClosureForEndpointMove(measurement, endpoint) {
+    if (!measurement || (endpoint !== 'start' && endpoint !== 'end')) return false;
+    const id = String(measurement.id);
+    let changed = false;
+    const connections = measurement.snapConnections || [];
+    const nextConnections = connections.filter(connection => {
+      const selfClosing = connection
+        && String(connection.targetId) === id
+        && (
+          (connection.endpoint === endpoint && (connection.targetEndpoint === 'start' || connection.targetEndpoint === 'end'))
+          || (connection.targetEndpoint === endpoint && (connection.endpoint === 'start' || connection.endpoint === 'end'))
+        );
+      if (selfClosing) changed = true;
+      return !selfClosing;
+    });
+    if (nextConnections.length !== connections.length) measurement.snapConnections = nextConnections;
+    if (measurement.area?.enabled) {
+      measurement.area = { ...measurement.area, enabled: false };
+      changed = true;
+    }
+    return changed;
   }
 
   function stableValue(value) {
@@ -667,8 +690,18 @@
     if (!points.length || !samePoint(points[points.length - 1], point)) points.push(clonePoint(point));
   }
 
+  function isContinuablePolylineMeasurement(measurement) {
+    return !!(
+      measurement
+      && Array.isArray(measurement.points)
+      && measurement.points.length >= 2
+      && !measurementModel.isCurveMeasurement(measurement)
+      && !measurementModel.isMixedMeasurement?.(measurement)
+    );
+  }
+
   function continueLineMeasurement(measurement, { endpoint, points, pxPerInch } = {}) {
-    if (!measurement || !measurementModel.isLineMeasurement(measurement)) return false;
+    if (!isContinuablePolylineMeasurement(measurement)) return false;
     if (endpoint !== 'start' && endpoint !== 'end') return false;
     const additions = clonePoints(points).slice(1);
     if (!additions.length) return false;
@@ -1492,6 +1525,7 @@
     clearEndpointSnapConnection,
     clearEndpointSnapConnections,
     setEndpointSnapConnection,
+    breakAreaClosureForEndpointMove,
     mergeConnectionForTarget,
     mergeConnectionForSelectedMeasurements,
     mergeSnappedEndpointPaths,

@@ -68,6 +68,29 @@ test('measurement shape helpers prefer explicit metadata and infer legacy shape'
   assert.equal(measurements.isLineMeasurement({ points: [] }), true);
 });
 
+test('closed measurement helpers require a snapped terminal endpoint and compute area', async () => {
+  const measurements = await loadMeasurements();
+  const closed = {
+    id: 'room-1',
+    shape: { active: 'line' },
+    points: [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 10 },
+      { x: 0, y: 10 },
+      { x: 0, y: 0 },
+    ],
+    snapConnections: [{ endpoint: 'end', targetId: 'room-1', targetEndpoint: 'start' }],
+  };
+  const unsnapped = { ...closed, id: 'room-2', snapConnections: [] };
+
+  assert.equal(measurements.isClosedMeasurement(closed), true);
+  assert.equal(measurements.measurementAreaPx(closed), 200);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurements.measurementAreaCenter(closed))), { x: 10, y: 5 });
+  assert.equal(measurements.isClosedMeasurement(unsnapped), false);
+  assert.equal(measurements.measurementAreaPx(unsnapped), null);
+});
+
 test('active line metadata ignores stale freehand segments for geometry', async () => {
   const measurements = await loadMeasurements();
   const measurement = {

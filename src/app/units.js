@@ -24,6 +24,16 @@
     return inchesToUnit(inches, unit).toFixed(2);
   }
 
+  function areaUnitLabel(unit) {
+    return `${unitLabel(unit)}\u00b2`;
+  }
+
+  function formatAreaInUnit(squareInches, unit) {
+    if (squareInches == null) return '—';
+    const unitSize = unitToInch(unit);
+    return (squareInches / (unitSize * unitSize)).toFixed(2);
+  }
+
   function parseLengthInUnit(value, unit) {
     const text = String(value ?? '').trim();
     if (!text) return null;
@@ -45,6 +55,8 @@
     pxToInches,
     inchesToUnit,
     formatLengthInUnit,
+    areaUnitLabel,
+    formatAreaInUnit,
     parseLengthInUnit,
     scaleHudText,
   };

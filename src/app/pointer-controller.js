@@ -36,6 +36,7 @@
   function hasActivePointerDrag(state = {}) {
     return !!(
       state.rotationDrag ||
+      state.transformResizeDrag ||
       state.dragVertex ||
       state.dragMeasurement ||
       state.dragLabel ||

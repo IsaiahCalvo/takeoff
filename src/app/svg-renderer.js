@@ -30,6 +30,10 @@
     }).join(' ');
   }
 
+  function closedPathData(d) {
+    return d ? `${d} Z` : '';
+  }
+
   function rectOverlapsPointClearance(rect, point, clearance) {
     return !(
       rect.x + rect.width <= point.x - clearance ||
@@ -59,6 +63,208 @@
         height: bh + overlayPageSize(6),
       },
     };
+  }
+
+  function finitePoint(point) {
+    return point && Number.isFinite(point.x) && Number.isFinite(point.y);
+  }
+
+  function pointOnSegment(point, a, b, epsilon = 1e-7) {
+    const cross = (point.y - a.y) * (b.x - a.x) - (point.x - a.x) * (b.y - a.y);
+    if (Math.abs(cross) > epsilon) return false;
+    const dot = (point.x - a.x) * (b.x - a.x) + (point.y - a.y) * (b.y - a.y);
+    if (dot < -epsilon) return false;
+    const lenSq = (b.x - a.x) ** 2 + (b.y - a.y) ** 2;
+    return dot <= lenSq + epsilon;
+  }
+
+  function pointInPolygon(point, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const a = polygon[i];
+      const b = polygon[j];
+      if (pointOnSegment(point, a, b)) return true;
+      const crosses = (a.y > point.y) !== (b.y > point.y);
+      if (crosses) {
+        const x = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
+        if (point.x < x) inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  function rectFromCenter(center, width, height) {
+    return {
+      x: center.x - width / 2,
+      y: center.y - height / 2,
+      width,
+      height,
+    };
+  }
+
+  function pointInRect(point, rect, epsilon = 1e-7) {
+    return point.x >= rect.x - epsilon
+      && point.x <= rect.x + rect.width + epsilon
+      && point.y >= rect.y - epsilon
+      && point.y <= rect.y + rect.height + epsilon;
+  }
+
+  function segmentOrientation(a, b, c) {
+    const value = (b.y - a.y) * (c.x - b.x) - (b.x - a.x) * (c.y - b.y);
+    if (Math.abs(value) < 1e-7) return 0;
+    return value > 0 ? 1 : 2;
+  }
+
+  function segmentsIntersect(a, b, c, d) {
+    const o1 = segmentOrientation(a, b, c);
+    const o2 = segmentOrientation(a, b, d);
+    const o3 = segmentOrientation(c, d, a);
+    const o4 = segmentOrientation(c, d, b);
+    if (o1 !== o2 && o3 !== o4) return true;
+    return (o1 === 0 && pointOnSegment(c, a, b))
+      || (o2 === 0 && pointOnSegment(d, a, b))
+      || (o3 === 0 && pointOnSegment(a, c, d))
+      || (o4 === 0 && pointOnSegment(b, c, d));
+  }
+
+  function segmentIntersectsRect(a, b, rect) {
+    if (pointInRect(a, rect) || pointInRect(b, rect)) return true;
+    const corners = [
+      { x: rect.x, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y + rect.height },
+      { x: rect.x, y: rect.y + rect.height },
+    ];
+    return corners.some((corner, index) => (
+      segmentsIntersect(a, b, corner, corners[(index + 1) % corners.length])
+    ));
+  }
+
+  function rectFitsInsidePolygon(rect, polygon) {
+    const samples = [
+      { x: rect.x, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y + rect.height },
+      { x: rect.x, y: rect.y + rect.height },
+      { x: rect.x + rect.width / 2, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y + rect.height / 2 },
+      { x: rect.x + rect.width / 2, y: rect.y + rect.height },
+      { x: rect.x, y: rect.y + rect.height / 2 },
+      { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 },
+    ];
+    if (!samples.every(point => pointInPolygon(point, polygon))) return false;
+    for (let i = 1; i < polygon.length; i++) {
+      if (segmentIntersectsRect(polygon[i - 1], polygon[i], rect)) return false;
+    }
+    return true;
+  }
+
+  function pointsBounds(points) {
+    if (!points.length) return null;
+    const xs = points.map(point => point.x);
+    const ys = points.map(point => point.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      cx: (minX + maxX) / 2,
+      cy: (minY + maxY) / 2,
+    };
+  }
+
+  function areaLabelMetrics(label, fontSize, drawCtx) {
+    if (drawCtx) drawCtx.font = `${800} ${fontSize}px 'JetBrains Mono', monospace`;
+    const textWidth = drawCtx?.measureText ? drawCtx.measureText(label).width : label.length * fontSize * 0.62;
+    return {
+      fontSize,
+      textWidth,
+      strokeWidth: fontSize * (3 / 13),
+    };
+  }
+
+  function areaLabelFitRect(center, metrics, clearance) {
+    const visualPad = metrics.strokeWidth / 2 + clearance;
+    return rectFromCenter(
+      center,
+      metrics.textWidth + visualPad * 2,
+      metrics.fontSize + visualPad * 2
+    );
+  }
+
+  function resolveAreaLabelLayout({ label, center, points = [], drawCtx, overlayPageSize }) {
+    if (!label || !finitePoint(center)) return null;
+    const baseFontSize = overlayPageSize(13);
+    const clearance = overlayPageSize(3);
+    const polygon = (points || []).filter(finitePoint);
+    const baseMetrics = areaLabelMetrics(label, baseFontSize, drawCtx);
+    if (polygon.length < 4) return { ...center, ...baseMetrics };
+
+    function layoutAt(candidate, fontSize) {
+      const metrics = areaLabelMetrics(label, fontSize, drawCtx);
+      const fitRect = areaLabelFitRect(candidate, metrics, clearance);
+      return rectFitsInsidePolygon(fitRect, polygon)
+        ? { ...candidate, ...metrics }
+        : null;
+    }
+
+    function bestLayoutAt(candidate) {
+      if (!finitePoint(candidate) || !pointInPolygon(candidate, polygon)) return null;
+      const baseLayout = layoutAt(candidate, baseFontSize);
+      if (baseLayout) return baseLayout;
+      let low = 0;
+      let high = baseFontSize;
+      let best = null;
+      for (let step = 0; step < 20; step++) {
+        const mid = (low + high) / 2;
+        const layout = layoutAt(candidate, mid);
+        if (layout) {
+          best = layout;
+          low = mid;
+        } else {
+          high = mid;
+        }
+      }
+      return best && best.fontSize >= overlayPageSize(0.75) ? best : null;
+    }
+
+    const bounds = pointsBounds(polygon);
+    const candidates = [];
+    function addCandidate(candidate) {
+      if (!finitePoint(candidate)) return;
+      if (candidates.some(existing => Math.abs(existing.x - candidate.x) < 0.001 && Math.abs(existing.y - candidate.y) < 0.001)) return;
+      candidates.push(candidate);
+    }
+    addCandidate(center);
+    if (bounds) {
+      addCandidate({ x: bounds.cx, y: bounds.cy });
+      for (let ix = 1; ix < 6; ix++) {
+        for (let iy = 1; iy < 6; iy++) {
+          addCandidate({
+            x: bounds.x + (bounds.width * ix) / 6,
+            y: bounds.y + (bounds.height * iy) / 6,
+          });
+        }
+      }
+    }
+
+    let best = null;
+    for (const candidate of candidates) {
+      const layout = bestLayoutAt(candidate);
+      if (!layout) continue;
+      const currentDistance = vectorLength({ x: layout.x - center.x, y: layout.y - center.y });
+      const bestDistance = best ? vectorLength({ x: best.x - center.x, y: best.y - center.y }) : Infinity;
+      if (!best
+        || layout.fontSize > best.fontSize + 0.01
+        || (Math.abs(layout.fontSize - best.fontSize) <= 0.01 && currentDistance < bestDistance)) {
+        best = layout;
+      }
+    }
+    return best;
   }
 
   function vectorLength(vector) {
@@ -179,10 +385,7 @@
     const activeAnchors = (anchors || []).filter(Boolean);
     const probeLayout = labelLayoutFromCenter(point.x, point.y, metrics, overlayPageSize);
     const minOffset = probeLayout.hitbox.height / 2 + clearance;
-    const nearAnchor = activeAnchors.some(anchor => vectorLength({ x: point.x - anchor.x, y: point.y - anchor.y }) <= overlayPageSize(1));
-    const maxOffset = nearAnchor
-      ? Math.max(overlayPageSize(72), probeLayout.hitbox.width / 2 + overlayPageSize(30))
-      : minOffset + overlayPageSize(2);
+    const maxOffset = minOffset + overlayPageSize(2);
     const defaultOffset = { x: normal.x * baseOffset, y: normal.y * baseOffset };
     const requestedOffset = hasFiniteOffset(labelOffset) ? labelOffset : defaultOffset;
     const offset = clampOffset(
@@ -256,6 +459,46 @@
 
     const geometry = window.TakeoffGeometry;
     const measurements = window.TakeoffMeasurements;
+
+    function drawAreaOverlay(group, d, points, opts, fillColor) {
+      if (!opts.areaLabel || !d) return;
+      const center = opts.areaCenter || geometry.pointsBounds(points || []);
+      const labelPoint = center && Number.isFinite(center.cx)
+        ? { x: center.cx, y: center.cy }
+        : center;
+      if (!labelPoint) return;
+      const labelLayout = resolveAreaLabelLayout({
+        label: opts.areaLabel,
+        center: labelPoint,
+        points,
+        drawCtx,
+        overlayPageSize,
+      });
+      const areaGroup = svgNode('g', { class: 'canvas-area-overlay' });
+      group.appendChild(areaGroup);
+      areaGroup.appendChild(svgNode('path', {
+        d: closedPathData(d),
+        fill: fillColor,
+        stroke: 'none',
+        opacity: '0.18',
+      }));
+      if (!labelLayout) return;
+      const text = svgNode('text', {
+        x: labelLayout.x,
+        y: labelLayout.y,
+        fill: '#f7fbfc',
+        stroke: 'rgba(11,13,14,0.82)',
+        'stroke-width': labelLayout.strokeWidth,
+        'paint-order': 'stroke fill',
+        'font-family': "'JetBrains Mono', monospace",
+        'font-size': labelLayout.fontSize,
+        'font-weight': 800,
+        'text-anchor': 'middle',
+        'dominant-baseline': 'middle',
+      });
+      text.textContent = opts.areaLabel;
+      areaGroup.appendChild(text);
+    }
 
     function drawPathLabel(group, points, opts) {
       const labelPosition = geometry.pointAtPolylineT(points, opts.labelT);
@@ -380,6 +623,8 @@
       const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
       const borderAttrs = pathBorderAttrs(opts, strokeWidth);
       const strokeColor = strokeAttrs.stroke || opts.color;
+      const labelPoints = opts.labelPoints || geometry.flattenSegments(segments, 18);
+      drawAreaOverlay(group, d, labelPoints, opts, strokeColor);
       if (opts.glow) {
         group.appendChild(svgNode('path', {
           d,
@@ -451,7 +696,6 @@
         }
       }
 
-      const labelPoints = opts.labelPoints || geometry.flattenSegments(segments, 18);
       if (opts.label && labelPoints.length >= 2) {
         drawPathLabel(group, labelPoints, { ...opts, anchors });
       }
@@ -482,6 +726,8 @@
       const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
       const borderAttrs = pathBorderAttrs(opts, strokeWidth);
       const strokeColor = strokeAttrs.stroke || opts.color;
+      const areaPoints = opts.areaPoints || opts.labelPoints || [];
+      drawAreaOverlay(group, buildPolylinePath(areaPoints), areaPoints, opts, strokeColor);
 
       for (const source of sources) {
         const current = source?.current || {};
@@ -566,6 +812,7 @@
 
       if (points.length >= 2) {
         const d = buildPolylinePath(points);
+        drawAreaOverlay(group, d, points, opts, strokeColor);
         if (opts.glow) {
           group.appendChild(svgNode('path', {
             d,
@@ -619,7 +866,9 @@
     svgNode,
     buildPolylinePath,
     buildBezierPath,
+    closedPathData,
     resolvePathLabelLayout,
+    resolveAreaLabelLayout,
     createMeasurementRenderer,
   };
 })();

@@ -56,6 +56,16 @@ function createDrawContext(width = 72) {
   };
 }
 
+function createScaledDrawContext(widthAt13 = 130) {
+  return {
+    font: '',
+    measureText() {
+      const fontSize = Number(this.font.match(/([\d.]+)px/)?.[1]) || 13;
+      return { width: widthAt13 * fontSize / 13 };
+    },
+  };
+}
+
 test('buildPolylinePath creates stable SVG path commands', async () => {
   const renderer = await loadRenderer();
 
@@ -245,6 +255,101 @@ test('drawPolyline adds a hover-only label navigation chevron for saved labels',
   assert.equal(nav.attrs['data-measurement-id'], 'run-12');
   assert.equal(nav.children[1].attrs.d, 'M4.5 3 7.5 6 4.5 9');
   assert.ok(Number(nav.attrs.transform.match(/translate\(([-\d.]+)/)?.[1]) > labelHitboxes[0].x + labelHitboxes[0].width - 3);
+});
+
+test('drawPolyline renders a transparent area fill and centered area label', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createScaledDrawContext(72),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawPolyline([
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 10 },
+    { x: 0, y: 10 },
+    { x: 0, y: 0 },
+  ], {
+    color: '#36d399',
+    labelColor: '#36d399',
+    areaLabel: '200.00 ft\u00b2',
+    areaCenter: { x: 10, y: 5 },
+  });
+
+  const group = drawSvg.children[0];
+  const areaGroup = group.children[0];
+  assert.equal(areaGroup.attrs.class, 'canvas-area-overlay');
+  assert.equal(areaGroup.children[0].tag, 'path');
+  assert.equal(areaGroup.children[0].attrs.fill, '#36d399');
+  assert.equal(areaGroup.children[0].attrs.opacity, '0.18');
+  assert.equal(areaGroup.children[0].attrs.d, 'M 0 0 L 20 0 L 20 10 L 0 10 L 0 0 Z');
+  assert.equal(areaGroup.children[1].tag, 'text');
+  assert.equal(areaGroup.children[1].attrs.x, '10');
+  assert.equal(areaGroup.children[1].attrs.y, '5');
+  assert.equal(areaGroup.children[1].textContent, '200.00 ft\u00b2');
+});
+
+test('drawPolyline shrinks area labels so they stay inside narrow closed shapes', async () => {
+  const renderer = await loadRenderer();
+  const widthAt13 = 130;
+  for (const { overlayScale, width, height } of [
+    { overlayScale: 1, width: 60, height: 12 },
+    { overlayScale: 2, width: 120, height: 36 },
+  ]) {
+    const drawSvg = {
+      children: [],
+      appendChild(child) {
+        this.children.push(child);
+        return child;
+      },
+    };
+    const measurementRenderer = renderer.createMeasurementRenderer({
+      drawSvg,
+      drawCtx: createScaledDrawContext(widthAt13),
+      overlayPageSize: value => value * overlayScale,
+    });
+
+    measurementRenderer.drawPolyline([
+      { x: 0, y: 0 },
+      { x: width, y: 0 },
+      { x: width, y: height },
+      { x: 0, y: height },
+      { x: 0, y: 0 },
+    ], {
+      color: '#36d399',
+      labelColor: '#36d399',
+      areaLabel: '123456.78 ft\u00b2',
+      areaCenter: { x: width / 2, y: height / 2 },
+    });
+
+    const areaGroup = drawSvg.children[0].children[0];
+    const text = areaGroup.children[1];
+    const fontSize = Number(text.attrs['font-size']);
+    const strokeWidth = Number(text.attrs['stroke-width']);
+    const measuredWidth = widthAt13 * fontSize / 13;
+    const clearGap = 1;
+    const visualBox = {
+      x: Number(text.attrs.x) - measuredWidth / 2 - strokeWidth / 2 - clearGap,
+      y: Number(text.attrs.y) - fontSize / 2 - strokeWidth / 2 - clearGap,
+      width: measuredWidth + strokeWidth + clearGap * 2,
+      height: fontSize + strokeWidth + clearGap * 2,
+    };
+
+    assert.ok(fontSize < 13 * overlayScale, `expected font to shrink at overlay scale ${overlayScale}, got ${fontSize}px`);
+    assert.ok(visualBox.x >= 0, `label crosses left edge by ${-visualBox.x}px at overlay scale ${overlayScale}`);
+    assert.ok(visualBox.y >= 0, `label crosses top edge by ${-visualBox.y}px at overlay scale ${overlayScale}`);
+    assert.ok(visualBox.x + visualBox.width <= width, `label crosses right edge at overlay scale ${overlayScale}`);
+    assert.ok(visualBox.y + visualBox.height <= height, `label crosses bottom edge at overlay scale ${overlayScale}`);
+  }
 });
 
 test('drawBezierSegments keeps floating labels clear of curve anchors', async () => {
@@ -602,6 +707,22 @@ test('label layout clamps far dragged offsets near the path', async () => {
 
   assert.ok(layout.ly > 18, `expected far drag to keep the user's side, got y=${layout.ly}`);
   assert.ok(layout.ly <= 25, `expected far drag to be clamped near the path, got y=${layout.ly}`);
+});
+
+test('label layout clamps far dragged offsets near an anchor', async () => {
+  const renderer = await loadRenderer();
+
+  const layout = renderer.resolvePathLabelLayout({
+    labelPosition: { point: { x: 0, y: 0 }, angle: 0 },
+    labelOffset: { x: 0, y: 220 },
+    label: '24 ft',
+    anchors: [{ x: 0, y: 0 }],
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  assert.ok(layout.ly > 18, `expected far drag to keep the user's side, got y=${layout.ly}`);
+  assert.ok(layout.ly <= 25, `expected far drag near an anchor to stay close, got y=${layout.ly}`);
 });
 
 test('label layout pushes around anchors in the dragged radial direction', async () => {

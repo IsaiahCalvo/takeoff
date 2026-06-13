@@ -159,6 +159,76 @@
       : (measurement.points || []);
   }
 
+  function isSelfClosingSnap(measurement) {
+    if (!measurement?.snapConnections?.length || measurement.id == null) return false;
+    const id = String(measurement.id);
+    return measurement.snapConnections.some(connection => (
+      connection
+      && String(connection.targetId) === id
+      && (
+        (connection.endpoint === 'end' && connection.targetEndpoint === 'start')
+        || (connection.endpoint === 'start' && connection.targetEndpoint === 'end')
+      )
+    ));
+  }
+
+  function closedMeasurementPoints(measurement) {
+    if (!isSelfClosingSnap(measurement)) return [];
+    const points = (measurementDisplayPoints(measurement) || []).filter(point => (
+      point && Number.isFinite(point.x) && Number.isFinite(point.y)
+    ));
+    if (points.length < 3) return [];
+    const first = points[0];
+    const last = points[points.length - 1];
+    return geometry.distancePx(first, last) <= 0.0001
+      ? points
+      : [...points, first];
+  }
+
+  function signedPolygonArea(points) {
+    let sum = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      sum += a.x * b.y - b.x * a.y;
+    }
+    return sum / 2;
+  }
+
+  function measurementAreaPx(measurement) {
+    const points = closedMeasurementPoints(measurement);
+    if (points.length < 4) return null;
+    const area = Math.abs(signedPolygonArea(points));
+    return area > 0.0001 ? area : null;
+  }
+
+  function measurementAreaCenter(measurement) {
+    const points = closedMeasurementPoints(measurement);
+    if (points.length < 4) return null;
+    const signedArea = signedPolygonArea(points);
+    if (Math.abs(signedArea) <= 0.0001) {
+      const bounds = geometry.pointsBounds(points);
+      return bounds ? { x: bounds.cx, y: bounds.cy } : null;
+    }
+    let cx = 0;
+    let cy = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      const cross = a.x * b.y - b.x * a.y;
+      cx += (a.x + b.x) * cross;
+      cy += (a.y + b.y) * cross;
+    }
+    return {
+      x: cx / (6 * signedArea),
+      y: cy / (6 * signedArea),
+    };
+  }
+
+  function isClosedMeasurement(measurement) {
+    return measurementAreaPx(measurement) != null;
+  }
+
   function buildFreehandSegments(rawPoints, error = 8) {
     const points = rawPoints.filter((point, index, list) => (
       index === 0 || geometry.distancePx(point, list[index - 1]) > 0.5
@@ -253,6 +323,10 @@
     transformShapeGeometry,
     measurementLengthPx,
     measurementDisplayPoints,
+    closedMeasurementPoints,
+    isClosedMeasurement,
+    measurementAreaPx,
+    measurementAreaCenter,
     buildFreehandSegments,
     anchorsFromSegments,
     updateCurveAnchors,

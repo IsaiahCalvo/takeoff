@@ -52,7 +52,9 @@
     state.dragLabel = null;
     state.marqueeSelection = null;
     state.rotationDrag = null;
+    state.transformResizeDrag = null;
     state.snapFeedback = null;
+    state.transformResizeHandleHitboxes = [];
     state.rotationInputVisible = false;
     state.pendingPaste = null;
     state.pendingUnmergePathId = null;

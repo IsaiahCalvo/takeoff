@@ -19,6 +19,16 @@ test('formats scaled and unscaled lengths for the active unit', async () => {
   assert.equal(units.formatLengthInUnit(null, 'ft'), '—');
 });
 
+test('formats square areas for the active unit', async () => {
+  const units = await loadUnits();
+
+  assert.equal(units.formatAreaInUnit(144, 'ft'), '1.00');
+  assert.equal(units.formatAreaInUnit(1296, 'yd'), '1.00');
+  assert.equal(units.formatAreaInUnit(null, 'ft'), '—');
+  assert.equal(units.areaUnitLabel('ft'), 'ft\u00b2');
+  assert.equal(units.areaUnitLabel('m'), 'm\u00b2');
+});
+
 test('parses positive Length input in the active unit', async () => {
   const units = await loadUnits();
 

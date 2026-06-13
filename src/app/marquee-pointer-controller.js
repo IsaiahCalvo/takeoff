@@ -7,6 +7,7 @@
     findNearestVertex,
     findLabelHit,
     findNearestMeasurement,
+    findTransformResizeHandleHit,
     clearActiveFitMode,
     endRotateMode,
     marqueeSelection,
@@ -18,6 +19,7 @@
     function hitsInteractiveTarget(event, point) {
       if (lengthLabelNavigationTarget(event.target)) return true;
       if (state.rotateModeId && isPointInBox(point, state.rotationHandleHitbox)) return true;
+      if (state.rotateModeId && findTransformResizeHandleHit?.(point)) return true;
       if (findNearestVertex(point, 10 / state.zoom)) return true;
       if (findLabelHit(point)) return true;
       return findNearestMeasurement(point, 8 / state.zoom) != null;

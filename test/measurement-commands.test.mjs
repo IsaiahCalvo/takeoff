@@ -548,6 +548,43 @@ test('resizeMeasurementToLength rejects invalid mixed resize requests without ch
   assert.deepEqual(plain(merged), before);
 });
 
+test('breakAreaClosureForEndpointMove disables area and removes self-closing snap only', async () => {
+  const commands = await loadCommands();
+  const createClosedRoom = (snapConnections) => linePath('room', [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 10 },
+    { x: 0, y: 10 },
+    { x: 0, y: 0 },
+  ], {
+    area: { enabled: true },
+    snapConnections,
+  });
+  const measurement = createClosedRoom([
+    { endpoint: 'end', targetId: 'room', targetEndpoint: 'start' },
+    { endpoint: 'start', targetId: 'other', targetEndpoint: 'end' },
+  ]);
+
+  assert.equal(commands.breakAreaClosureForEndpointMove(measurement, 'end'), true);
+
+  assert.deepEqual(plain(measurement.area), { enabled: false });
+  assert.deepEqual(plain(measurement.snapConnections), [
+    { endpoint: 'start', targetId: 'other', targetEndpoint: 'end' },
+  ]);
+
+  const startMeasurement = createClosedRoom([
+    { endpoint: 'end', targetId: 'room', targetEndpoint: 'start' },
+    { endpoint: 'end', targetId: 'other', targetEndpoint: 'start' },
+  ]);
+
+  assert.equal(commands.breakAreaClosureForEndpointMove(startMeasurement, 'start'), true);
+
+  assert.deepEqual(plain(startMeasurement.area), { enabled: false });
+  assert.deepEqual(plain(startMeasurement.snapConnections), [
+    { endpoint: 'end', targetId: 'other', targetEndpoint: 'start' },
+  ]);
+});
+
 test('convertFreehandMeasurementToLine preserves ordered freehand anchors and source metadata', async () => {
   const commands = await loadCommands();
   const measurement = {
@@ -1447,11 +1484,15 @@ test('continuation endpoint role is available only for terminal anchors', async 
   assert.equal(commands.continuationEndpointRole(line, { kind: 'anchor-hit', vertexIndex: 0 }), 'start');
   assert.equal(commands.continuationEndpointRole(line, { kind: 'anchor-hit', vertexIndex: 2 }), 'end');
   assert.equal(commands.continuationEndpointRole(line, { kind: 'anchor-hit', vertexIndex: 1 }), null);
+  assert.equal(commands.continuationEndpointRole(line, { kind: 'line-anchor', vertexIndex: 0 }), 'start');
+  assert.equal(commands.continuationEndpointRole(line, { kind: 'line-anchor', vertexIndex: 2 }), 'end');
   assert.equal(commands.continuationEndpointRole(mixed, { kind: 'anchor-hit', vertexIndex: 0 }), null);
   assert.equal(commands.continuationEndpointRole(mixed, { kind: 'anchor-hit', vertexIndex: 1 }), null);
   assert.equal(commands.continuationEndpointRole(curve, { kind: 'anchor-hit', segmentIndex: 0, anchor: 'from' }), 'start');
   assert.equal(commands.continuationEndpointRole(curve, { kind: 'anchor-hit', segmentIndex: 1, anchor: 'to' }), 'end');
   assert.equal(commands.continuationEndpointRole(curve, { kind: 'anchor-hit', segmentIndex: 0, anchor: 'to' }), null);
+  assert.equal(commands.continuationEndpointRole(curve, { kind: 'curve-anchor', segmentIndex: 0, anchor: 'from' }), 'start');
+  assert.equal(commands.continuationEndpointRole(curve, { kind: 'curve-anchor', segmentIndex: 1, anchor: 'to' }), 'end');
 });
 
 test('continueLineMeasurement appends or prepends draft points without changing the run id', async () => {
@@ -1493,6 +1534,35 @@ test('continueLineMeasurement appends or prepends draft points without changing 
   ]);
   assert.equal(measurement.lengthPx, 30);
   assert.equal(measurement.lengthInches, 6);
+});
+
+test('continueLineMeasurement preserves generic path polylines when closing to the start', async () => {
+  const commands = await loadCommands();
+  const measurement = linePath('room', [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 20 },
+  ], {
+    drawType: 'path',
+    shape: { active: 'path' },
+  });
+
+  assert.equal(commands.continueLineMeasurement(measurement, {
+    endpoint: 'end',
+    points: [{ x: 20, y: 20 }, { x: 0, y: 0 }],
+    pxPerInch: 10,
+  }), true);
+
+  assert.deepEqual(plain(measurement.points), [
+    { x: 0, y: 0 },
+    { x: 20, y: 0 },
+    { x: 20, y: 20 },
+    { x: 0, y: 0 },
+  ]);
+  assert.deepEqual(plain(measurement.shape), { active: 'path' });
+  assert.equal(measurement.drawType, 'path');
+  assert.equal(Number(measurement.lengthPx.toFixed(3)), 68.284);
+  assert.equal(Number(measurement.lengthInches.toFixed(3)), 6.828);
 });
 
 test('continueLineMeasurement refuses drafts with no new geometry', async () => {

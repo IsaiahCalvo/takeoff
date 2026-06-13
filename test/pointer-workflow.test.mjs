@@ -90,6 +90,145 @@ test('resolveSnapPoint uses snapped path target when Snap to paths is on', async
   });
 });
 
+test('resolveEndpointSelfSnap snaps a draft end back to its own start', async () => {
+  const workflow = await loadPointerWorkflow();
+
+  assert.deepEqual(plain(workflow.resolveEndpointSelfSnap({
+    enabled: true,
+    endpoint: 'end',
+    point: { x: 1, y: 1 },
+    draft: {
+      points: [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+      ],
+    },
+    tolerance: 3,
+  })), {
+    point: { x: 0, y: 0 },
+    snap: {
+      kind: 'anchor',
+      measurementId: '__draft__',
+      endpoint: 'start',
+      point: { x: 0, y: 0 },
+      selfClosing: true,
+    },
+  });
+
+  assert.equal(workflow.resolveEndpointSelfSnap({
+    enabled: true,
+    endpoint: 'end',
+    point: { x: 8, y: 8 },
+    draft: { points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] },
+    tolerance: 3,
+  }), null);
+});
+
+test('resolveEndpointSelfSnap snaps a continued path end back to the original start', async () => {
+  const workflow = await loadPointerWorkflow();
+
+  assert.deepEqual(plain(workflow.resolveEndpointSelfSnap({
+    enabled: true,
+    endpoint: 'end',
+    point: { x: 1, y: 1 },
+    measurement: {
+      id: 'room',
+      shape: { active: 'line' },
+      points: [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+      ],
+    },
+    draft: {
+      continuation: { measurementId: 'room', endpoint: 'end' },
+      points: [
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+      ],
+    },
+    tolerance: 3,
+  })), {
+    point: { x: 0, y: 0 },
+    snap: {
+      kind: 'anchor',
+      measurementId: 'room',
+      endpoint: 'start',
+      point: { x: 0, y: 0 },
+      selfClosing: true,
+    },
+  });
+});
+
+test('resolveEndpointSelfSnap snaps a continued path start back to the original end', async () => {
+  const workflow = await loadPointerWorkflow();
+
+  assert.deepEqual(plain(workflow.resolveEndpointSelfSnap({
+    enabled: true,
+    endpoint: 'start',
+    point: { x: 19, y: 1 },
+    measurement: {
+      id: 'room',
+      shape: { active: 'line' },
+      points: [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+      ],
+    },
+    draft: {
+      continuation: { measurementId: 'room', endpoint: 'start' },
+      points: [
+        { x: 0, y: 0 },
+        { x: 0, y: 20 },
+      ],
+    },
+    tolerance: 3,
+  })), {
+    point: { x: 20, y: 0 },
+    snap: {
+      kind: 'anchor',
+      measurementId: 'room',
+      endpoint: 'end',
+      point: { x: 20, y: 0 },
+      selfClosing: true,
+    },
+  });
+});
+
+test('resolveDraftPreviewPointSnap preserves freehand self-closing snap', async () => {
+  const workflow = await loadPointerWorkflow();
+  let normalSnapCalled = false;
+
+  const result = workflow.resolveDraftPreviewPointSnap({
+    enabled: true,
+    point: { x: 1, y: 1 },
+    draft: {
+      anchorPoints: [
+        { x: 0, y: 0 },
+        { x: 20, y: 0 },
+        { x: 20, y: 20 },
+      ],
+    },
+    tolerance: 3,
+    snapPoint() {
+      normalSnapCalled = true;
+      return { point: { x: 1, y: 1 }, snap: null };
+    },
+  });
+
+  assert.equal(normalSnapCalled, false);
+  assert.deepEqual(plain(result), {
+    point: { x: 0, y: 0 },
+    snap: {
+      kind: 'anchor',
+      measurementId: '__draft__',
+      endpoint: 'start',
+      point: { x: 0, y: 0 },
+      selfClosing: true,
+    },
+  });
+});
+
 test('resolvePointerSnapPreview snaps the visible cursor and reports feedback changes', async () => {
   const workflow = await loadPointerWorkflow();
   const state = {
@@ -397,6 +536,56 @@ test('applyRotationDrag rotates geometry, snaps when shifted, and keeps the fram
   assert.ok(Math.abs(measurement.points[1].y - 1.9319) < 0.0001);
   assert.ok(Math.abs(measurement.shape.previousFreehand.points[0].x - 1.9319) < 0.0001);
   assert.ok(Math.abs(measurement.shape.previousFreehand.points[1].y - 1.9319) < 0.0001);
+});
+
+test('applyTransformResizeDrag scales geometry uniformly around the frame center', async () => {
+  const workflow = await loadPointerWorkflow();
+  const measurement = {
+    id: 21,
+    rotationAngle: 0,
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 5 }],
+    shape: {
+      active: 'line',
+      previousFreehand: {
+        points: [{ x: 0, y: 0 }, { x: 10, y: 5 }],
+      },
+    },
+    rotationFrame: { x: 0, y: 0, width: 10, height: 5, cx: 5, cy: 2.5, angle: 0 },
+  };
+  const drag = workflow.createTransformResizeDrag({
+    measurement,
+    frame: measurement.rotationFrame,
+    handle: 'e',
+    pointer: { x: 10, y: 2.5 },
+    historyBefore: null,
+  });
+
+  const result = workflow.applyTransformResizeDrag({
+    measurement,
+    drag,
+    cursor: { x: 15, y: 2.5 },
+    constrainGeometry: (points, segments) => ({ points, segments }),
+  });
+
+  assert.equal(result.scale, 2);
+  assert.deepEqual(plain(measurement.points), [
+    { x: -5, y: -2.5 },
+    { x: 15, y: -2.5 },
+    { x: 15, y: 7.5 },
+  ]);
+  assert.deepEqual(plain(measurement.shape.previousFreehand.points), [
+    { x: -5, y: -2.5 },
+    { x: 15, y: 7.5 },
+  ]);
+  assert.deepEqual(plain(measurement.rotationFrame), {
+    x: -5,
+    y: -2.5,
+    width: 20,
+    height: 10,
+    cx: 5,
+    cy: 2.5,
+    angle: 0,
+  });
 });
 
 test('applyMeasurementRotation rotates from current angle to a requested angle', async () => {

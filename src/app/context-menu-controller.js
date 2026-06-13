@@ -99,6 +99,20 @@
     return { canTogglePath, canToggleCategory, pathVisible, categoryVisible, categoryKey };
   }
 
+  function areaMenuState({ measurement, measurementModel } = {}) {
+    const canToggleArea = !!(measurement && measurementModel?.isClosedMeasurement?.(measurement));
+    const areaVisible = !!(canToggleArea && measurement?.area?.enabled);
+    return { canToggleArea, areaVisible };
+  }
+
+  function applyAreaMenuState({ contextMenu, measurement, measurementModel } = {}) {
+    const state = areaMenuState({ measurement, measurementModel });
+    const areaButton = contextMenu?.querySelector('[data-action="toggle-area"]');
+    setButtonState(areaButton, state.canToggleArea);
+    if (areaButton) areaButton.textContent = state.areaVisible ? 'Hide Area' : 'Area';
+    return state;
+  }
+
   function beginContinuePath({
     state,
     target,
@@ -138,6 +152,24 @@
     return true;
   }
 
+  function samePoint(a, b) {
+    return !!(a && b && Math.hypot(a.x - b.x, a.y - b.y) <= 0.0001);
+  }
+
+  function oppositeEndpoint(endpoint) {
+    if (endpoint === 'start') return 'end';
+    if (endpoint === 'end') return 'start';
+    return null;
+  }
+
+  function inferSelfClosedEndpoint({ measurement, endpoint, measurementCommands } = {}) {
+    const targetEndpoint = oppositeEndpoint(endpoint);
+    if (!measurement || !targetEndpoint) return null;
+    const sourcePoint = measurementCommands?.endpointPoint?.(measurement, endpoint);
+    const targetPoint = measurementCommands?.endpointPoint?.(measurement, targetEndpoint);
+    return samePoint(sourcePoint, targetPoint) ? { endpoint, targetEndpoint } : null;
+  }
+
   function finishLineContinuation({
     state,
     points,
@@ -153,6 +185,7 @@
     const continuation = state?.inProgress?.continuation || null;
     if (!continuation) return false;
     const snapConnection = state?.inProgress?.snapConnections?.[continuation.endpoint] || null;
+    const selfClosedEndpoint = state?.inProgress?.selfClosedEndpoint || null;
     const measurement = state.measurements?.find(item => item.id === continuation.measurementId);
     const ok = measurementCommands?.continueLineMeasurement?.(measurement, {
       endpoint: continuation.endpoint,
@@ -161,7 +194,17 @@
     });
     state.inProgress = null;
     if (ok) {
-      if (snapConnection) measurementCommands.setEndpointSnapConnection(measurement, continuation.endpoint, snapConnection);
+      const closure = selfClosedEndpoint || inferSelfClosedEndpoint({
+        measurement,
+        endpoint: continuation.endpoint,
+        measurementCommands,
+      });
+      if (closure) {
+        measurementCommands.setEndpointSnapConnection(measurement, closure.endpoint, {
+          targetId: measurement.id,
+          targetEndpoint: closure.targetEndpoint,
+        });
+      } else if (snapConnection) measurementCommands.setEndpointSnapConnection(measurement, continuation.endpoint, snapConnection);
       else measurementCommands.clearEndpointSnapConnection(measurement, continuation.endpoint);
       state.selectedId = measurement.id;
       state.selectedIds = [measurement.id];
@@ -189,6 +232,7 @@
     const continuation = draft?.continuation || null;
     if (!continuation) return false;
     const snapConnection = draft?.snapConnections?.[continuation.endpoint] || null;
+    const selfClosedEndpoint = draft?.selfClosedEndpoint || null;
     const target = state?.measurements?.find(item => item.id === continuation.measurementId);
     const ok = measurement && measurementCommands?.continueFreehandMeasurement?.(target, {
       endpoint: continuation.endpoint,
@@ -196,7 +240,17 @@
       pxPerInch: scaleForPage(page),
     });
     if (ok) {
-      if (snapConnection) measurementCommands.setEndpointSnapConnection(target, continuation.endpoint, snapConnection);
+      const closure = selfClosedEndpoint || inferSelfClosedEndpoint({
+        measurement: target,
+        endpoint: continuation.endpoint,
+        measurementCommands,
+      });
+      if (closure) {
+        measurementCommands.setEndpointSnapConnection(target, closure.endpoint, {
+          targetId: target.id,
+          targetEndpoint: closure.targetEndpoint,
+        });
+      } else if (snapConnection) measurementCommands.setEndpointSnapConnection(target, continuation.endpoint, snapConnection);
       else measurementCommands.clearEndpointSnapConnection(target, continuation.endpoint);
       state.selectedId = target.id;
       state.selectedIds = [target.id];
@@ -291,6 +345,30 @@
     return true;
   }
 
+  function toggleSelectedArea({
+    state,
+    measurementModel,
+    createHistorySnapshot,
+    renderList,
+    redraw,
+    recordHistory,
+    showStatus,
+  } = {}) {
+    const selected = state?.measurements?.find(m => m.id === state.selectedId);
+    if (!selected || !measurementModel?.isClosedMeasurement?.(selected)) {
+      showStatus('Close a path before calculating area.');
+      return false;
+    }
+    const nextVisible = !selected.area?.enabled;
+    const historyBefore = createHistorySnapshot();
+    selected.area = { ...(selected.area || {}), enabled: nextVisible };
+    renderList();
+    redraw();
+    recordHistory(historyBefore, nextVisible ? 'area show' : 'area hide');
+    showStatus(`${nextVisible ? 'Area shown for' : 'Area hidden for'} ${selected.name || 'path'}`);
+    return true;
+  }
+
   function mergeSnappedPaths({
     state,
     target,
@@ -351,12 +429,15 @@
     positionContextMenu,
     applyConversionMenuState,
     applyVisibilityMenuState,
+    areaMenuState,
+    applyAreaMenuState,
     beginContinuePath,
     finishLineContinuation,
     finishFreehandContinuation,
     convertSelectedMeasurement,
     toggleSelectedPathVisibility,
     toggleSelectedCategoryVisibility,
+    toggleSelectedArea,
     mergeSnappedPaths,
   };
 })();

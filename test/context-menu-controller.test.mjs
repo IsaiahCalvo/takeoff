@@ -4,12 +4,14 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadController() {
-  const [measurements, controller] = await Promise.all([
+  const [geometry, measurements, controller] = await Promise.all([
+    readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/measurements.js', import.meta.url), 'utf8'),
     readFile(new URL('../src/app/context-menu-controller.js', import.meta.url), 'utf8'),
   ]);
   const sandbox = { window: {} };
   vm.createContext(sandbox);
+  vm.runInContext(geometry, sandbox, { filename: 'geometry.js' });
   vm.runInContext(measurements, sandbox, { filename: 'measurements.js' });
   vm.runInContext(controller, sandbox, { filename: 'context-menu-controller.js' });
   return {
@@ -20,7 +22,7 @@ async function loadController() {
 
 function createContextMenu() {
   const buttons = new Map();
-  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path', 'merge-paths', 'unmerge-paths', 'toggle-path-visibility', 'toggle-category-visibility']) {
+  for (const action of ['convert-to-line', 'convert-to-freehand', 'continue-path', 'merge-paths', 'unmerge-paths', 'toggle-path-visibility', 'toggle-category-visibility', 'toggle-area']) {
     buttons.set(action, { hidden: false, disabled: false, textContent: '' });
   }
   return {
@@ -193,6 +195,230 @@ test('applyVisibilityMenuState hides visibility actions when no measurement is t
   assert.equal(menu.buttons.get('toggle-path-visibility').disabled, true);
   assert.equal(menu.buttons.get('toggle-category-visibility').hidden, true);
   assert.equal(menu.buttons.get('toggle-category-visibility').disabled, true);
+});
+
+test('applyAreaMenuState shows Area only for closed snapped measurements', async () => {
+  const { controller, measurements } = await loadController();
+  const menu = createContextMenu();
+  const closed = {
+    id: 'area-path',
+    points: [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 20 },
+      { x: 0, y: 0 },
+    ],
+    snapConnections: [{ endpoint: 'end', targetId: 'area-path', targetEndpoint: 'start' }],
+  };
+
+  let state = controller.applyAreaMenuState({ contextMenu: menu, measurement: closed, measurementModel: measurements });
+
+  assert.deepEqual(plain(state), { canToggleArea: true, areaVisible: false });
+  assert.equal(menu.buttons.get('toggle-area').hidden, false);
+  assert.equal(menu.buttons.get('toggle-area').disabled, false);
+  assert.equal(menu.buttons.get('toggle-area').textContent, 'Area');
+
+  closed.area = { enabled: true };
+  state = controller.applyAreaMenuState({ contextMenu: menu, measurement: closed, measurementModel: measurements });
+  assert.deepEqual(plain(state), { canToggleArea: true, areaVisible: true });
+  assert.equal(menu.buttons.get('toggle-area').textContent, 'Hide Area');
+
+  state = controller.applyAreaMenuState({ contextMenu: menu, measurement: { id: 'open', points: [{ x: 0, y: 0 }, { x: 5, y: 0 }] }, measurementModel: measurements });
+  assert.deepEqual(plain(state), { canToggleArea: false, areaVisible: false });
+  assert.equal(menu.buttons.get('toggle-area').hidden, true);
+  assert.equal(menu.buttons.get('toggle-area').disabled, true);
+});
+
+test('toggleSelectedArea records history and refreshes the UI', async () => {
+  const { controller, measurements } = await loadController();
+  const calls = [];
+  const measurement = {
+    id: 11,
+    name: 'Room outline',
+    points: [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 20 },
+      { x: 0, y: 0 },
+    ],
+    snapConnections: [{ endpoint: 'end', targetId: 11, targetEndpoint: 'start' }],
+  };
+  const state = { selectedId: 11, measurements: [measurement] };
+
+  assert.equal(controller.toggleSelectedArea({
+    state,
+    measurementModel: measurements,
+    createHistorySnapshot: () => ({ before: true }),
+    renderList: () => calls.push('render-list'),
+    redraw: () => calls.push('redraw'),
+    recordHistory: (before, label) => calls.push(['history', before.before, label]),
+    showStatus: text => calls.push(['status', text]),
+  }), true);
+
+  assert.deepEqual(plain(measurement.area), { enabled: true });
+  assert.deepEqual(calls, [
+    'render-list',
+    'redraw',
+    ['history', true, 'area show'],
+    ['status', 'Area shown for Room outline'],
+  ]);
+});
+
+test('finishLineContinuation preserves a self-closing continuation snap', async () => {
+  const { controller } = await loadController();
+  const measurement = { id: 'room', points: [{ x: 0, y: 0 }, { x: 20, y: 0 }] };
+  const calls = [];
+  const state = {
+    measurements: [measurement],
+    inProgress: {
+      continuation: { measurementId: 'room', endpoint: 'end' },
+      selfClosedEndpoint: { endpoint: 'end', targetEndpoint: 'start' },
+    },
+  };
+
+  assert.equal(controller.finishLineContinuation({
+    state,
+    points: [{ x: 20, y: 0 }, { x: 20, y: 20 }, { x: 0, y: 0 }],
+    page: 1,
+    historyBefore: { before: true },
+    measurementCommands: {
+      continueLineMeasurement(target, opts) {
+        assert.equal(target, measurement);
+        assert.equal(opts.endpoint, 'end');
+        return true;
+      },
+      setEndpointSnapConnection(target, endpoint, snap) {
+        calls.push(['snap', target.id, endpoint, snap]);
+      },
+      clearEndpointSnapConnection() {
+        calls.push(['clear']);
+      },
+    },
+    scaleForPage: () => 5,
+    recordHistory: (before, label) => calls.push(['history', before.before, label]),
+    renderList: () => calls.push('render-list'),
+    redraw: () => calls.push('redraw'),
+    showStatus: text => calls.push(['status', text]),
+  }), true);
+
+  assert.equal(state.inProgress, null);
+  assert.equal(state.selectedId, 'room');
+  assert.deepEqual(plain(calls), [
+    ['snap', 'room', 'end', { targetId: 'room', targetEndpoint: 'start' }],
+    ['history', true, 'path continuation'],
+    ['status', 'Path continued'],
+    'render-list',
+    'redraw',
+  ]);
+});
+
+test('finishLineContinuation infers a self-closing snap from closed continuation geometry', async () => {
+  const { controller } = await loadController();
+  const measurement = {
+    id: 'room',
+    points: [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 20, y: 20 },
+    ],
+  };
+  const calls = [];
+  const state = {
+    measurements: [measurement],
+    inProgress: {
+      continuation: { measurementId: 'room', endpoint: 'end' },
+    },
+  };
+
+  assert.equal(controller.finishLineContinuation({
+    state,
+    points: [{ x: 20, y: 20 }, { x: 0, y: 0 }],
+    page: 1,
+    historyBefore: { before: true },
+    measurementCommands: {
+      continueLineMeasurement() {
+        measurement.points = [
+          { x: 0, y: 0 },
+          { x: 20, y: 0 },
+          { x: 20, y: 20 },
+          { x: 0, y: 0 },
+        ];
+        return true;
+      },
+      endpointPoint(target, endpoint) {
+        return endpoint === 'start' ? target.points[0] : target.points[target.points.length - 1];
+      },
+      setEndpointSnapConnection(target, endpoint, snap) {
+        calls.push(['snap', target.id, endpoint, snap]);
+      },
+      clearEndpointSnapConnection() {
+        calls.push(['clear']);
+      },
+    },
+    scaleForPage: () => 5,
+    recordHistory: (before, label) => calls.push(['history', before.before, label]),
+    renderList: () => calls.push('render-list'),
+    redraw: () => calls.push('redraw'),
+    showStatus: text => calls.push(['status', text]),
+  }), true);
+
+  assert.deepEqual(plain(calls), [
+    ['snap', 'room', 'end', { targetId: 'room', targetEndpoint: 'start' }],
+    ['history', true, 'path continuation'],
+    ['status', 'Path continued'],
+    'render-list',
+    'redraw',
+  ]);
+});
+
+test('finishFreehandContinuation preserves a self-closing continuation snap', async () => {
+  const { controller } = await loadController();
+  const target = { id: 'curve-room', shape: { active: 'freehand' } };
+  const draft = {
+    continuation: { measurementId: 'curve-room', endpoint: 'start' },
+    selfClosedEndpoint: { endpoint: 'start', targetEndpoint: 'end' },
+  };
+  const calls = [];
+  const state = { measurements: [target] };
+  const measurement = {
+    segments: [{ from: { x: 0, y: 0 }, c1: { x: 0, y: 5 }, c2: { x: 5, y: 10 }, to: { x: 10, y: 10 } }],
+  };
+
+  assert.equal(controller.finishFreehandContinuation({
+    state,
+    draft,
+    measurement,
+    page: 1,
+    historyBefore: { before: true },
+    measurementCommands: {
+      continueFreehandMeasurement(targetMeasurement, opts) {
+        assert.equal(targetMeasurement, target);
+        assert.equal(opts.endpoint, 'start');
+        assert.equal(opts.segments, measurement.segments);
+        return true;
+      },
+      setEndpointSnapConnection(targetMeasurement, endpoint, snap) {
+        calls.push(['snap', targetMeasurement.id, endpoint, snap]);
+      },
+      clearEndpointSnapConnection() {
+        calls.push(['clear']);
+      },
+    },
+    scaleForPage: () => 5,
+    recordHistory: (before, label) => calls.push(['history', before.before, label]),
+    renderList: () => calls.push('render-list'),
+    redraw: () => calls.push('redraw'),
+    showStatus: text => calls.push(['status', text]),
+  }), true);
+
+  assert.equal(state.selectedId, 'curve-room');
+  assert.deepEqual(plain(calls), [
+    ['snap', 'curve-room', 'start', { targetId: 'curve-room', targetEndpoint: 'end' }],
+    ['history', true, 'path continuation'],
+    'render-list',
+    'redraw',
+    ['status', 'Path continued'],
+  ]);
 });
 
 test('conversionMenuState exposes Continue Path only for terminal anchors', async () => {

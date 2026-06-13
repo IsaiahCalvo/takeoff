@@ -253,10 +253,12 @@
       dragMeasurement: null,
       dragLabel: null,
       rotationDrag: null,
+      transformResizeDrag: null,
       rotateModeId: null,
       snapToPaths: false,
       snapFeedback: null,
       rotationHandleHitbox: null,
+      transformResizeHandleHitboxes: [],
       rotationInputVisible: false,
       pendingPaste: null,
       pendingUnmergePathId: null,
@@ -384,6 +386,8 @@
     state.rotationHandleHitbox = null;
     state.rotationInputVisible = false;
     state.rotationDrag = null;
+    state.transformResizeDrag = null;
+    state.transformResizeHandleHitboxes = [];
     return setMeasurements(state, [], { selectedId: null });
   }
 

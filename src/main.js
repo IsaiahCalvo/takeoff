@@ -11,8 +11,8 @@ import './app/path-templates.js'; import './app/path-style-renderer.js?v=preview
 import './app/path-template-store.js'; import './app/path-template-view.js?v=preview-panel-fit-2';
 import './app/state.js?v=merge-name-counters-1'; import './app/selection-controller.js?v=marquee-group-drag-1';
 import './app/geometry.js';
-import './app/measurements.js';
-import './app/run-details.js'; import './app/run-detail-modal.js'; import './app/measurement-commands.js?v=merge-chain-snaps-1';
+import './app/measurements.js?v=area-fill-1';
+import './app/run-details.js'; import './app/run-detail-modal.js'; import './app/measurement-commands.js?v=path-continuation-1';
 import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js?v=unmerge-auto-1';
 import './app/page-state.js';
 import './app/continuous-scroll.js';
@@ -24,18 +24,18 @@ import './app/pdf-page-cache.js';
 import './app/pdf-engine.js';
 import './app/pdf-detail-tile.js';
 import './app/performance-logger.js'; import './app/performance-controller.js';
-import './app/input-controller.js'; import './app/context-menu-controller.js?v=merge-feature-hidden-1';
+import './app/input-controller.js'; import './app/context-menu-controller.js?v=path-continuation-1';
 import './app/pointer-controller.js';
-import './app/pointer-workflow.js?v=snap-preview-1';
+import './app/pointer-workflow.js?v=transform-resize-1';
 import './app/document-loader.js';
 import './app/document-adapters.js';
 import './app/document-store.js?v=merge-name-counters-1';
 import './app/export-controller.js';
 import './app/calibration-controller.js?v=scale-reference-1';
 import './app/calibration-workflow.js?v=scale-reference-1';
-import './app/svg-renderer.js';
+import './app/svg-renderer.js?v=area-label-fit-1';
 import './app/history.js?v=merge-name-counters-1';
-import './app/units.js';
+import './app/units.js?v=unit-squared-1';
 import './app/tooltip-controller.js';
 import './app/average-qa-fixture.js';
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -176,7 +176,7 @@ const undoButton = $('undoButton'), redoButton = $('redoButton');
 const exportWrap = $('exportWrap');
 
 const selection = window.TakeoffSelectionController.createSelectionController({ state, matches: sidebarController.measurementIdMatches, setMeasurements: (measurements, selectionState) => stateStore.setMeasurements(state, measurements, selectionState), endRotateMode });
-const marqueeSelection = window.TakeoffMarqueeController.createMarqueeController({ state, hitTesting: window.TakeoffHitTesting, screenToImage, measurementsForSelection: measurementsOnCurrentPage, selection, stage, renderList, redraw, drawSvg, svgNode, overlayPageSize }); const pointerMarquee = window.TakeoffMarqueePointerController.createPointerMarqueeController({ state, screenToImage, lengthLabelNavigationTarget, isPointInBox, findNearestVertex, findLabelHit, findNearestMeasurement, clearActiveFitMode, endRotateMode, marqueeSelection });
+const marqueeSelection = window.TakeoffMarqueeController.createMarqueeController({ state, hitTesting: window.TakeoffHitTesting, screenToImage, measurementsForSelection: measurementsOnCurrentPage, selection, stage, renderList, redraw, drawSvg, svgNode, overlayPageSize }); const pointerMarquee = window.TakeoffMarqueePointerController.createPointerMarqueeController({ state, screenToImage, lengthLabelNavigationTarget, isPointInBox, findNearestVertex, findLabelHit, findNearestMeasurement, findTransformResizeHandleHit, clearActiveFitMode, endRotateMode, marqueeSelection });
 const exportButton = $('exportButton');
 const exportXlsxButton = $('exportXlsx');
 const exportCsvButton = $('exportCsv');
@@ -392,6 +392,7 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
   contextMenu.querySelector('[data-action="paste"]').disabled = !state.copiedMeasurement;
   contextMenuController.applyConversionMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements, measurementCommands, target, measurements: state.measurements, selectedIds: selection.currentIds() });
   contextMenuController.applyVisibilityMenuState({ contextMenu, measurement: targetedMeasurement, state, stateStore });
+  contextMenuController.applyAreaMenuState({ contextMenu, measurement: targetedMeasurement, measurementModel: window.TakeoffMeasurements });
   contextMenu.classList.add('show');
   contextMenuController.positionContextMenu({ contextMenu, clientX, clientY, viewportWidth: window.innerWidth, viewportHeight: window.innerHeight });
 }
@@ -496,13 +497,7 @@ const {
   translateSegments,
 } = window.TakeoffGeometry;
 
-const { isCurveMeasurement, isMixedMeasurement,
-  measurementLengthPx,
-  measurementDisplayPoints,
-  buildFreehandSegments,
-  updateCurveAnchors,
-  measurementBounds,
-} = window.TakeoffMeasurements;
+const { isCurveMeasurement, isMixedMeasurement, measurementLengthPx, measurementDisplayPoints, closedMeasurementPoints, isClosedMeasurement, measurementAreaPx, measurementAreaCenter, buildFreehandSegments, updateCurveAnchors, measurementBounds } = window.TakeoffMeasurements;
 const measurementCommands = window.TakeoffMeasurementCommands;
 const viewerModel = window.TakeoffViewer;
 const pdfPageCache = window.TakeoffPdfPageCache;
@@ -511,8 +506,8 @@ const sidebarModel = window.TakeoffSidebar;
 const performanceController = window.TakeoffPerformanceController.createPerformanceController({ logger: performanceLogger, state, stage, viewerModel, desiredPdfRenderScale, desiredPdfDetailTileScale, cacheSet, cacheHasUsable, renderPdfPage, renderPdfDetailTile: options => pdfDetailTile.renderNow(options), usesPdfDetailTile, showStatus });
 
 function scaleForPage(page) { return state.pageScales[page] || (page === currentPage() ? state.pxPerInch : null); }
-function pxToInches(px, page = currentPage()) { return unitModel.pxToInches(px, scaleForPage(page)); }
-function formatLen(inches) { return unitModel.formatLengthInUnit(inches, state.unit); }
+function pxToInches(px, page = currentPage()) { return unitModel.pxToInches(px, scaleForPage(page)); } function formatLen(inches) { return unitModel.formatLengthInUnit(inches, state.unit); } function formatAreaLabel(squareInches) { return `${unitModel.formatAreaInUnit(squareInches, state.unit)} ${unitModel.areaUnitLabel(state.unit)}`; }
+function areaOverlayForMeasurement(m) { if (!m?.area?.enabled) return {}; const areaPx = measurementAreaPx(m); if (areaPx == null) return {}; const pxPerInch = scaleForPage(m.page); return { areaLabel: pxPerInch ? formatAreaLabel(areaPx / (pxPerInch * pxPerInch)) : 'no scale', areaCenter: measurementAreaCenter(m), areaPoints: closedMeasurementPoints(m) }; }
 const lengthEditController = window.TakeoffLengthEditController.createLengthEditController({
   state, sidebarController, scaleForPage, formatLength: formatLen, unitLabel: () => unitModel.unitLabel(state.unit),
   parseLengthInUnit: value => unitModel.parseLengthInUnit(value, state.unit),
@@ -556,25 +551,24 @@ function measurementsForSnap(page) { return visibleMeasurementsForPathCategories
 function syncSnapCursorClass() { stage.classList.toggle('snapped-cursor', pointerWorkflow.shouldShowSnappedCursor(state)); }
 function setSnapFeedback(page, snap) { state.snapFeedback = snap?.point ? { ...snap, point: continuousMeasurements.stackPointForPage(state, page, snap.point) } : null; syncSnapCursorClass(); return snap; }
 function snapPointOnPage(page, point, excludeMeasurementIds = []) { const resolved = pointerWorkflow.resolveSnapPoint({ enabled: state.snapToPaths, point, findSnapTarget: p => window.TakeoffHitTesting.findSnapTarget(measurementsForSnap(page), p, snapTolerances(excludeMeasurementIds)) }); setSnapFeedback(page, resolved.snap); return resolved; }
+function activeSelfClosingDraft(page) { const draft = state.freehandDraft || (state.inProgress?.type === 'measure' ? state.inProgress : null); return draft && (draft.page || currentPage()) === (page || currentPage()) ? draft : null; }
+function continuationSourceMeasurement(draft) { const id = draft?.continuation?.measurementId; return id == null ? null : state.measurements.find(m => sidebarController.measurementIdMatches(m.id, id)) || null; }
+function selfClosingDraftPointCount(draft) { const endpoint = draft?.continuation?.endpoint || 'end'; return pointerWorkflow.selfSnapPointCount({ measurement: continuationSourceMeasurement(draft), draft, endpoint }); }
+function resolveDraftSelfClosingSnap(page, point) { const draft = activeSelfClosingDraft(page), endpoint = draft?.continuation?.endpoint || 'end'; return pointerWorkflow.resolveEndpointSelfSnap({ enabled: state.snapToPaths, endpoint, point, measurement: continuationSourceMeasurement(draft), draft, tolerance: SNAP_ANCHOR_SCREEN_TOLERANCE / state.zoom }); }
+function resolveMeasurementSelfClosingSnap(measurement, endpoint, point) { return pointerWorkflow.resolveEndpointSelfSnap({ enabled: state.snapToPaths, endpoint, point, measurement, tolerance: SNAP_ANCHOR_SCREEN_TOLERANCE / state.zoom }); }
 function updatePointerSnapPreview(rawStackPoint, shiftKey = false) { const result = pointerWorkflow.resolvePointerSnapPreview({ state, rawStackPoint, shiftKey, placementPointInfo, stackPointForPage: (page, point) => continuousMeasurements.stackPointForPage(state, page, point) }); if (result.cursorImg) state.cursorImg = result.cursorImg; syncSnapCursorClass(); return result.changed; }
 function placementPointInfo(stackPoint, { page = null, previous = null, shiftKey = false, excludeMeasurementIds = [] } = {}) {
   const info = drawingPointInfo(stackPoint, page);
   if (!info) return null;
   const angled = previous && shiftKey ? snapAngle(previous, info.point, info.page) : info.point;
+  const selfSnap = resolveDraftSelfClosingSnap(info.page, angled); if (selfSnap) { setSnapFeedback(info.page, selfSnap.snap); return { ...info, point: selfSnap.point, snap: selfSnap.snap }; }
   const resolved = snapPointOnPage(info.page, angled, excludeMeasurementIds);
   return { ...info, point: resolved.point, snap: resolved.snap };
 }
-function recordDraftEndpointSnap(draft, endpoint, snap) {
-  if (!draft || (endpoint !== 'start' && endpoint !== 'end')) return;
-  draft.snapConnections = draft.snapConnections || {};
-  if (snap?.kind === 'anchor' && snap.endpoint) draft.snapConnections[endpoint] = { targetId: snap.measurementId, targetEndpoint: snap.endpoint };
-  else delete draft.snapConnections[endpoint];
-}
+function recordDraftEndpointSnap(draft, endpoint, snap) { if (!draft || (endpoint !== 'start' && endpoint !== 'end')) return; draft.snapConnections = draft.snapConnections || {}; if (snap?.selfClosing && snap.endpoint) { draft.selfClosedEndpoint = { endpoint, targetEndpoint: snap.endpoint }; delete draft.snapConnections[endpoint]; return; } if (draft.selfClosedEndpoint?.endpoint === endpoint) delete draft.selfClosedEndpoint; if (snap?.kind === 'anchor' && snap.endpoint) draft.snapConnections[endpoint] = { targetId: snap.measurementId, targetEndpoint: snap.endpoint }; else delete draft.snapConnections[endpoint]; }
 function applyDraftSnapConnections(measurement, draft) {
-  for (const endpoint of ['start', 'end']) {
-    const connection = draft?.snapConnections?.[endpoint];
-    if (connection) measurementCommands.setEndpointSnapConnection(measurement, endpoint, connection);
-  }
+  for (const endpoint of ['start', 'end']) { const connection = draft?.snapConnections?.[endpoint]; if (connection) measurementCommands.setEndpointSnapConnection(measurement, endpoint, connection); }
+  if (draft?.selfClosedEndpoint) measurementCommands.setEndpointSnapConnection(measurement, draft.selfClosedEndpoint.endpoint, { targetId: measurement.id, targetEndpoint: draft.selfClosedEndpoint.targetEndpoint });
 }
 function updateEndpointSnapConnection(measurement, endpoint, snap) {
   if (!endpoint) return;
@@ -1099,6 +1093,8 @@ stage.addEventListener('mousedown', (e) => {
   const p = screenToImage(e.clientX, e.clientY);
   state.cursorImg = p;
   state.shiftHeld = e.shiftKey;
+  const resizeHandleHit = e.button === 0 && state.rotateModeId ? findTransformResizeHandleHit(p) : null;
+  if (resizeHandleHit) { const m = state.measurements.find(x => x.id === resizeHandleHit.measurementId), frame = getRotationFrame(m); if (m && frame) { clearActiveFitMode(); state.transformResizeDrag = pointerWorkflow.createTransformResizeDrag({ measurement: m, frame, handle: resizeHandleHit.handle, pointer: localPointForMeasurement(m, p), historyBefore: createHistorySnapshot() }); stage.classList.add('dragging'); e.preventDefault(); return; } }
   if (e.button === 0 && state.rotateModeId && isPointInBox(p, state.rotationHandleHitbox)) {
     const m = state.measurements.find(x => x.id === state.rotateModeId);
     const frame = getRotationFrame(m);
@@ -1147,7 +1143,8 @@ stage.addEventListener('mousedown', (e) => {
     const v = findNearestVertex(p, 10 / state.zoom);
     if (v) {
       if (handleSelectionHit(v.measurementId, { editHandle: v.kind === 'curve-control' })) return;
-      state.dragVertex = { ...v, historyBefore: createHistorySnapshot() };
+      const m = state.measurements.find(x => x.id === v.measurementId), endpoint = measurementCommands.continuationEndpointRole(m, v), breaksAreaClosure = !!(endpoint && m?.area?.enabled && isClosedMeasurement?.(m));
+      state.dragVertex = { ...v, historyBefore: createHistorySnapshot(), breaksAreaClosure, suppressSelfCloseSnap: breaksAreaClosure };
       stage.classList.add('dragging');
       renderList();
       redraw();
@@ -1225,7 +1222,7 @@ stage.addEventListener('mousedown', (e) => {
       if (draft) {
         measurementWorkflows.applyFreehandDraftClick({ draft, point: drawInfo.point, distancePx });
         const raw = draft.rawPoints || []; draft.previewSegments = raw.length > 2 ? buildFreehandSegments(raw, 8) : [];
-        recordDraftEndpointSnap(draft, draft.continuation?.endpoint || 'end', drawInfo.snap);
+        recordDraftEndpointSnap(draft, draft.continuation?.endpoint || 'end', drawInfo.snap); if (drawInfo.snap?.selfClosing && selfClosingDraftPointCount(draft) >= 4) { finishFreehandMeasurement(); e.preventDefault(); return; }
         redraw();
         e.preventDefault();
         return;
@@ -1249,7 +1246,7 @@ stage.addEventListener('mousedown', (e) => {
         inProgress: state.inProgress,
         point: drawInfo.point,
       });
-      recordDraftEndpointSnap(state.inProgress, state.inProgress.continuation?.endpoint || 'end', drawInfo.snap);
+      recordDraftEndpointSnap(state.inProgress, state.inProgress.continuation?.endpoint || 'end', drawInfo.snap); if (drawInfo.snap?.selfClosing && selfClosingDraftPointCount(state.inProgress) >= 4) { finishMeasurement(); return; }
     }
     redraw();
   } else if (state.mode === 'erase') {
@@ -1293,9 +1290,9 @@ stage.addEventListener('mousemove', (e) => {
 
   if (state.freehandDraft && state.mode === 'measure') {
     const raw = state.freehandDraft.rawPoints;
-    const previewPoint = continuousMeasurements.localPointForPage(state, state.freehandDraft.page, state.cursorImg);
-    const excludeMeasurementIds = state.freehandDraft.continuation?.measurementId ? [state.freehandDraft.continuation.measurementId] : [];
-    snapPointOnPage(state.freehandDraft.page, previewPoint, excludeMeasurementIds);
+    const previewPointRaw = continuousMeasurements.localPointForPage(state, state.freehandDraft.page, state.cursorImg), excludeMeasurementIds = state.freehandDraft.continuation?.measurementId ? [state.freehandDraft.continuation.measurementId] : [];
+    const previewResolved = pointerWorkflow.resolveDraftPreviewPointSnap({ enabled: state.snapToPaths, point: previewPointRaw, draft: state.freehandDraft, tolerance: SNAP_ANCHOR_SCREEN_TOLERANCE / state.zoom, snapPoint: point => snapPointOnPage(state.freehandDraft.page, point, excludeMeasurementIds) });
+    const previewPoint = previewResolved.point || previewPointRaw; if (previewResolved.snap?.selfClosing) setSnapFeedback(state.freehandDraft.page, previewResolved.snap);
     if (previewPoint && (!raw.length || distancePx(raw[raw.length - 1], previewPoint) > 0)) {
       const previewRaw = [...raw, previewPoint];
       state.freehandDraft.previewSegments = previewRaw.length > 2 ? buildFreehandSegments(previewRaw, 8) : [];
@@ -1319,12 +1316,17 @@ stage.addEventListener('mousemove', (e) => {
     updateRotationDrag(e.clientX, e.clientY, e.shiftKey);
     return;
   }
+  if (state.transformResizeDrag) { updateTransformResizeDrag(e.clientX, e.clientY); return; }
 
   if (state.dragVertex) {
     const m = state.measurements.find(x => x.id === state.dragVertex.measurementId);
     if (m) {
       const endpoint = measurementCommands.continuationEndpointRole(m, state.dragVertex);
-      const resolved = snapPointOnPage(m.page, localPointForMeasurement(m), [m.id]);
+      const pointerPoint = localPointForMeasurement(m);
+      if (state.dragVertex.breaksAreaClosure) measurementCommands.breakAreaClosureForEndpointMove(m, endpoint);
+      const selfSnap = state.dragVertex.suppressSelfCloseSnap ? null : resolveMeasurementSelfClosingSnap(m, endpoint, pointerPoint);
+      const resolved = selfSnap || snapPointOnPage(m.page, pointerPoint, [m.id]);
+      if (selfSnap) setSnapFeedback(m.page, selfSnap.snap);
       applyVertexDrag(m, state.dragVertex, resolved.point);
       updateEndpointSnapConnection(m, endpoint, resolved.snap);
       recomputeMeasurementLength(m);
@@ -1348,7 +1350,10 @@ stage.addEventListener('mousemove', (e) => {
       });
       const movedMeasurements = result.movedIds?.length ? result.movedIds.map(measurementById).filter(Boolean) : [m];
       setSnapFeedback(m.page, result.snap);
-      for (const moved of movedMeasurements) { measurementCommands.clearEndpointSnapConnections(moved); if (isCurveMeasurement(moved)) updateCurveAnchors(moved); recomputeMeasurementLength(moved); }
+      for (const moved of movedMeasurements) {
+        const wasSelfClosed = isClosedMeasurement?.(moved); measurementCommands.clearEndpointSnapConnections(moved); if (isCurveMeasurement(moved)) updateCurveAnchors(moved); recomputeMeasurementLength(moved);
+        if (wasSelfClosed) measurementCommands.setEndpointSnapConnection(moved, 'end', { targetId: moved.id, targetEndpoint: 'start' });
+      }
       if (!result.movedIds?.length && result.snap?.kind === 'anchor' && result.snap.endpoint && result.snap.source?.endpoint) {
         measurementCommands.setEndpointSnapConnection(m, result.snap.source.endpoint, result.snap);
       }
@@ -1386,8 +1391,8 @@ stage.addEventListener('mousemove', (e) => {
     }
     if (state.mode === 'selection') {
       const v = findNearestVertex(state.cursorImg, 10 / state.zoom);
-      const rotateHit = state.rotateModeId && isPointInBox(state.cursorImg, state.rotationHandleHitbox);
-      stage.style.cursor = rotateHit ? 'crosshair' : (v ? 'grab' : (newHover != null ? 'pointer' : ''));
+      const rotateHit = state.rotateModeId && isPointInBox(state.cursorImg, state.rotationHandleHitbox), resizeHit = state.rotateModeId && findTransformResizeHandleHit(state.cursorImg);
+      stage.style.cursor = rotateHit ? 'crosshair' : (resizeHit ? 'nwse-resize' : (v ? 'grab' : (newHover != null ? 'pointer' : '')));
     } else {
       stage.style.cursor = '';
     }
@@ -1415,6 +1420,11 @@ function updateRotationDrag(clientX, clientY, shiftKey = false) {
   renderList();
   redraw();
   return true;
+}
+
+function updateTransformResizeDrag(clientX, clientY) {
+  if (!state.transformResizeDrag) return false; const m = state.measurements.find(x => x.id === state.transformResizeDrag.measurementId); if (!m) return false; state.cursorImg = screenToImage(clientX, clientY);
+  const wasSelfClosed = isClosedMeasurement?.(m); pointerWorkflow.applyTransformResizeDrag({ measurement: m, drag: state.transformResizeDrag, cursor: localPointForMeasurement(m), constrainGeometry: (points, segments) => constrainGeometryToPage(points, segments, m.page) }); if (isCurveMeasurement(m)) updateCurveAnchors(m); measurementCommands.clearEndpointSnapConnections(m); if (wasSelfClosed) measurementCommands.setEndpointSnapConnection(m, 'end', { targetId: m.id, targetEndpoint: 'start' }); recomputeMeasurementLength(m); renderList(); redraw(); return true;
 }
 
 function finishPointerDrag() {
@@ -1445,18 +1455,19 @@ function finishPointerDrag() {
     stage.classList.remove('dragging');
     updateRotationPill();
   }
+  if (state.transformResizeDrag) { recordHistory(state.transformResizeDrag.historyBefore, 'run resize'); state.transformResizeDrag = null; state.rotationInputVisible = true; stage.classList.remove('dragging'); updateRotationPill(); }
   if (state.snapFeedback && !state.inProgress && !state.freehandDraft) { state.snapFeedback = null; redraw(); }
 }
 
 stage.addEventListener('mouseup', finishPointerDrag);
 window.addEventListener('mousemove', (e) => {
   if (state.marqueeSelection) { if (e.buttons === 0) finishPointerDrag(); else marqueeSelection.update(e); return; }
-  if (!state.rotationDrag) return;
+  if (!state.rotationDrag && !state.transformResizeDrag) return;
   if (e.buttons === 0) {
     finishPointerDrag();
     return;
   }
-  updateRotationDrag(e.clientX, e.clientY, e.shiftKey);
+  if (state.rotationDrag) updateRotationDrag(e.clientX, e.clientY, e.shiftKey); else updateTransformResizeDrag(e.clientX, e.clientY);
 });
 window.addEventListener('mouseup', finishPointerDrag); window.addEventListener('pointermove', (e) => { if (state.marqueeSelection && marqueeSelection.matchesPointer(e)) { if (e.buttons === 0) finishPointerDrag(); else { marqueeSelection.update(e); updateCursorHud(); } } });
 window.addEventListener('pointerup', finishPointerDrag);
@@ -1465,8 +1476,9 @@ window.addEventListener('blur', finishPointerDrag);
 stage.addEventListener('dblclick', (e) => {
   if (lengthLabelNavigationTarget(e.target)) { e.preventDefault(); e.stopPropagation(); return; }
   if (state.baseW) {
-    const labelHit = findLabelHit(screenToImage(e.clientX, e.clientY));
+    const point = screenToImage(e.clientX, e.clientY), labelHit = findLabelHit(point);
     if (labelHit) { e.preventDefault(); e.stopPropagation(); lengthEditController.openCanvasLengthEdit(labelHit); return; }
+    if (state.mode === 'selection') { const hitId = findNearestMeasurement(point, 8 / state.zoom); if (hitId != null) { e.preventDefault(); e.stopPropagation(); beginRotateMode(hitId); return; } }
   }
   if (state.mode === 'measure' && state.inProgress && state.inProgress.points.length >= 2) {
     finishMeasurement();
@@ -1579,6 +1591,7 @@ contextMenu.addEventListener('click', (e) => {
   if (action === 'rotate') beginRotateMode(state.selectedId);
   if (action === 'toggle-path-visibility') contextMenuController.toggleSelectedPathVisibility({ state, stateStore, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
   if (action === 'toggle-category-visibility') contextMenuController.toggleSelectedCategoryVisibility({ state, stateStore, createHistorySnapshot, renderList, redraw, recordHistory, showStatus });
+  if (action === 'toggle-area') contextMenuController.toggleSelectedArea({ state, measurementModel: window.TakeoffMeasurements, createHistorySnapshot, renderList, redraw, recordHistory, showStatus });
   if (action === 'convert-to-line' || action === 'convert-to-freehand') contextMenuController.convertSelectedMeasurement({ nextShape: action === 'convert-to-line' ? 'line' : 'freehand', state, measurementCommands, scaleForPage, createHistorySnapshot, endRotateMode, renderList, redraw, recordHistory, showStatus });
   if (action === 'unmerge-paths' && mergePathsFeatureEnabled()) unmergePathModal.open();
 });
@@ -1896,6 +1909,7 @@ function currentMeasurementLabelPoint(m) { return measurementCommands.measuremen
 function findNearestPathPoint(p, tol) { return window.TakeoffHitTesting.findNearestPathPoint(measurementsOnCurrentPage(), p, tol); }
 function findNearestMeasurement(p, tol) { return window.TakeoffHitTesting.findNearestMeasurement(measurementsOnCurrentPage(), p, tol); }
 function findLabelHit(p) { return window.TakeoffHitTesting.findLabelHit(state.labelHitboxes, p, overlayPageSize(6)); }
+function findTransformResizeHandleHit(p) { return (state.transformResizeHandleHitboxes || []).find(box => isPointInBox(p, box)) || null; }
 function isPointInBox(p, box) { return window.TakeoffHitTesting.isPointInBox(p, box); }
 function measurementById(id) { return state.measurements.find(measurement => sidebarController.measurementIdMatches(measurement.id, id)) || null; }
 function lengthLabelNavigationTarget(target) { return target?.closest?.('[data-length-label-nav="true"]') || null; }
@@ -1917,10 +1931,7 @@ function beginRotateMode(id) {
 }
 
 function endRotateMode() {
-  state.rotateModeId = null;
-  state.rotationDrag = null;
-  state.rotationHandleHitbox = null;
-  state.rotationInputVisible = false;
+  state.rotateModeId = null; state.rotationDrag = null; state.transformResizeDrag = null; state.rotationHandleHitbox = null; state.transformResizeHandleHitboxes = []; state.rotationInputVisible = false;
   rotationPill.classList.remove('show');
 }
 
@@ -1938,36 +1949,16 @@ function drawRotationOverlay(m) {
     transform: frame.angle ? `rotate(${frame.angle}, ${cx}, ${cy})` : null,
   });
   drawSvg.appendChild(g);
-  g.appendChild(svgNode('rect', {
-    x, y, width: w, height: h,
-    fill: 'none',
-    stroke: 'rgba(182,255,60,0.9)',
-    'stroke-width': overlayPageSize(1.4),
-    'stroke-dasharray': `${overlayPageSize(6)} ${overlayPageSize(5)}`,
-  }));
-  g.appendChild(svgNode('line', {
-    x1: cx,
-    y1: topY,
-    x2: hx,
-    y2: hy,
-    stroke: 'rgba(182,255,60,0.8)',
-    'stroke-width': overlayPageSize(1.2),
-  }));
-  g.appendChild(svgNode('circle', {
-    cx: hx,
-    cy: hy,
-    r: handleR,
-    fill: '#111619',
-    stroke: '#b6ff3c',
-    'stroke-width': overlayPageSize(2),
-  }));
-  g.appendChild(svgNode('path', {
-    d: `M ${hx - handleR * 0.45} ${hy - handleR * 0.1} A ${handleR * 0.55} ${handleR * 0.55} 0 1 1 ${hx + handleR * 0.2} ${hy + handleR * 0.45}`,
-    fill: 'none',
-    stroke: '#b6ff3c',
-    'stroke-width': overlayPageSize(1.4),
-    'stroke-linecap': 'round',
-  }));
+  g.appendChild(svgNode('rect', { x, y, width: w, height: h, fill: 'none', stroke: 'rgba(182,255,60,0.9)', 'stroke-width': overlayPageSize(1.4), 'stroke-dasharray': `${overlayPageSize(6)} ${overlayPageSize(5)}` }));
+  const resizeHandleSize = overlayPageSize(8), resizeHitPad = overlayPageSize(8), resizeHandles = [['nw', x, y], ['n', cx, y], ['ne', x + w, y], ['e', x + w, cy], ['se', x + w, y + h], ['s', cx, y + h], ['sw', x, y + h], ['w', x, cy]];
+  for (const handle of resizeHandles) {
+    const [kind, hxLocal, hyLocal] = handle, center = rotatedFramePoint(frame, hxLocal, hyLocal);
+    g.appendChild(svgNode('rect', { class: 'transform-resize-handle', 'data-transform-handle': kind, x: hxLocal - resizeHandleSize / 2, y: hyLocal - resizeHandleSize / 2, width: resizeHandleSize, height: resizeHandleSize, rx: overlayPageSize(2), ry: overlayPageSize(2), fill: '#111619', stroke: '#b6ff3c', 'stroke-width': overlayPageSize(1.6) }));
+    state.transformResizeHandleHitboxes.push({ measurementId: m.id, handle: kind, x: center.x - resizeHandleSize / 2 - resizeHitPad, y: center.y - resizeHandleSize / 2 - resizeHitPad, width: resizeHandleSize + resizeHitPad * 2, height: resizeHandleSize + resizeHitPad * 2, center });
+  }
+  g.appendChild(svgNode('line', { x1: cx, y1: topY, x2: hx, y2: hy, stroke: 'rgba(182,255,60,0.8)', 'stroke-width': overlayPageSize(1.2) }));
+  g.appendChild(svgNode('circle', { cx: hx, cy: hy, r: handleR, fill: '#111619', stroke: '#b6ff3c', 'stroke-width': overlayPageSize(2) }));
+  g.appendChild(svgNode('path', { d: `M ${hx - handleR * 0.45} ${hy - handleR * 0.1} A ${handleR * 0.55} ${handleR * 0.55} 0 1 1 ${hx + handleR * 0.2} ${hy + handleR * 0.45}`, fill: 'none', stroke: '#b6ff3c', 'stroke-width': overlayPageSize(1.4), 'stroke-linecap': 'round' }));
   const handleCenter = rotatedFramePoint(frame, hx, hy);
   state.rotationHandleHitbox = {
     x: handleCenter.x - handleR - overlayPageSize(8),
@@ -2137,7 +2128,7 @@ function setUnit(value) {
   });
   $('totalUnit').textContent = unitModel.unitLabel(state.unit);
   updateScaleLabel();
-  renderList();
+  renderList(); redraw();
 }
 
 function activeDocumentName() {
@@ -2303,6 +2294,7 @@ function redraw(previewTo) {
   drawSvg.replaceChildren();
   state.labelHitboxes = [];
   state.rotationHandleHitbox = null;
+  state.transformResizeHandleHitboxes = [];
 
   // existing measurements for the active view
   for (const m of measurementsOnCurrentPage()) {
@@ -2322,6 +2314,7 @@ function redraw(previewTo) {
       measurementId: m.id, labelT: m.labelT,
       labelOffset: m.labelOffset, labelNavVisible: state.hoverLabelId === m.id,
       labelEdit: lengthEditController.canvasLengthEditStateForMeasurement(m),
+      ...areaOverlayForMeasurement(m),
     });
   }
 
