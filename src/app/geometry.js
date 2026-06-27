@@ -1,4 +1,7 @@
 (function () {
+  const TAU = Math.PI * 2;
+  const GEOMETRY_EPSILON = 1e-9;
+
   function distancePx(a, b) {
     return Math.hypot(a.x - b.x, a.y - b.y);
   }
@@ -35,8 +38,75 @@
     return points;
   }
 
+  function simpsonSample(fn, a, b) {
+    const c = (a + b) / 2;
+    return (b - a) * (fn(a) + 4 * fn(c) + fn(b)) / 6;
+  }
+
+  function adaptiveSimpson(fn, a, b, epsilon, whole, depth) {
+    const c = (a + b) / 2;
+    const left = simpsonSample(fn, a, c);
+    const right = simpsonSample(fn, c, b);
+    const delta = left + right - whole;
+    if (depth <= 0 || Math.abs(delta) <= 15 * epsilon) {
+      return left + right + delta / 15;
+    }
+    return adaptiveSimpson(fn, a, c, epsilon / 2, left, depth - 1)
+      + adaptiveSimpson(fn, c, b, epsilon / 2, right, depth - 1);
+  }
+
   function cubicLengthPx(seg) {
-    return polylineLengthPx(flattenSegments([seg], 28));
+    if (!seg) return 0;
+    if (seg.type === 'line') return distancePx(seg.from, seg.to);
+    const controlNetLength = distancePx(seg.from, seg.c1) + distancePx(seg.c1, seg.c2) + distancePx(seg.c2, seg.to);
+    if (!controlNetLength) return 0;
+    const curve = [seg.from, seg.c1, seg.c2, seg.to];
+    const speed = t => {
+      const derivative = cubicDerivative(curve, t);
+      const value = vectorLen(derivative);
+      return Number.isFinite(value) ? value : 0;
+    };
+    const tolerance = Math.max(0.0001, controlNetLength * 1e-8);
+    const whole = simpsonSample(speed, 0, 1);
+    return adaptiveSimpson(speed, 0, 1, tolerance, whole, 18);
+  }
+
+  function pointToLineDistance(p, a, b) {
+    const length = distancePx(a, b);
+    if (!length) return distancePx(p, a);
+    return Math.abs((b.x - a.x) * (a.y - p.y) - (a.x - p.x) * (b.y - a.y)) / length;
+  }
+
+  function cubicFlatnessPx(seg) {
+    return Math.max(
+      pointToLineDistance(seg.c1, seg.from, seg.to),
+      pointToLineDistance(seg.c2, seg.from, seg.to),
+    );
+  }
+
+  function appendAdaptiveCubicPoints(points, seg, tolerance, depth) {
+    if (depth <= 0 || cubicFlatnessPx(seg) <= tolerance) {
+      points.push(seg.to);
+      return;
+    }
+    const [left, right] = splitCubicSegment(seg, 0.5);
+    appendAdaptiveCubicPoints(points, left, tolerance, depth - 1);
+    appendAdaptiveCubicPoints(points, right, tolerance, depth - 1);
+  }
+
+  function flattenSegmentsAdaptive(segments, tolerance = 0.25, maxDepth = 12) {
+    const points = [];
+    const flatnessTolerance = Math.max(0.01, Number.isFinite(tolerance) ? tolerance : 0.25);
+    for (const seg of segments || []) {
+      if (seg.type === 'line') {
+        if (!points.length) points.push(seg.from);
+        points.push(seg.to);
+        continue;
+      }
+      if (!points.length) points.push(seg.from);
+      appendAdaptiveCubicPoints(points, seg, flatnessTolerance, maxDepth);
+    }
+    return points;
   }
 
   function vectorAdd(a, b) { return { x: a.x + b.x, y: a.y + b.y }; }
@@ -193,12 +263,213 @@
     return ((n % 360) + 360) % 360;
   }
 
+  function normalizeRadians(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return ((n % TAU) + TAU) % TAU;
+  }
+
+  function radiansToDegrees(radians) {
+    return radians * 180 / Math.PI;
+  }
+
+  function degreesToRadians(degrees) {
+    return degrees * Math.PI / 180;
+  }
+
   function snapDegrees15(value) {
     return normalizeDegrees(Math.round(value / 15) * 15);
   }
 
   function angleDegFromCenter(center, p) {
     return Math.atan2(p.y - center.y, p.x - center.x) * 180 / Math.PI;
+  }
+
+  function angleRadFromCenter(center, p) {
+    return Math.atan2(p.y - center.y, p.x - center.x);
+  }
+
+  function finitePoint(point) {
+    return !!(point && Number.isFinite(point.x) && Number.isFinite(point.y));
+  }
+
+  function clonePoint(point) {
+    return { x: point.x, y: point.y };
+  }
+
+  function finitePositiveNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number > GEOMETRY_EPSILON ? number : null;
+  }
+
+  function circleFromCenterRadius(center, radiusOrPoint) {
+    if (!finitePoint(center)) return null;
+    const radius = finitePoint(radiusOrPoint)
+      ? distancePx(center, radiusOrPoint)
+      : finitePositiveNumber(radiusOrPoint);
+    if (!Number.isFinite(radius) || radius <= GEOMETRY_EPSILON) return null;
+    return {
+      center: clonePoint(center),
+      radius,
+    };
+  }
+
+  function circleFromDiameterPoints(a, b) {
+    if (!finitePoint(a) || !finitePoint(b)) return null;
+    const diameter = distancePx(a, b);
+    if (diameter <= GEOMETRY_EPSILON) return null;
+    return {
+      center: {
+        x: (a.x + b.x) / 2,
+        y: (a.y + b.y) / 2,
+      },
+      radius: diameter / 2,
+    };
+  }
+
+  function circleFromThreePoints(a, b, c) {
+    if (!finitePoint(a) || !finitePoint(b) || !finitePoint(c)) return null;
+    const ax = b.x - a.x;
+    const ay = b.y - a.y;
+    const bx = c.x - a.x;
+    const by = c.y - a.y;
+    const den = 2 * (ax * by - ay * bx);
+    const scale = Math.max(1, distancePx(a, b), distancePx(b, c), distancePx(c, a));
+    if (Math.abs(den) <= GEOMETRY_EPSILON * scale * scale) return null;
+    const lenA = ax * ax + ay * ay;
+    const lenB = bx * bx + by * by;
+    const center = {
+      x: a.x + (lenA * by - lenB * ay) / den,
+      y: a.y + (ax * lenB - bx * lenA) / den,
+    };
+    const radius = distancePx(center, a);
+    if (!finitePoint(center) || !Number.isFinite(radius) || radius <= GEOMETRY_EPSILON) return null;
+    return { center, radius };
+  }
+
+  function circleCircumferencePx(circle) {
+    const radius = finitePositiveNumber(circle?.radius);
+    return radius == null ? 0 : TAU * radius;
+  }
+
+  function pointFromPolar(center, radius, angle) {
+    return {
+      x: center.x + Math.cos(angle) * radius,
+      y: center.y + Math.sin(angle) * radius,
+    };
+  }
+
+  function sampleCirclePoints(circle, steps = 64) {
+    if (!finitePoint(circle?.center) || !Number.isFinite(circle.radius) || circle.radius <= GEOMETRY_EPSILON) return [];
+    const count = Math.max(8, Math.floor(Number.isFinite(steps) ? steps : 64));
+    const points = [];
+    for (let i = 0; i <= count; i++) {
+      points.push(pointFromPolar(circle.center, circle.radius, TAU * i / count));
+    }
+    return points;
+  }
+
+  function arcFromCenterStartEnd(center, start, end, opts = {}) {
+    if (!finitePoint(center) || !finitePoint(start) || !finitePoint(end)) return null;
+    const radius = distancePx(center, start);
+    if (radius <= GEOMETRY_EPSILON) return null;
+    const startAngle = angleRadFromCenter(center, start);
+    const endAngle = angleRadFromCenter(center, end);
+    const ccwSweep = normalizeRadians(endAngle - startAngle);
+    const sweep = opts.clockwise ? (ccwSweep === 0 ? 0 : ccwSweep - TAU) : ccwSweep;
+    if (Math.abs(sweep) <= GEOMETRY_EPSILON) return null;
+    return {
+      center: clonePoint(center),
+      radius,
+      startAngle,
+      sweep,
+    };
+  }
+
+  function arcFromThreePoints(start, mid, end) {
+    const circle = circleFromThreePoints(start, mid, end);
+    if (!circle) return null;
+    const startAngle = angleRadFromCenter(circle.center, start);
+    const midAngle = angleRadFromCenter(circle.center, mid);
+    const endAngle = angleRadFromCenter(circle.center, end);
+    const ccwSweep = normalizeRadians(endAngle - startAngle);
+    const midDelta = normalizeRadians(midAngle - startAngle);
+    const sweep = midDelta <= ccwSweep + GEOMETRY_EPSILON ? ccwSweep : ccwSweep - TAU;
+    if (Math.abs(sweep) <= GEOMETRY_EPSILON) return null;
+    return {
+      center: circle.center,
+      radius: circle.radius,
+      startAngle,
+      sweep,
+    };
+  }
+
+  function arcLengthPx(arc) {
+    const radius = finitePositiveNumber(arc?.radius);
+    const sweep = Number(arc?.sweep);
+    return radius == null || !Number.isFinite(sweep) ? 0 : Math.abs(sweep) * radius;
+  }
+
+  function arcAngleRadians(arc) {
+    const sweep = Number(arc?.sweep);
+    return Number.isFinite(sweep) ? Math.abs(sweep) : 0;
+  }
+
+  function arcAngleDegrees(arc) {
+    return radiansToDegrees(arcAngleRadians(arc));
+  }
+
+  function arcPointAtT(arc, t) {
+    if (!finitePoint(arc?.center) || !Number.isFinite(arc.radius) || !Number.isFinite(arc.startAngle) || !Number.isFinite(arc.sweep)) return null;
+    const clamped = Math.max(0, Math.min(1, Number.isFinite(t) ? t : 0));
+    return pointFromPolar(arc.center, arc.radius, arc.startAngle + arc.sweep * clamped);
+  }
+
+  function sampleArcPoints(arc, steps = null) {
+    if (!finitePoint(arc?.center) || !Number.isFinite(arc.radius) || arc.radius <= GEOMETRY_EPSILON || !Number.isFinite(arc.startAngle) || !Number.isFinite(arc.sweep)) return [];
+    const count = Math.max(1, Math.floor(Number.isFinite(steps) ? steps : Math.ceil(Math.abs(arc.sweep) / TAU * 64)));
+    const points = [];
+    for (let i = 0; i <= count; i++) points.push(arcPointAtT(arc, i / count));
+    return points;
+  }
+
+  function projectPointToCircle(p, circle) {
+    if (!finitePoint(p) || !finitePoint(circle?.center) || !Number.isFinite(circle.radius) || circle.radius <= GEOMETRY_EPSILON) return null;
+    const angle = angleRadFromCenter(circle.center, p);
+    const point = pointFromPolar(circle.center, circle.radius, angle);
+    return {
+      type: 'circle',
+      point,
+      localT: normalizeRadians(angle) / TAU,
+      distance: distancePx(p, point),
+    };
+  }
+
+  function projectPointToArc(p, arc) {
+    if (!finitePoint(p) || !finitePoint(arc?.center) || !Number.isFinite(arc.radius) || arc.radius <= GEOMETRY_EPSILON || !Number.isFinite(arc.startAngle) || !Number.isFinite(arc.sweep)) return null;
+    const angle = angleRadFromCenter(arc.center, p);
+    const sweepMagnitude = Math.abs(arc.sweep);
+    if (sweepMagnitude <= GEOMETRY_EPSILON) return null;
+    const delta = arc.sweep >= 0
+      ? normalizeRadians(angle - arc.startAngle)
+      : normalizeRadians(arc.startAngle - angle);
+    if (delta <= sweepMagnitude + GEOMETRY_EPSILON) {
+      const localT = Math.max(0, Math.min(1, delta / sweepMagnitude));
+      const point = arcPointAtT(arc, localT);
+      return {
+        type: 'arc',
+        point,
+        localT,
+        distance: distancePx(p, point),
+      };
+    }
+    const startPoint = arcPointAtT(arc, 0);
+    const endPoint = arcPointAtT(arc, 1);
+    const startDistance = distancePx(p, startPoint);
+    const endDistance = distancePx(p, endPoint);
+    return startDistance <= endDistance
+      ? { type: 'arc', point: startPoint, localT: 0, distance: startDistance }
+      : { type: 'arc', point: endPoint, localT: 1, distance: endDistance };
   }
 
   function rotatePoint(p, center, degrees) {
@@ -373,10 +644,12 @@
   }
 
   window.TakeoffGeometry = {
+    TAU,
     distancePx,
     polylineLengthPx,
     cubicPoint,
     flattenSegments,
+    flattenSegmentsAdaptive,
     cubicLengthPx,
     vectorAdd,
     vectorSub,
@@ -386,8 +659,26 @@
     vectorNormalize,
     fitCurve,
     normalizeDegrees,
+    normalizeRadians,
+    radiansToDegrees,
+    degreesToRadians,
     snapDegrees15,
     angleDegFromCenter,
+    angleRadFromCenter,
+    circleFromCenterRadius,
+    circleFromDiameterPoints,
+    circleFromThreePoints,
+    circleCircumferencePx,
+    sampleCirclePoints,
+    arcFromCenterStartEnd,
+    arcFromThreePoints,
+    arcLengthPx,
+    arcAngleRadians,
+    arcAngleDegrees,
+    arcPointAtT,
+    sampleArcPoints,
+    projectPointToCircle,
+    projectPointToArc,
     rotatePoint,
     pointsBounds,
     constrainDeltaToRect,

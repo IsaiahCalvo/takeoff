@@ -16,6 +16,27 @@
     return handles;
   }
 
+  function circleSnapHandles(measurement) {
+    if (!measurements.isCircleMeasurement?.(measurement)) return [];
+    const circle = measurement.circle;
+    return [
+      { kind: 'circle-center', point: circle.center },
+      { kind: 'circle-radius', point: { x: circle.center.x + circle.radius, y: circle.center.y } },
+    ];
+  }
+
+  function arcSnapHandles(measurement) {
+    if (!measurements.isArcMeasurement?.(measurement)) return [];
+    const start = geometry.arcPointAtT(measurement.arc, 0);
+    const end = geometry.arcPointAtT(measurement.arc, 1);
+    const center = measurement.arc.center;
+    return [
+      start ? { kind: 'arc-start', point: start } : null,
+      end ? { kind: 'arc-end', point: end } : null,
+      center ? { kind: 'arc-center', point: center } : null,
+    ].filter(Boolean);
+  }
+
   function isVisibleMeasurement(measurement) {
     return !!measurement && measurement.hidden !== true && measurement.visible !== false;
   }
@@ -26,6 +47,12 @@
 
   function endpointRoleForHandle(measurement, handle) {
     if (!measurement || !handle) return null;
+    if (measurements.isArcMeasurement?.(measurement)) {
+      if (handle.kind === 'arc-start') return 'start';
+      if (handle.kind === 'arc-end') return 'end';
+      return null;
+    }
+    if (measurements.isCircleMeasurement?.(measurement)) return null;
     if (measurements.isCurveMeasurement(measurement)) {
       if (handle.kind !== 'curve-anchor') return null;
       if (handle.segmentIndex === 0 && handle.anchor === 'from') return 'start';
@@ -40,6 +67,8 @@
   }
 
   function snapAnchorHandles(measurement) {
+    if (measurements.isCircleMeasurement?.(measurement)) return circleSnapHandles(measurement);
+    if (measurements.isArcMeasurement?.(measurement)) return arcSnapHandles(measurement);
     if (measurements.isCurveMeasurement(measurement)) {
       return curveEditHandles(measurement).filter(handle => handle.kind === 'curve-anchor');
     }
@@ -86,6 +115,28 @@
 
     for (const measurement of measurementList || []) {
       if (measurements.isMixedMeasurement?.(measurement)) continue;
+      if (measurements.isCircleMeasurement?.(measurement)) {
+        for (const handle of circleSnapHandles(measurement).map((handle, vertexIndex) => ({
+          kind: 'line-anchor',
+          vertexIndex,
+          point: handle.point,
+        }))) {
+          consider(measurement, handle);
+        }
+        continue;
+      }
+      if (measurements.isArcMeasurement?.(measurement)) {
+        const start = geometry.arcPointAtT(measurement.arc, 0);
+        const end = geometry.arcPointAtT(measurement.arc, 1);
+        for (const handle of [start, end].map((anchorPoint, vertexIndex) => ({
+          kind: 'line-anchor',
+          vertexIndex,
+          point: anchorPoint,
+        })).filter(handle => handle.point)) {
+          consider(measurement, handle);
+        }
+        continue;
+      }
       if (measurements.isCurveMeasurement(measurement)) {
         for (const handle of curveEditHandles(measurement)) {
           if (handle.kind === 'curve-control' && !opts.includeCurveControls) continue;
@@ -93,7 +144,7 @@
         }
         continue;
       }
-      for (let index = 0; index < measurement.points.length; index++) {
+      for (let index = 0; index < (measurement.points || []).length; index++) {
         const vertex = measurement.points[index];
         consider(measurement, { kind: 'line-anchor', vertexIndex: index, point: vertex });
       }
@@ -106,6 +157,12 @@
 
   function findNearestAnchor(measurementList, point, tolerance) {
     for (const measurement of measurementList || []) {
+      if (measurements.isCircleMeasurement?.(measurement) || measurements.isArcMeasurement?.(measurement)) {
+        for (const handle of snapAnchorHandles(measurement)) {
+          if (geometry.distancePx(point, handle.point) <= tolerance) return { measurementId: measurement.id, ...handle };
+        }
+        continue;
+      }
       if (measurements.isCurveMeasurement(measurement)) {
         const handles = curveEditHandles(measurement).filter(handle => handle.kind === 'curve-anchor');
         for (const handle of handles) {
@@ -113,7 +170,7 @@
         }
         continue;
       }
-      for (let index = 0; index < measurement.points.length; index++) {
+      for (let index = 0; index < (measurement.points || []).length; index++) {
         if (geometry.distancePx(point, measurement.points[index]) <= tolerance) {
           return { measurementId: measurement.id, kind: 'line-anchor', vertexIndex: index, point: measurement.points[index] };
         }
@@ -182,6 +239,8 @@
 
   function projectPointToMeasurement(point, measurement) {
     if (measurements.isMixedMeasurement?.(measurement)) return projectPointToMixedMeasurement(point, measurement);
+    if (measurements.isCircleMeasurement?.(measurement)) return measurements.projectPointToCircleMeasurement(point, measurement);
+    if (measurements.isArcMeasurement?.(measurement)) return measurements.projectPointToArcMeasurement(point, measurement);
     return measurements.isCurveMeasurement(measurement)
       ? measurements.projectPointToCurveMeasurement(point, measurement)
       : measurements.projectPointToLineMeasurement(point, measurement);

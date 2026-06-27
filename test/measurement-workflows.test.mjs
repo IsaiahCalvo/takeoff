@@ -106,6 +106,14 @@ test('measure start draw mode flips only when Alt or Option starts the run', asy
     shiftKey: false,
     altKey: false,
   }), 'line');
+  assert.equal(workflows.resolveMeasureStartDrawMode({
+    rememberedDrawMode: 'circle-3p',
+    altKey: true,
+  }), 'circle-3p');
+  assert.equal(workflows.resolveMeasureStartDrawMode({
+    rememberedDrawMode: 'arc-center',
+    altKey: true,
+  }), 'arc-center');
 });
 
 test('active measure draw mode stays locked after modifier changes mid-run', async () => {
@@ -141,6 +149,11 @@ test('active measure draw mode stays locked after modifier changes mid-run', asy
   }), 'freehand');
   assert.equal(workflows.resolveActiveMeasureDrawMode({
     rememberedDrawMode: 'line',
+    altKey: true,
+    circleArcDraft: { mode: 'arc-3p', points: [{ x: 0, y: 0 }] },
+  }), 'arc-3p');
+  assert.equal(workflows.resolveActiveMeasureDrawMode({
+    rememberedDrawMode: 'line',
     shiftKey: true,
   }), 'line');
   assert.equal(workflows.resolveActiveMeasureDrawMode({
@@ -148,6 +161,28 @@ test('active measure draw mode stays locked after modifier changes mid-run', asy
     shiftKey: false,
     altKey: false,
   }), 'freehand');
+});
+
+test('circle and arc draw modes normalize without falling back to line', async () => {
+  const workflows = await loadMeasurementWorkflows();
+
+  for (const mode of ['circle-radius', 'circle-diameter', 'circle-2p', 'circle-3p', 'arc-3p', 'arc-center']) {
+    assert.equal(workflows.resolveMeasureStartDrawMode({ rememberedDrawMode: mode }), mode);
+  }
+  assert.equal(workflows.resolveMeasureStartDrawMode({ rememberedDrawMode: 'bad-mode' }), 'line');
+});
+
+test('circle and arc tool modes remember only variants from their own tool group', async () => {
+  const workflows = await loadMeasurementWorkflows();
+
+  assert.equal(workflows.isCircleDrawMode('circle-radius'), true);
+  assert.equal(workflows.isCircleDrawMode('arc-3p'), false);
+  assert.equal(workflows.isArcDrawMode('arc-center'), true);
+  assert.equal(workflows.isArcDrawMode('circle-diameter'), false);
+  assert.equal(workflows.normalizeCircleDrawMode('circle-3p'), 'circle-3p');
+  assert.equal(workflows.normalizeCircleDrawMode('arc-center'), 'circle-radius');
+  assert.equal(workflows.normalizeArcDrawMode('arc-center'), 'arc-center');
+  assert.equal(workflows.normalizeArcDrawMode('circle-radius'), 'arc-3p');
 });
 
 test('freehand draft clicks append points without completing the draft', async () => {
@@ -180,6 +215,9 @@ test('active measure point count includes freehand draft points for Enter comple
   assert.equal(workflows.activeMeasurePointCount({
     inProgress: { points: [{ x: 0, y: 0 }, { x: 10, y: 10 }] },
   }), 2);
+  assert.equal(workflows.activeMeasurePointCount({
+    circleArcDraft: { points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: 5 }] },
+  }), 3);
   assert.equal(workflows.activeMeasurePointCount({}), 0);
 });
 
@@ -193,5 +231,9 @@ test('switching to calibration cancels an active measure draft', async () => {
   assert.equal(workflows.shouldCancelDraftOnModeChange({
     nextMode: 'calibrate',
     freehandDraft: { rawPoints: [{ x: 0, y: 0 }] },
+  }), true);
+  assert.equal(workflows.shouldCancelDraftOnModeChange({
+    nextMode: 'calibrate',
+    circleArcDraft: { mode: 'circle-radius', points: [{ x: 0, y: 0 }] },
   }), true);
 });

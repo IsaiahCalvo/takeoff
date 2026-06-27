@@ -523,10 +523,10 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   box-shadow: 0 0 0 1px rgba(177, 255, 64, 0.55), 0 0 0 2px rgba(177, 255, 64, 0.14);
   background: rgba(182,255,60,0.035);
 }
-.left-rail .measure-split:hover #btn-measure,
-.left-rail .measure-split:hover #btn-measure:hover,
-.left-rail .measure-split:hover #btn-measure.active,
-.left-rail .measure-split:hover #btn-measure.active:hover,
+.left-rail .measure-split:hover .tool-btn,
+.left-rail .measure-split:hover .tool-btn:hover,
+.left-rail .measure-split:hover .tool-btn.active,
+.left-rail .measure-split:hover .tool-btn.active:hover,
 .left-rail .measure-split:hover .measure-menu-toggle,
 .left-rail .measure-split:hover .measure-menu-toggle:hover {
   background: transparent;
@@ -563,7 +563,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
 .measure-split .tool-btn {
   width: 36px;
 }
-.measure-split #btn-measure {
+.measure-split .tool-btn {
   position: relative;
   z-index: 1;
 }
@@ -590,7 +590,7 @@ button:disabled { opacity: 0.4; cursor: not-allowed; }
   top: 0;
   left: 0;
   display: none;
-  min-width: 116px;
+  min-width: 180px;
   padding: 6px;
   background: #111619;
   border: 1px solid var(--line);
@@ -2345,6 +2345,48 @@ body.no-document .path-dock-root {
 }
 .status.show { display: block; }
 .status .key { font-family: 'JetBrains Mono', monospace; color: var(--accent); }
+
+.draft-prompt {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 6;
+  min-width: 186px;
+  max-width: min(280px, calc(100vw - 24px));
+  padding: 8px 10px 8px 12px;
+  pointer-events: none;
+  color: var(--text);
+  background: rgba(13, 17, 19, 0.91);
+  border: 1px solid rgba(132, 148, 158, 0.28);
+  border-left: 2px solid var(--accent);
+  border-radius: 7px;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.38);
+  backdrop-filter: blur(8px);
+}
+.draft-prompt[hidden] { display: none; }
+.draft-prompt-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.draft-prompt-step {
+  margin-top: 3px;
+  font-size: 12px;
+  line-height: 1.25;
+  font-weight: 600;
+}
+.draft-prompt-metric {
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(132, 148, 158, 0.22);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--muted);
+}
+.draft-prompt-metric:empty { display: none; }
 
 .context-menu {
   position: fixed;

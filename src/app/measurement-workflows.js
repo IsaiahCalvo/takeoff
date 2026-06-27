@@ -1,14 +1,49 @@
 (function () {
   const LINE_DRAW_MODE = 'line';
   const FREEHAND_DRAW_MODE = 'freehand';
+  const CIRCLE_RADIUS_DRAW_MODE = 'circle-radius';
+  const CIRCLE_DIAMETER_DRAW_MODE = 'circle-diameter';
+  const CIRCLE_2P_DRAW_MODE = 'circle-2p';
+  const CIRCLE_3P_DRAW_MODE = 'circle-3p';
+  const ARC_3P_DRAW_MODE = 'arc-3p';
+  const ARC_CENTER_DRAW_MODE = 'arc-center';
+  const CIRCLE_DRAW_MODES = new Set([CIRCLE_RADIUS_DRAW_MODE, CIRCLE_DIAMETER_DRAW_MODE, CIRCLE_2P_DRAW_MODE, CIRCLE_3P_DRAW_MODE]);
+  const ARC_DRAW_MODES = new Set([ARC_3P_DRAW_MODE, ARC_CENTER_DRAW_MODE]);
+  const DRAW_MODES = new Set([
+    LINE_DRAW_MODE,
+    FREEHAND_DRAW_MODE,
+    CIRCLE_RADIUS_DRAW_MODE,
+    CIRCLE_DIAMETER_DRAW_MODE,
+    CIRCLE_2P_DRAW_MODE,
+    CIRCLE_3P_DRAW_MODE,
+    ARC_3P_DRAW_MODE,
+    ARC_CENTER_DRAW_MODE,
+  ]);
 
   function normalizeDrawMode(value) {
-    return value === FREEHAND_DRAW_MODE ? FREEHAND_DRAW_MODE : LINE_DRAW_MODE;
+    return DRAW_MODES.has(value) ? value : LINE_DRAW_MODE;
+  }
+
+  function isCircleDrawMode(value) {
+    return CIRCLE_DRAW_MODES.has(value);
+  }
+
+  function isArcDrawMode(value) {
+    return ARC_DRAW_MODES.has(value);
+  }
+
+  function normalizeCircleDrawMode(value) {
+    return isCircleDrawMode(value) ? value : CIRCLE_RADIUS_DRAW_MODE;
+  }
+
+  function normalizeArcDrawMode(value) {
+    return isArcDrawMode(value) ? value : ARC_3P_DRAW_MODE;
   }
 
   function resolveMeasureStartDrawMode({ rememberedDrawMode, altKey = false } = {}) {
     const mode = normalizeDrawMode(rememberedDrawMode);
     if (!altKey) return mode;
+    if (mode !== LINE_DRAW_MODE && mode !== FREEHAND_DRAW_MODE) return mode;
     return mode === FREEHAND_DRAW_MODE ? LINE_DRAW_MODE : FREEHAND_DRAW_MODE;
   }
 
@@ -17,7 +52,9 @@
     altKey = false,
     inProgress = null,
     freehandDraft = null,
+    circleArcDraft = null,
   } = {}) {
+    if (circleArcDraft?.mode) return normalizeDrawMode(circleArcDraft.mode);
     if (freehandDraft) return FREEHAND_DRAW_MODE;
     if (inProgress && inProgress.type === 'measure') return LINE_DRAW_MODE;
     return resolveMeasureStartDrawMode({ rememberedDrawMode, altKey });
@@ -76,13 +113,16 @@
     return { draft, appended, finished: false };
   }
 
-  function activeMeasurePointCount({ inProgress = null, freehandDraft = null } = {}) {
+  function activeMeasurePointCount({ inProgress = null, freehandDraft = null, circleArcDraft = null } = {}) {
+    const circleArcCount = circleArcDraft?.points?.length || 0;
+    if (circleArcCount) return circleArcCount;
     const freehandCount = freehandDraft?.rawPoints?.length || 0;
     if (freehandCount) return freehandCount;
     return inProgress?.points?.length || 0;
   }
 
-  function activeDraftMode({ inProgress = null, freehandDraft = null } = {}) {
+  function activeDraftMode({ inProgress = null, freehandDraft = null, circleArcDraft = null } = {}) {
+    if (circleArcDraft) return 'measure';
     if (freehandDraft) return 'measure';
     if (inProgress?.type === 'measure') return 'measure';
     if (inProgress?.type === 'calib') return 'calibrate';
@@ -93,10 +133,11 @@
     nextMode,
     inProgress = null,
     freehandDraft = null,
+    circleArcDraft = null,
     transient = false,
   } = {}) {
     if (transient) return false;
-    const draftMode = activeDraftMode({ inProgress, freehandDraft });
+    const draftMode = activeDraftMode({ inProgress, freehandDraft, circleArcDraft });
     return !!(draftMode && nextMode !== draftMode);
   }
 
@@ -110,6 +151,11 @@
   window.TakeoffMeasurementWorkflows = {
     resolveMeasureStartDrawMode,
     resolveActiveMeasureDrawMode,
+    normalizeDrawMode,
+    isCircleDrawMode,
+    isArcDrawMode,
+    normalizeCircleDrawMode,
+    normalizeArcDrawMode,
     deleteMeasurementResult,
     appendMeasurementResult,
     applyFreehandDraftClick,

@@ -98,11 +98,15 @@ test('buildExportRows reads app measurement shape and draw mode metadata', async
     { page: 1, name: 'Legacy freehand', drawType: 'freehand', lengthInches: 24 },
     { page: 1, name: 'Converted line', shape: { active: 'line' }, drawType: 'freehand', lengthInches: 36 },
     { page: 1, name: 'Mixed path', shape: { active: 'path' }, drawType: 'path', lengthInches: 48 },
+    { page: 1, name: 'Circle', drawType: 'circle', circle: { center: { x: 1, y: 1 }, radius: 3 }, lengthInches: 60 },
+    { page: 1, name: 'Arc', drawType: 'arc', arc: { center: { x: 1, y: 1 }, radius: 3, startAngle: 0, sweep: Math.PI / 2 }, lengthInches: 12 },
   ], { unit: 'ft' });
 
   assert.equal(rows[0].type, 'freehand');
   assert.equal(rows[1].type, 'line');
   assert.equal(rows[2].type, 'path');
+  assert.equal(rows[3].type, 'circle');
+  assert.equal(rows[4].type, 'arc');
 });
 
 test('export rows and totals use the active converted geometry', async () => {

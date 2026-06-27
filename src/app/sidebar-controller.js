@@ -12,6 +12,13 @@
     return text || '';
   }
 
+  function measurementPointCount(measurement) {
+    if (Array.isArray(measurement?.points) && measurement.points.length) return measurement.points.length;
+    if (measurement?.circle?.center && Number.isFinite(measurement.circle.radius)) return 2;
+    if (measurement?.arc?.center && Number.isFinite(measurement.arc.radius)) return 2;
+    return 0;
+  }
+
   function measurementCategorySubtitle(measurement) {
     const pathCategory = sourceObject(measurement?.pathCategory);
     const category = sourceObject(measurement?.category);
@@ -76,7 +83,7 @@
       pathCategoryVisible: categoryVisible,
       pathCategoryToggleName: pathCategorySubtitle || pathDisplayName || name || 'Path',
       pathStyle: measurement.pathStyle || null,
-      pointCount: measurement.points.length,
+      pointCount: measurementPointCount(measurement),
       page: measurement.page,
       onOtherPage,
       isUnscaled,

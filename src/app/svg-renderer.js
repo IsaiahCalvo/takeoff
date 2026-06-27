@@ -30,6 +30,35 @@
     }).join(' ');
   }
 
+  function svgNumber(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 0;
+    const rounded = Math.abs(number) < 1e-9 ? 0 : Number(number.toFixed(6));
+    return Object.is(rounded, -0) ? 0 : rounded;
+  }
+
+  function buildCirclePath(circle) {
+    if (!circle?.center || !Number.isFinite(circle.radius) || circle.radius <= 0) return '';
+    const cx = svgNumber(circle.center.x);
+    const cy = svgNumber(circle.center.y);
+    const r = svgNumber(circle.radius);
+    const rightX = svgNumber(circle.center.x + circle.radius);
+    const leftX = svgNumber(circle.center.x - circle.radius);
+    return `M ${rightX} ${cy} A ${r} ${r} 0 1 1 ${leftX} ${cy} A ${r} ${r} 0 1 1 ${rightX} ${cy}`;
+  }
+
+  function buildArcPath(arc) {
+    const geometry = window.TakeoffGeometry;
+    if (!geometry?.arcPointAtT || !arc || !Number.isFinite(arc.radius) || arc.radius <= 0 || !Number.isFinite(arc.sweep)) return '';
+    const start = geometry.arcPointAtT(arc, 0);
+    const end = geometry.arcPointAtT(arc, 1);
+    if (!start || !end) return '';
+    const largeArc = Math.abs(arc.sweep) > Math.PI ? 1 : 0;
+    const sweepFlag = arc.sweep >= 0 ? 1 : 0;
+    const r = svgNumber(arc.radius);
+    return `M ${svgNumber(start.x)} ${svgNumber(start.y)} A ${r} ${r} 0 ${largeArc} ${sweepFlag} ${svgNumber(end.x)} ${svgNumber(end.y)}`;
+  }
+
   function closedPathData(d) {
     return d ? `${d} Z` : '';
   }
@@ -701,6 +730,92 @@
       }
     }
 
+    function drawCircle(circle, opts) {
+      if (!circle) return;
+      const d = buildCirclePath(circle);
+      if (!d) return;
+      const group = svgNode('g');
+      drawSvg.appendChild(group);
+      const strokeWidth = overlayPageSize(opts.width || 2);
+      const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
+      const borderAttrs = pathBorderAttrs(opts, strokeWidth);
+      const strokeColor = strokeAttrs.stroke || opts.color;
+      const labelPoints = opts.labelPoints || geometry.sampleCirclePoints(circle);
+      const anchors = opts.anchorPoints || [
+        circle.center,
+        { x: circle.center.x + circle.radius, y: circle.center.y },
+      ];
+      if (opts.glow) {
+        group.appendChild(svgNode('path', {
+          d,
+          fill: 'none',
+          stroke: strokeColor,
+          'stroke-width': strokeWidth + overlayPageSize(8),
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          opacity: '0.18',
+        }));
+      }
+      if (borderAttrs) group.appendChild(svgNode('path', { d, ...borderAttrs }));
+      group.appendChild(svgNode('path', { d, ...strokeAttrs }));
+      if (opts.dots) {
+        const r = overlayPageSize(opts.emphasizeDots ? 6 : 4);
+        const anchorAttrs = anchorCircleAttrs(opts, r);
+        for (const point of anchors) {
+          if (!point) continue;
+          group.appendChild(svgNode('circle', {
+            cx: point.x,
+            cy: point.y,
+            ...anchorAttrs,
+          }));
+        }
+      }
+      if (opts.label && labelPoints.length >= 2) {
+        drawPathLabel(group, labelPoints, { ...opts, anchors });
+      }
+    }
+
+    function drawArc(arc, opts) {
+      if (!arc) return;
+      const d = buildArcPath(arc);
+      if (!d) return;
+      const group = svgNode('g');
+      drawSvg.appendChild(group);
+      const strokeWidth = overlayPageSize(opts.width || 2);
+      const strokeAttrs = pathStrokeAttrs(opts, strokeWidth);
+      const borderAttrs = pathBorderAttrs(opts, strokeWidth);
+      const strokeColor = strokeAttrs.stroke || opts.color;
+      const labelPoints = opts.labelPoints || geometry.sampleArcPoints(arc);
+      const anchors = opts.anchorPoints || [geometry.arcPointAtT(arc, 0), geometry.arcPointAtT(arc, 1)].filter(Boolean);
+      if (opts.glow) {
+        group.appendChild(svgNode('path', {
+          d,
+          fill: 'none',
+          stroke: strokeColor,
+          'stroke-width': strokeWidth + overlayPageSize(8),
+          'stroke-linecap': 'round',
+          'stroke-linejoin': 'round',
+          opacity: '0.18',
+        }));
+      }
+      if (borderAttrs) group.appendChild(svgNode('path', { d, ...borderAttrs }));
+      group.appendChild(svgNode('path', { d, ...strokeAttrs }));
+      if (opts.dots) {
+        const r = overlayPageSize(opts.emphasizeDots ? 6 : 4);
+        const anchorAttrs = anchorCircleAttrs(opts, r);
+        for (const point of anchors) {
+          group.appendChild(svgNode('circle', {
+            cx: point.x,
+            cy: point.y,
+            ...anchorAttrs,
+          }));
+        }
+      }
+      if (opts.label && labelPoints.length >= 2) {
+        drawPathLabel(group, labelPoints, { ...opts, anchors });
+      }
+    }
+
     function drawEndpointAnchors(points, color) {
       if (!points || points.length < 1) return;
       const group = svgNode('g');
@@ -854,6 +969,8 @@
     }
 
     return {
+      drawCircle,
+      drawArc,
       drawBezierSegments,
       drawEndpointAnchors,
       drawMixedPath,
@@ -866,6 +983,8 @@
     svgNode,
     buildPolylinePath,
     buildBezierPath,
+    buildCirclePath,
+    buildArcPath,
     closedPathData,
     resolvePathLabelLayout,
     resolveAreaLabelLayout,

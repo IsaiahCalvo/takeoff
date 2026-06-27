@@ -260,10 +260,34 @@ test('select-like controls keep visible focus and left-aligned trigger text', as
 
 test('measure mode menu uses Line and Freehand product wording', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const measureMenu = html.match(/<div id="measureModeMenu"[\s\S]*?<\/div>/)?.[0] || '';
+  const circleMenu = html.match(/<div id="circleModeMenu"[\s\S]*?<\/div>/)?.[0] || '';
+  const arcMenu = html.match(/<div id="arcModeMenu"[\s\S]*?<\/div>/)?.[0] || '';
 
-  assert.match(html, />Line<\/button>/);
-  assert.match(html, />Freehand<\/button>/);
+  assert.match(measureMenu, />Line<\/button>/);
+  assert.match(measureMenu, />Freehand<\/button>/);
+  assert.match(html, /id="btn-circle"[\s\S]*?<svg /);
+  assert.match(html, /id="btn-arc"[\s\S]*?<svg /);
+  assert.match(circleMenu, /data-value="circle-radius"/);
+  assert.match(circleMenu, /data-value="circle-diameter"/);
+  assert.match(circleMenu, /data-value="circle-2p"/);
+  assert.match(circleMenu, /data-value="circle-3p"/);
+  assert.match(arcMenu, /data-value="arc-3p"/);
+  assert.match(arcMenu, /data-value="arc-center"/);
+  assert.doesNotMatch(measureMenu, /circle-|arc-/);
   assert.doesNotMatch(html, /Free hand|Bezier|Bézier|spline|polyline/);
+});
+
+test('circle and arc drafting has a cursor-adjacent instruction prompt', async () => {
+  const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+  const styles = await readFile(new URL('../public/app/styles.css', import.meta.url), 'utf8');
+  const main = await readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+
+  assert.match(html, /id="draftPrompt"/);
+  assert.match(styles, /\.draft-prompt\s*\{/);
+  assert.match(styles, /pointer-events:\s*none/);
+  assert.match(main, /circleArcTool\.draftPromptModel/);
+  assert.match(main, /updateDraftPrompt\(\)/);
 });
 
 test('context menu exposes only Line and Freehand conversion wording', async () => {

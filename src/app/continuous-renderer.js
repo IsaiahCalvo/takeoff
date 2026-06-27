@@ -96,6 +96,22 @@
     };
   }
 
+  function translateCircleGeometry(circle, dx, dy) {
+    if (!circle?.center) return circle;
+    return {
+      ...circle,
+      center: { x: circle.center.x + dx, y: circle.center.y + dy },
+    };
+  }
+
+  function translateArcGeometry(arc, dx, dy) {
+    if (!arc?.center) return arc;
+    return {
+      ...arc,
+      center: { x: arc.center.x + dx, y: arc.center.y + dy },
+    };
+  }
+
   function translateShapeGeometry(shape, dx, dy) {
     if (!shape || typeof shape !== 'object') return shape;
     const cloned = JSON.parse(JSON.stringify(shape));
@@ -121,6 +137,8 @@
     if (Array.isArray(geometryObject.segments)) {
       translated.segments = geometryObject.segments.map(segment => translateSegment(segment, dx, dy));
     }
+    if (geometryObject.circle) translated.circle = translateCircleGeometry(geometryObject.circle, dx, dy);
+    if (geometryObject.arc) translated.arc = translateArcGeometry(geometryObject.arc, dx, dy);
     if (geometryObject.shape) translated.shape = translateShapeGeometry(geometryObject.shape, dx, dy);
     if (geometryObject.rotationFrame) {
       translated.rotationFrame = {
@@ -159,6 +177,8 @@
       points: (measurement.points || []).map(point => ({ x: point.x + dx, y: point.y + dy })),
       segments: measurement.segments ? measurement.segments.map(segment => translateSegment(segment, dx, dy)) : null,
     };
+    if (measurement.circle) translated.circle = translateCircleGeometry(measurement.circle, dx, dy);
+    if (measurement.arc) translated.arc = translateArcGeometry(measurement.arc, dx, dy);
     if (measurement.mergeMemory) translated.mergeMemory = translateMergeMemory(measurement.mergeMemory, dx, dy);
     if (measurement.rotationFrame) {
       translated.rotationFrame = {

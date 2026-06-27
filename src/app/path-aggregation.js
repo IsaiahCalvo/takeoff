@@ -129,7 +129,18 @@
       || 'line';
     const normalized = String(value).toLowerCase();
     if (normalized === 'path') return 'path';
+    if (normalized === 'circle') return 'circle';
+    if (normalized === 'arc') return 'arc';
+    if (measurement?.circle?.center && Number.isFinite(measurement.circle.radius)) return 'circle';
+    if (measurement?.arc?.center && Number.isFinite(measurement.arc.radius)) return 'arc';
     return normalized === 'freehand' ? 'freehand' : 'line';
+  }
+
+  function measurementPointCount(measurement) {
+    if (Array.isArray(measurement?.points) && measurement.points.length) return measurement.points.length;
+    if (measurementType(measurement) === 'circle') return 2;
+    if (measurementType(measurement) === 'arc') return 2;
+    return 0;
   }
 
   function scaledLengthInches(measurement) {
@@ -272,7 +283,7 @@
       scaled: lengthInches != null,
       visibility,
       effectiveVisibility,
-      pointCount: Array.isArray(measurement?.points) ? measurement.points.length : 0,
+      pointCount: measurementPointCount(measurement),
     };
     for (const [field, value] of Object.entries(visibility)) run[field] = value;
     return run;

@@ -3,6 +3,10 @@
   const LINE_SHAPE = 'line';
   const FREEHAND_SHAPE = 'freehand';
   const PATH_SHAPE = 'path';
+  const CIRCLE_SHAPE = 'circle';
+  const ARC_SHAPE = 'arc';
+  const GEOMETRY_EPSILON = 0.0001;
+  const AREA_FLATTEN_TOLERANCE_PX = 0.1;
 
   function cloneValue(value) {
     if (value == null) return value;
@@ -13,8 +17,29 @@
     return !!(measurement && Array.isArray(measurement.segments) && measurement.segments.length);
   }
 
+  function finitePoint(point) {
+    return !!(point && Number.isFinite(point.x) && Number.isFinite(point.y));
+  }
+
+  function hasCircleGeometry(measurement) {
+    const circle = measurement?.circle;
+    return !!(finitePoint(circle?.center) && Number.isFinite(circle.radius) && circle.radius > 0);
+  }
+
+  function hasArcGeometry(measurement) {
+    const arc = measurement?.arc;
+    return !!(
+      finitePoint(arc?.center)
+      && Number.isFinite(arc.radius)
+      && arc.radius > 0
+      && Number.isFinite(arc.startAngle)
+      && Number.isFinite(arc.sweep)
+      && Math.abs(arc.sweep) > 0
+    );
+  }
+
   function normalizeShapeKind(kind) {
-    if (kind === LINE_SHAPE || kind === FREEHAND_SHAPE || kind === PATH_SHAPE) return kind;
+    if (kind === LINE_SHAPE || kind === FREEHAND_SHAPE || kind === PATH_SHAPE || kind === CIRCLE_SHAPE || kind === ARC_SHAPE) return kind;
     return null;
   }
 
@@ -25,6 +50,8 @@
       : null;
     return explicitShape
       || normalizeShapeKind(measurement.drawType)
+      || (hasCircleGeometry(measurement) ? CIRCLE_SHAPE : null)
+      || (hasArcGeometry(measurement) ? ARC_SHAPE : null)
       || (hasCurveGeometry(measurement) ? FREEHAND_SHAPE : LINE_SHAPE);
   }
 
@@ -38,6 +65,14 @@
 
   function isFreehandMeasurement(measurement) {
     return measurementShapeKind(measurement) === FREEHAND_SHAPE;
+  }
+
+  function isCircleMeasurement(measurement) {
+    return measurementShapeKind(measurement) === CIRCLE_SHAPE && hasCircleGeometry(measurement);
+  }
+
+  function isArcMeasurement(measurement) {
+    return measurementShapeKind(measurement) === ARC_SHAPE && hasArcGeometry(measurement);
   }
 
   function mixedSources(measurement) {
@@ -56,13 +91,27 @@
   function appendUniquePoint(points, point) {
     if (!point) return;
     const last = points[points.length - 1];
-    if (!last || geometry.distancePx(last, point) > 0.0001) points.push(point);
+    if (!last || geometry.distancePx(last, point) > GEOMETRY_EPSILON) points.push(point);
   }
 
   function mixedSourceDisplayPoints(source) {
     const current = sourceCurrentGeometry(source);
     if (source?.kind === FREEHAND_SHAPE && Array.isArray(current?.segments) && current.segments.length) {
       return geometry.flattenSegments(current.segments, 18);
+    }
+    return Array.isArray(current?.points) ? current.points : [];
+  }
+
+  function flattenSegmentsForArea(segments) {
+    return geometry.flattenSegmentsAdaptive
+      ? geometry.flattenSegmentsAdaptive(segments, AREA_FLATTEN_TOLERANCE_PX, 14)
+      : geometry.flattenSegments(segments, 96);
+  }
+
+  function mixedSourceAreaPoints(source) {
+    const current = sourceCurrentGeometry(source);
+    if (source?.kind === FREEHAND_SHAPE && Array.isArray(current?.segments) && current.segments.length) {
+      return flattenSegmentsForArea(current.segments);
     }
     return Array.isArray(current?.points) ? current.points : [];
   }
@@ -146,6 +195,8 @@
     if (isMixedMeasurement(measurement)) {
       return mixedSources(measurement).reduce((sum, source) => sum + mixedSourceLengthPx(source), 0);
     }
+    if (isCircleMeasurement(measurement)) return geometry.circleCircumferencePx(measurement.circle);
+    if (isArcMeasurement(measurement)) return geometry.arcLengthPx(measurement.arc);
     if (isCurveMeasurement(measurement)) {
       return measurement.segments.reduce((sum, segment) => sum + geometry.cubicLengthPx(segment), 0);
     }
@@ -154,8 +205,25 @@
 
   function measurementDisplayPoints(measurement) {
     if (isMixedMeasurement(measurement)) return mixedMeasurementDisplayPoints(measurement);
+    if (isCircleMeasurement(measurement)) return geometry.sampleCirclePoints(measurement.circle);
+    if (isArcMeasurement(measurement)) return geometry.sampleArcPoints(measurement.arc);
     return isCurveMeasurement(measurement)
       ? geometry.flattenSegments(measurement.segments, 18)
+      : (measurement.points || []);
+  }
+
+  function measurementAreaDisplayPoints(measurement) {
+    if (isMixedMeasurement(measurement)) {
+      const points = [];
+      for (const source of mixedSources(measurement)) {
+        for (const point of mixedSourceAreaPoints(source)) appendUniquePoint(points, point);
+      }
+      return points;
+    }
+    if (isCircleMeasurement(measurement)) return geometry.sampleCirclePoints(measurement.circle, 96);
+    if (isArcMeasurement(measurement)) return geometry.sampleArcPoints(measurement.arc, 96);
+    return isCurveMeasurement(measurement)
+      ? flattenSegmentsForArea(measurement.segments)
       : (measurement.points || []);
   }
 
@@ -174,15 +242,16 @@
 
   function closedMeasurementPoints(measurement) {
     if (!isSelfClosingSnap(measurement)) return [];
-    const points = (measurementDisplayPoints(measurement) || []).filter(point => (
+    const points = (measurementAreaDisplayPoints(measurement) || []).filter(point => (
       point && Number.isFinite(point.x) && Number.isFinite(point.y)
     ));
     if (points.length < 3) return [];
     const first = points[0];
     const last = points[points.length - 1];
-    return geometry.distancePx(first, last) <= 0.0001
+    const closed = geometry.distancePx(first, last) <= GEOMETRY_EPSILON
       ? points
       : [...points, first];
+    return polygonSelfIntersects(closed) ? [] : closed;
   }
 
   function signedPolygonArea(points) {
@@ -193,6 +262,57 @@
       sum += a.x * b.y - b.x * a.y;
     }
     return sum / 2;
+  }
+
+  function signedTriangleArea(a, b, c) {
+    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  }
+
+  function pointOnSegment(point, a, b) {
+    return point.x >= Math.min(a.x, b.x) - GEOMETRY_EPSILON
+      && point.x <= Math.max(a.x, b.x) + GEOMETRY_EPSILON
+      && point.y >= Math.min(a.y, b.y) - GEOMETRY_EPSILON
+      && point.y <= Math.max(a.y, b.y) + GEOMETRY_EPSILON
+      && Math.abs(signedTriangleArea(a, b, point)) <= GEOMETRY_EPSILON;
+  }
+
+  function lineSegmentsIntersect(a, b, c, d) {
+    if (
+      Math.max(a.x, b.x) < Math.min(c.x, d.x) - GEOMETRY_EPSILON
+      || Math.max(c.x, d.x) < Math.min(a.x, b.x) - GEOMETRY_EPSILON
+      || Math.max(a.y, b.y) < Math.min(c.y, d.y) - GEOMETRY_EPSILON
+      || Math.max(c.y, d.y) < Math.min(a.y, b.y) - GEOMETRY_EPSILON
+    ) {
+      return false;
+    }
+    const abC = signedTriangleArea(a, b, c);
+    const abD = signedTriangleArea(a, b, d);
+    const cdA = signedTriangleArea(c, d, a);
+    const cdB = signedTriangleArea(c, d, b);
+    if (Math.abs(abC) <= GEOMETRY_EPSILON && pointOnSegment(c, a, b)) return true;
+    if (Math.abs(abD) <= GEOMETRY_EPSILON && pointOnSegment(d, a, b)) return true;
+    if (Math.abs(cdA) <= GEOMETRY_EPSILON && pointOnSegment(a, c, d)) return true;
+    if (Math.abs(cdB) <= GEOMETRY_EPSILON && pointOnSegment(b, c, d)) return true;
+    return ((abC > 0 && abD < 0) || (abC < 0 && abD > 0))
+      && ((cdA > 0 && cdB < 0) || (cdA < 0 && cdB > 0));
+  }
+
+  function polygonSelfIntersects(points) {
+    const lastEdgeIndex = points.length - 2;
+    for (let i = 0; i <= lastEdgeIndex; i++) {
+      const a = points[i];
+      const b = points[i + 1];
+      if (geometry.distancePx(a, b) <= GEOMETRY_EPSILON) continue;
+      for (let j = i + 1; j <= lastEdgeIndex; j++) {
+        if (Math.abs(i - j) <= 1) continue;
+        if (i === 0 && j === lastEdgeIndex) continue;
+        const c = points[j];
+        const d = points[j + 1];
+        if (geometry.distancePx(c, d) <= GEOMETRY_EPSILON) continue;
+        if (lineSegmentsIntersect(a, b, c, d)) return true;
+      }
+    }
+    return false;
   }
 
   function measurementAreaPx(measurement) {
@@ -255,7 +375,38 @@
   }
 
   function measurementBounds(measurement) {
+    if (isCircleMeasurement(measurement)) {
+      const { center, radius } = measurement.circle;
+      return {
+        x: center.x - radius,
+        y: center.y - radius,
+        width: radius * 2,
+        height: radius * 2,
+        cx: center.x,
+        cy: center.y,
+      };
+    }
     return geometry.pointsBounds(measurementDisplayPoints(measurement));
+  }
+
+  function circleMeasurementMetrics(measurement) {
+    if (!isCircleMeasurement(measurement)) return null;
+    const radiusPx = measurement.circle.radius;
+    return {
+      radiusPx,
+      diameterPx: radiusPx * 2,
+      circumferencePx: geometry.circleCircumferencePx(measurement.circle),
+    };
+  }
+
+  function arcMeasurementMetrics(measurement) {
+    if (!isArcMeasurement(measurement)) return null;
+    return {
+      radiusPx: measurement.arc.radius,
+      lengthPx: geometry.arcLengthPx(measurement.arc),
+      angleRadians: geometry.arcAngleRadians(measurement.arc),
+      angleDegrees: geometry.arcAngleDegrees(measurement.arc),
+    };
   }
 
   function projectPointToLineMeasurement(point, measurement) {
@@ -302,15 +453,29 @@
     return best;
   }
 
+  function projectPointToCircleMeasurement(point, measurement) {
+    return isCircleMeasurement(measurement) ? geometry.projectPointToCircle(point, measurement.circle) : null;
+  }
+
+  function projectPointToArcMeasurement(point, measurement) {
+    return isArcMeasurement(measurement) ? geometry.projectPointToArc(point, measurement.arc) : null;
+  }
+
   window.TakeoffMeasurements = {
     LINE_SHAPE,
     FREEHAND_SHAPE,
     PATH_SHAPE,
+    CIRCLE_SHAPE,
+    ARC_SHAPE,
     hasCurveGeometry,
+    hasCircleGeometry,
+    hasArcGeometry,
     isCurveMeasurement,
     measurementShapeKind,
     isLineMeasurement,
     isFreehandMeasurement,
+    isCircleMeasurement,
+    isArcMeasurement,
     isMixedMeasurement,
     mixedSources,
     mixedSourceDisplayPoints,
@@ -331,7 +496,11 @@
     anchorsFromSegments,
     updateCurveAnchors,
     measurementBounds,
+    circleMeasurementMetrics,
+    arcMeasurementMetrics,
     projectPointToLineMeasurement,
     projectPointToCurveMeasurement,
+    projectPointToCircleMeasurement,
+    projectPointToArcMeasurement,
   };
 })();

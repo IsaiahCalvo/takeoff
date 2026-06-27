@@ -13,7 +13,7 @@ import './app/state.js?v=merge-name-counters-1'; import './app/selection-control
 import './app/geometry.js';
 import './app/measurements.js?v=area-fill-1';
 import './app/run-details.js'; import './app/run-detail-modal.js'; import './app/measurement-commands.js?v=path-continuation-1';
-import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js?v=unmerge-auto-1';
+import './app/measurement-workflows.js'; import './app/unmerge-path-modal.js?v=unmerge-auto-1'; import './app/circle-arc-tool.js'; import './app/tool-mode-menu.js';
 import './app/page-state.js';
 import './app/continuous-scroll.js';
 import './app/continuous-renderer.js?v=shell-layout-1'; import './app/continuous-prewarm.js';
@@ -54,7 +54,7 @@ const documentStore = window.TakeoffDocumentStore;
 const exportController = window.TakeoffExportController;
 const calibrationController = window.TakeoffCalibrationController;
 const calibrationWorkflow = window.TakeoffCalibrationWorkflow;
-const contextMenuController = window.TakeoffContextMenuController; const measurementWorkflows = window.TakeoffMeasurementWorkflows;
+const contextMenuController = window.TakeoffContextMenuController; const measurementWorkflows = window.TakeoffMeasurementWorkflows; let toolModeController = null;
 const pageState = window.TakeoffPageState;
 const continuousScroll = window.TakeoffContinuousScroll;
 const continuousRenderer = window.TakeoffContinuousRenderer;
@@ -169,6 +169,7 @@ const baseCtx = baseCanvas.getContext('2d');
 const drawCtx = drawCanvas.getContext('2d');
 const empty = $('empty');
 const statusEl = $('status');
+const draftPromptEl = $('draftPrompt');
 const measList = $('measList'), pathDockRoot = $('pathDockRoot');
 const toolTip = $('toolTip'), contextMenu = $('contextMenu');
 const rotationPill = $('rotationPill'), rotationInput = $('rotationInput');
@@ -336,17 +337,16 @@ function setMode(m, opts = {}) {
   // Don't overwrite prevMode when entering pan via Space
   if (!opts.transient) state.prevMode = m === 'pan' ? state.prevMode : m;
   state.mode = m;
-  ['selection','calibrate','measure','pan','erase'].forEach(x => {
-    $('btn-' + x).classList.toggle('active', x === m);
-  });
+  toolModeController?.syncActiveButtons();
   stage.classList.toggle('selection', m === 'selection');
   stage.classList.toggle('pan', m === 'pan');
   stage.classList.toggle('erase', m === 'erase');
-  if ((m !== 'measure' && m !== 'calibrate' && !opts.transient) || measurementWorkflows.shouldCancelDraftOnModeChange({ nextMode: m, inProgress: state.inProgress, freehandDraft: state.freehandDraft, transient: opts.transient })) {
-    state.inProgress = null; state.freehandDraft = null; state.snapFeedback = null;
+  if ((m !== 'measure' && m !== 'calibrate' && !opts.transient) || measurementWorkflows.shouldCancelDraftOnModeChange({ nextMode: m, inProgress: state.inProgress, freehandDraft: state.freehandDraft, circleArcDraft: state.circleArcDraft, transient: opts.transient })) {
+    state.inProgress = null; state.freehandDraft = null; state.circleArcDraft = null; state.snapFeedback = null;
   }
   if (m !== 'selection') { selection.clear(); state.marqueeSelection = null; endRotateMode(); }
   redrawActivePreview(); pathDock.render();
+  updateDraftPrompt();
   updateStatus();
 }
 
@@ -384,7 +384,7 @@ function openContextMenu(clientX, clientY, measurementId = null, target = null) 
   state.contextTarget = target;
   const canActOnRun = state.selectedId != null, targetedMeasurement = measurementId != null ? state.measurements.find(x => x.id === measurementId) : null;
   const addButton = contextMenu.querySelector('[data-action="add-anchor"]'), removeButton = contextMenu.querySelector('[data-action="remove-anchor"]');
-  const canEditAnchors = !!(targetedMeasurement && !isMixedMeasurement?.(targetedMeasurement));
+  const canEditAnchors = !!(targetedMeasurement && !isMixedMeasurement?.(targetedMeasurement) && !isCircleMeasurement(targetedMeasurement) && !isArcMeasurement(targetedMeasurement));
   const canAddAnchor = !!(canEditAnchors && target && target.kind === 'path-hit'), canRemoveAnchor = !!(canEditAnchors && target && target.kind === 'anchor-hit' && canRemoveAnchorFromTarget(target));
   addButton.disabled = !canAddAnchor;
   removeButton.disabled = !canRemoveAnchor;
@@ -402,6 +402,7 @@ function applyTransform() {
   viewport.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
   $('zoomLabel').innerHTML = `<strong>${Math.round(state.zoom * 100)}%</strong>`;
   updateRotationPill();
+  updateDraftPrompt();
   if (usesPdfDetailTile()) pdfDetailTile.schedule({ reason: 'viewport-transform' }); else pdfDetailTile.clear();
 }
 
@@ -497,7 +498,7 @@ const {
   translateSegments,
 } = window.TakeoffGeometry;
 
-const { isCurveMeasurement, isMixedMeasurement, measurementLengthPx, measurementDisplayPoints, closedMeasurementPoints, isClosedMeasurement, measurementAreaPx, measurementAreaCenter, buildFreehandSegments, updateCurveAnchors, measurementBounds } = window.TakeoffMeasurements;
+const { isCurveMeasurement, isMixedMeasurement, isCircleMeasurement, isArcMeasurement, measurementLengthPx, measurementDisplayPoints, closedMeasurementPoints, isClosedMeasurement, measurementAreaPx, measurementAreaCenter, buildFreehandSegments, updateCurveAnchors, measurementBounds } = window.TakeoffMeasurements;
 const measurementCommands = window.TakeoffMeasurementCommands;
 const viewerModel = window.TakeoffViewer;
 const pdfPageCache = window.TakeoffPdfPageCache;
@@ -515,6 +516,20 @@ const lengthEditController = window.TakeoffLengthEditController.createLengthEdit
   createHistorySnapshot, recordHistory, renderList, redraw, showStatus, syncSidebarSelection,
   finishPointerDrag, clearActiveFitMode, setSelectionMode: () => setMode('selection'), endRotateMode,
 });
+const circleArcTool = window.TakeoffCircleArcTool.createTool({ state, measurementCommands, measurementWorkflows, continuousMeasurements, palette: PALETTE, currentPage, scaleForPage, pxToInches, formatLen, unitLabel: () => unitModel.unitLabel(state.unit), activePathForNewRun, allocateRunName: () => stateStore.allocateRunName(state), allocateMeasurementPanelOrder: () => stateStore.allocateMeasurementPanelOrder(state), createHistorySnapshot, recordHistory, renderList, redraw, showStatus, focusMeasurementName, placementPointInfo, setContinuousCurrentPage, snapPointOnPage, drawCircle, drawArc, drawEndpointAnchors, setMeasurements: (measurements, selectionState) => stateStore.setMeasurements(state, measurements, selectionState) });
+
+function updateDraftPrompt() {
+  const model = circleArcTool.draftPromptModel(state.drawMode);
+  if (!model || !state.baseW || !state.cursorImg) { draftPromptEl.hidden = true; return; }
+  const screen = imageToScreen(state.cursorImg.x, state.cursorImg.y), stageRect = stage.getBoundingClientRect();
+  const w = 280, h = model.metricText ? 76 : 56;
+  draftPromptEl.style.left = `${Math.max(8, Math.min(stageRect.width - w - 8, screen.x + 18))}px`;
+  draftPromptEl.style.top = `${Math.max(8, Math.min(stageRect.height - h - 8, screen.y + 18))}px`;
+  draftPromptEl.querySelector('.draft-prompt-title').textContent = model.title;
+  draftPromptEl.querySelector('.draft-prompt-step').textContent = model.step;
+  draftPromptEl.querySelector('.draft-prompt-metric').textContent = model.metricText;
+  draftPromptEl.hidden = false;
+}
 
 function constrainDeltaToPage(bounds, dx, dy, page = currentPage()) {
   const size = continuousMeasurements.pageSize(state, page);
@@ -906,42 +921,12 @@ $('continuousScrollToggle').addEventListener('click', async () => {
 // ------- Tool buttons -------
 $('btn-selection').addEventListener('click', () => setMode('selection'));
 $('btn-calibrate').addEventListener('click', () => setMode('calibrate'));
-$('btn-measure').addEventListener('click', () => setMode('measure'));
 $('btn-pan').addEventListener('click', () => setMode('pan'));
 $('btn-erase').addEventListener('click', () => setMode('erase'));
-function setDrawMode(value) {
-  state.drawMode = value === 'freehand' ? 'freehand' : 'line';
-  state.inProgress = null;
-  state.freehandDraft = null;
-  document.querySelectorAll('.measure-mode-option').forEach(option => {
-    const active = option.dataset.value === state.drawMode;
-    option.classList.toggle('active', active);
-    option.setAttribute('aria-checked', active ? 'true' : 'false');
-  });
-  setMode('measure');
-  redraw();
-}
-function closeMeasureModeMenu() {
-  $('measureSplit').classList.remove('open');
-  $('measureModeToggle').setAttribute('aria-expanded', 'false');
-  $('measureModeToggle').querySelector('path').setAttribute('d', 'M4.5 3 7.5 6 4.5 9');
-  $('measureModeMenu').classList.remove('show');
-}
 function closeFitMenu() {
   $('fitMenuToggle').setAttribute('aria-expanded', 'false');
   $('fitMenuToggle').querySelector('path').setAttribute('d', 'M4.5 3 7.5 6 4.5 9');
   $('fitMenu').classList.remove('show');
-}
-function positionMeasureModeMenu() {
-  const anchor = $('measureSplit');
-  const menu = $('measureModeMenu');
-  const rect = anchor.getBoundingClientRect();
-  const menuWidth = 116;
-  const menuHeight = 76;
-  const left = Math.max(6, Math.min(window.innerWidth - menuWidth - 6, rect.right + 8));
-  const top = Math.max(6, Math.min(window.innerHeight - menuHeight - 6, rect.top + rect.height / 2 - menuHeight / 2));
-  menu.style.left = `${left}px`;
-  menu.style.top = `${top}px`;
 }
 function positionFitMenu() {
   const button = $('fitSplit');
@@ -954,29 +939,8 @@ function positionFitMenu() {
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
 }
-$('measureModeToggle').addEventListener('click', (e) => {
-  e.stopPropagation();
-  const open = !$('measureSplit').classList.contains('open');
-  $('measureSplit').classList.toggle('open', open);
-  $('measureModeToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
-  $('measureModeToggle').querySelector('path').setAttribute('d', open ? 'M7.5 3 4.5 6 7.5 9' : 'M4.5 3 7.5 6 4.5 9');
-  $('measureModeMenu').classList.toggle('show', open);
-  if (open) positionMeasureModeMenu();
-});
-document.querySelectorAll('.measure-mode-option').forEach(option => {
-  option.addEventListener('click', (e) => {
-    e.stopPropagation();
-    setDrawMode(option.dataset.value);
-    closeMeasureModeMenu();
-  });
-});
-document.addEventListener('click', (e) => {
-  if (!$('measureSplit').contains(e.target) && !$('measureModeMenu').contains(e.target)) closeMeasureModeMenu();
-  if (!$('fitSplit').contains(e.target) && !$('fitMenu').contains(e.target)) closeFitMenu();
-});
-window.addEventListener('resize', () => { closeMeasureModeMenu(); closeFitMenu(); });
-document.querySelector('header').addEventListener('scroll', () => { closeMeasureModeMenu(); closeFitMenu(); });
-$('btn-pan').classList.add('active');
+toolModeController = window.TakeoffToolModeMenu.createToolModeController({ state, measurementWorkflows, setMode, redraw, closeFitMenu });
+toolModeController.bind();
 
 // ------- Zoom buttons -------
 $('zoomIn').addEventListener('click', (e) => { e.stopPropagation(); zoomAt(stageCenter(), 1.25, 'button'); });
@@ -991,6 +955,7 @@ $('zoomFit').addEventListener('click', (e) => {
 $('fitMenuToggle').addEventListener('click', (e) => {
   e.stopPropagation();
   const open = !$('fitMenu').classList.contains('show');
+  toolModeController?.closeAll();
   $('fitMenuToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
   $('fitMenuToggle').querySelector('path').setAttribute('d', open ? 'M7.5 3 4.5 6 7.5 9' : 'M4.5 3 7.5 6 4.5 9');
   $('fitMenu').classList.toggle('show', open);
@@ -1213,7 +1178,9 @@ stage.addEventListener('mousedown', (e) => {
       altKey: e.altKey,
       inProgress: state.inProgress,
       freehandDraft: state.freehandDraft,
+      circleArcDraft: state.circleArcDraft,
     });
+    if (circleArcTool.isDrawMode(activeDrawMode)) { circleArcTool.handleMeasureClick(p, activeDrawMode); updateDraftPrompt(); e.preventDefault(); return; }
     if (activeDrawMode === 'freehand') {
       const draft = state.freehandDraft;
       const excludeMeasurementIds = draft?.continuation?.measurementId ? [draft.continuation.measurementId] : [];
@@ -1284,6 +1251,7 @@ stage.addEventListener('mousemove', (e) => {
   state.cursorImg = rawCursorImg; state.shiftHeld = e.shiftKey;
   const snapPreviewChanged = updatePointerSnapPreview(rawCursorImg, e.shiftKey);
   updateCursorHud();
+  updateDraftPrompt();
 
   if (state.marqueeSelection) { marqueeSelection.update(e); return; }
   if (snapPreviewChanged && !state.inProgress && !state.freehandDraft) redraw();
@@ -1307,6 +1275,7 @@ stage.addEventListener('mousemove', (e) => {
     return;
   }
 
+  if (circleArcTool.updatePreviewFromCursor()) { updateDraftPrompt(); return; }
   if (state.rotateModeId) {
     state.rotationInputVisible = true;
     updateRotationPill();
@@ -1494,7 +1463,7 @@ function currentInputState(target = null) {
     selectedId: state.selectedId,
     selectedIds: state.selectedIds,
     isPanning: state.isPanning,
-    inProgressPointCount: measurementWorkflows.activeMeasurePointCount({ inProgress: state.inProgress, freehandDraft: state.freehandDraft }),
+    inProgressPointCount: measurementWorkflows.activeMeasurePointCount({ inProgress: state.inProgress, freehandDraft: state.freehandDraft, circleArcDraft: state.circleArcDraft }),
   };
 }
 
@@ -1544,14 +1513,14 @@ window.addEventListener('keydown', (e) => {
   }
   if (inputAction.action === 'escape') {
     clearActiveFitMode();
-    state.inProgress = null;
-    state.freehandDraft = null;
-    closeMeasureModeMenu();
+    state.inProgress = null; state.freehandDraft = null; state.circleArcDraft = null;
+    toolModeController?.closeAll();
+    updateDraftPrompt();
     redraw();
     return;
   }
   if (inputAction.action === 'finish-measurement') {
-    if (state.freehandDraft) finishFreehandMeasurement(); else if (state.inProgress) finishMeasurement();
+    if (state.circleArcDraft) circleArcTool.finishMeasurement(); else if (state.freehandDraft) finishFreehandMeasurement(); else if (state.inProgress) finishMeasurement();
     e.preventDefault(); return;
   }
   if (inputAction.action === 'delete-selection') {
@@ -1566,7 +1535,12 @@ window.addEventListener('keydown', (e) => {
   if (inputAction.action === 'save-performance-log') { e.preventDefault(); performanceController.savePerformanceLog(); return; }
   if (inputAction.action === 'toggle-snap-to-paths') { toggleSnapToPaths(); e.preventDefault(); return; }
   if (inputAction.action === 'set-mode') {
-    setMode(inputAction.mode);
+    if (inputAction.mode === 'measure') toolModeController?.activateTool('measure');
+    else setMode(inputAction.mode);
+    return;
+  }
+  if (inputAction.action === 'set-draw-tool') {
+    toolModeController?.activateTool(inputAction.tool);
     return;
   }
   if (inputAction.action === 'fit-view') fitToView();
@@ -2309,7 +2283,7 @@ function redraw(previewTo) {
       dots: true,
       emphasizeDots: isSelected,
       glow: isSelected || isSelHover,
-      label: m.lengthInches != null ? `${formatLen(m.lengthInches)} ${unitModel.unitLabel(state.unit)}` : 'no scale',
+      label: circleArcTool.measurementCanvasLabel(m),
       labelColor: color,
       measurementId: m.id, labelT: m.labelT,
       labelOffset: m.labelOffset, labelNavVisible: state.hoverLabelId === m.id,
@@ -2373,6 +2347,7 @@ function redraw(previewTo) {
     }
     drawEndpointAnchors(drawAnchors, '#b6ff3c');
   }
+  circleArcTool.drawDraft();
   marqueeSelection.draw();
   lengthEditController.bindActiveCanvasLengthInput();
   if (state.snapFeedback) svgRenderer.drawSnapFeedback(state.snapFeedback);
@@ -2382,6 +2357,8 @@ function redrawActivePreview() { redraw(state.inProgress ? getEffectiveCursor() 
 
 function drawMeasurementPath(m, opts) {
   if (isMixedMeasurement?.(m)) { drawMixedPath(m.mergeMemory?.sources || [], { ...opts, labelPoints: measurementDisplayPoints(m), anchorPoints: m.points || [], measurementId: m.id }); return; }
+  if (isCircleMeasurement(m)) { drawCircle(m.circle, { ...opts, labelPoints: measurementDisplayPoints(m), anchorPoints: m.points || [], measurementId: m.id }); return; }
+  if (isArcMeasurement(m)) { drawArc(m.arc, { ...opts, labelPoints: measurementDisplayPoints(m), anchorPoints: m.points || [], measurementId: m.id }); return; }
   if (isCurveMeasurement(m)) {
     drawBezierSegments(m.segments, {
       ...opts,
@@ -2397,7 +2374,8 @@ function drawMeasurementPath(m, opts) {
 function drawBezierSegments(segments, opts) { svgRenderer.drawBezierSegments(segments, { ...opts, labelHitboxes: state.labelHitboxes }); }
 
 function drawEndpointAnchors(points, color) { svgRenderer.drawEndpointAnchors(points, color); }
-
+function drawCircle(circle, opts) { svgRenderer.drawCircle(circle, { ...opts, labelHitboxes: state.labelHitboxes }); }
+function drawArc(arc, opts) { svgRenderer.drawArc(arc, { ...opts, labelHitboxes: state.labelHitboxes }); }
 function drawMixedPath(sources, opts) { svgRenderer.drawMixedPath(sources, { ...opts, labelHitboxes: state.labelHitboxes }); }
 
 function drawPolyline(points, opts) { svgRenderer.drawPolyline(points, { ...opts, labelHitboxes: state.labelHitboxes }); }

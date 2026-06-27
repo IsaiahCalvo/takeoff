@@ -240,7 +240,11 @@
       pageScaleReferences: {},
       inProgress: null,
       drawMode: 'line',
+      measureDrawMode: 'line',
+      circleDrawMode: 'circle-radius',
+      arcDrawMode: 'arc-3p',
       freehandDraft: null,
+      circleArcDraft: null,
       measurements: [],
       nextRunNumber: 1,
       nextMergedPathNumber: 1,
@@ -318,6 +322,7 @@
     state.pxPerInch = null;
     state.inProgress = null;
     state.freehandDraft = null;
+    state.circleArcDraft = null;
     state.pendingUnmergePathId = null;
     state.snapFeedback = null;
     state.selectedId = null;
@@ -364,6 +369,7 @@
     state.pageCache = new Map(doc.pageCache || []);
     state.inProgress = null;
     state.freehandDraft = null;
+    state.circleArcDraft = null;
     state.snapFeedback = null;
     state.selectedId = null;
     state.selectedIds = [];

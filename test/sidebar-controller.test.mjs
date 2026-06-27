@@ -153,6 +153,47 @@ test('buildMeasurementItemViewModel prepares sidebar row display data', async ()
   });
 });
 
+test('buildMeasurementItemViewModel counts semantic circle and arc handles without stored points', async () => {
+  const sidebar = await loadSidebarController();
+  const baseOptions = {
+    currentPage: 1,
+    selectedId: null,
+    unit: 'feet',
+    cleanMeasurementName: value => String(value || '').trim(),
+    formatLength: inches => `${inches / 12}`,
+    unitLabel: () => 'ft',
+    measurementItemClass: () => 'item',
+  };
+
+  const circleModel = sidebar.buildMeasurementItemViewModel({
+    ...baseOptions,
+    measurement: {
+      id: 21,
+      name: 'Circle',
+      color: '#b6ff3c',
+      page: 1,
+      lengthInches: 120,
+      circle: { center: { x: 10, y: 10 }, radius: 5 },
+      drawType: 'circle',
+    },
+  });
+  const arcModel = sidebar.buildMeasurementItemViewModel({
+    ...baseOptions,
+    measurement: {
+      id: 22,
+      name: 'Arc',
+      color: '#b6ff3c',
+      page: 1,
+      lengthInches: 60,
+      arc: { center: { x: 10, y: 10 }, radius: 5, startAngle: 0, sweep: Math.PI / 2 },
+      drawType: 'arc',
+    },
+  });
+
+  assert.equal(circleModel.pointCount, 2);
+  assert.equal(arcModel.pointCount, 2);
+});
+
 test('category visibility controls collect keys and dispatch sidebar actions', async () => {
   const sidebar = await loadSidebarController();
   const listeners = {};

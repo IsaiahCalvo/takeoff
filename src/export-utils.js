@@ -34,6 +34,10 @@
       || 'line';
     const normalized = String(value).toLowerCase();
     if (normalized === 'path') return 'path';
+    if (normalized === 'circle') return 'circle';
+    if (normalized === 'arc') return 'arc';
+    if (measurement?.circle?.center && Number.isFinite(measurement.circle.radius)) return 'circle';
+    if (measurement?.arc?.center && Number.isFinite(measurement.arc.radius)) return 'arc';
     return normalized === 'freehand' ? 'freehand' : 'line';
   }
 

@@ -95,6 +95,22 @@ test('buildBezierPath creates stable SVG cubic path commands', async () => {
   ]), 'M 0 0 C 5 0 5 10 10 10 L 10 10 C 15 10 15 0 20 0');
 });
 
+test('buildCirclePath and buildArcPath create stable SVG arc commands', async () => {
+  const renderer = await loadRenderer();
+
+  assert.equal(renderer.buildCirclePath({
+    center: { x: 10, y: 20 },
+    radius: 5,
+  }), 'M 15 20 A 5 5 0 1 1 5 20 A 5 5 0 1 1 15 20');
+
+  assert.equal(renderer.buildArcPath({
+    center: { x: 0, y: 0 },
+    radius: 10,
+    startAngle: 0,
+    sweep: Math.PI / 2,
+  }), 'M 10 0 A 10 10 0 0 1 0 10');
+});
+
 test('drawSnapFeedback renders a lightweight snap indicator', async () => {
   const renderer = await loadRenderer();
   const drawSvg = {
@@ -121,6 +137,55 @@ test('drawSnapFeedback renders a lightweight snap indicator', async () => {
   assert.equal(drawSvg.children[0].children[0].tag, 'circle');
   assert.equal(drawSvg.children[0].children[0].attrs.cx, '12');
   assert.equal(drawSvg.children[0].children[0].attrs.cy, '20');
+});
+
+test('drawCircle and drawArc render semantic path overlays with labels', async () => {
+  const renderer = await loadRenderer();
+  const drawSvg = {
+    children: [],
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+  };
+  const labelHitboxes = [];
+  const measurementRenderer = renderer.createMeasurementRenderer({
+    drawSvg,
+    drawCtx: createDrawContext(),
+    overlayPageSize: value => value,
+  });
+
+  measurementRenderer.drawCircle({
+    center: { x: 10, y: 20 },
+    radius: 5,
+  }, {
+    color: '#b6ff3c',
+    labelColor: '#b6ff3c',
+    label: 'C 31.42',
+    labelT: 0.125,
+    dots: true,
+    measurementId: 'circle-1',
+    labelHitboxes,
+  });
+  measurementRenderer.drawArc({
+    center: { x: 0, y: 0 },
+    radius: 10,
+    startAngle: 0,
+    sweep: Math.PI / 2,
+  }, {
+    color: '#4cd6ff',
+    labelColor: '#4cd6ff',
+    label: '90 deg',
+    labelT: 0.5,
+    dots: true,
+    measurementId: 'arc-1',
+    labelHitboxes,
+  });
+
+  assert.equal(drawSvg.children.length, 2);
+  assert.equal(drawSvg.children[0].children.some(child => child.tag === 'path' && child.attrs.d.includes('A 5 5')), true);
+  assert.equal(drawSvg.children[1].children.some(child => child.tag === 'path' && child.attrs.d.includes('A 10 10')), true);
+  assert.deepEqual(labelHitboxes.map(box => box.measurementId), ['circle-1', 'arc-1']);
 });
 
 test('drawPolyline keeps floating labels clear of endpoint anchors on short segments', async () => {

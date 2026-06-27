@@ -227,6 +227,166 @@ test('createFreehandMeasurement builds explicit freehand shape metadata', async 
   assert.equal(measurement.pathStyle, undefined);
 });
 
+test('createCircleMeasurement builds a scaled semantic circle run', async () => {
+  const commands = await loadCommands();
+  const circle = {
+    center: { x: 10, y: 20 },
+    radius: 6,
+  };
+  const measurement = commands.createCircleMeasurement({
+    id: 30,
+    circle,
+    existingMeasurements: [],
+    palette: ['gold'],
+    page: 3,
+    pxPerInch: 2,
+    name: 'Round wall',
+    panelOrder: 9,
+  });
+  circle.center.x = 99;
+
+  assert.equal(measurement.name, 'Round wall');
+  assert.equal(measurement.color, 'gold');
+  assert.equal(measurement.drawType, 'circle');
+  assert.equal(measurement.shape.active, 'circle');
+  assert.deepEqual(plain(measurement.circle), { center: { x: 10, y: 20 }, radius: 6 });
+  assert.deepEqual(plain(measurement.points), [{ x: 10, y: 20 }, { x: 16, y: 20 }]);
+  assert.equal(measurement.lengthPx, 12 * Math.PI);
+  assert.equal(measurement.lengthInches, 6 * Math.PI);
+  assert.equal(measurement.page, 3);
+  assert.equal(measurement.panelOrder, 9);
+});
+
+test('createArcMeasurement builds a scaled semantic arc run', async () => {
+  const commands = await loadCommands();
+  const arc = {
+    center: { x: 0, y: 0 },
+    radius: 10,
+    startAngle: 0,
+    sweep: Math.PI / 2,
+  };
+  const measurement = commands.createArcMeasurement({
+    id: 31,
+    arc,
+    existingMeasurements: [],
+    palette: ['cyan'],
+    page: 4,
+    pxPerInch: 5,
+  });
+  arc.center.x = 99;
+
+  assert.equal(measurement.name, 'Run 1');
+  assert.equal(measurement.color, 'cyan');
+  assert.equal(measurement.drawType, 'arc');
+  assert.equal(measurement.shape.active, 'arc');
+  assert.deepEqual(plain(measurement.arc), {
+    center: { x: 0, y: 0 },
+    radius: 10,
+    startAngle: 0,
+    sweep: Math.PI / 2,
+  });
+  assert.deepEqual(plain(measurement.points[0]), { x: 10, y: 0 });
+  assert.ok(Math.abs(measurement.points[1].x) < 0.000001);
+  assert.ok(Math.abs(measurement.points[1].y - 10) < 0.000001);
+  assert.equal(measurement.lengthPx, 5 * Math.PI);
+  assert.equal(measurement.lengthInches, Math.PI);
+  assert.equal(measurement.page, 4);
+});
+
+test('copy, paste, and duplicate preserve semantic circle and arc geometry', async () => {
+  const commands = await loadCommands();
+  const circle = commands.createCircleMeasurement({
+    id: 32,
+    circle: { center: { x: 10, y: 20 }, radius: 5 },
+    existingMeasurements: [],
+    palette: ['gold'],
+    page: 1,
+    pxPerInch: 2,
+    name: 'Circle source',
+  });
+  const arc = commands.createArcMeasurement({
+    id: 33,
+    arc: { center: { x: 40, y: 30 }, radius: 10, startAngle: 0, sweep: Math.PI / 2 },
+    existingMeasurements: [circle],
+    palette: ['cyan'],
+    page: 1,
+    pxPerInch: 2,
+    name: 'Arc source',
+  });
+
+  const circleClipboard = commands.cloneMeasurementForClipboard(circle, { 1: 2 });
+  const arcClipboard = commands.cloneMeasurementForClipboard(arc, { 1: 2 });
+  circle.circle.center.x = 99;
+  arc.arc.center.y = 99;
+
+  const pastedCircle = commands.createPastedMeasurement({
+    source: circleClipboard,
+    id: 34,
+    existingMeasurements: [circle, arc],
+    palette: [],
+    pasteAt: { x: 100, y: 100 },
+    currentPage: 2,
+    pxPerInch: 2,
+  });
+  const pastedArc = commands.createPastedMeasurement({
+    source: arcClipboard,
+    id: 35,
+    existingMeasurements: [circle, arc, pastedCircle],
+    palette: [],
+    pasteAt: { x: 120, y: 120 },
+    currentPage: 2,
+    pxPerInch: 4,
+    mode: 'real-length',
+  });
+  const duplicateCircle = commands.createDuplicateMeasurement({
+    source: circleClipboard,
+    id: 36,
+    existingMeasurements: [circle, arc],
+    palette: [],
+    pageScales: { 1: 2 },
+    pageSize: { width: 200, height: 200 },
+    offset: { x: 18, y: 18 },
+  });
+
+  assert.deepEqual(plain(circleClipboard.circle), { center: { x: 10, y: 20 }, radius: 5 });
+  assert.deepEqual(plain(pastedCircle.circle), { center: { x: 100, y: 100 }, radius: 5 });
+  assert.deepEqual(plain(pastedCircle.points), [{ x: 100, y: 100 }, { x: 105, y: 100 }]);
+  assert.equal(pastedCircle.lengthPx, 10 * Math.PI);
+  assert.deepEqual(plain(pastedArc.arc.center), { x: 110, y: 110 });
+  assert.equal(pastedArc.arc.radius, 20);
+  assert.equal(pastedArc.lengthPx, 10 * Math.PI);
+  assert.deepEqual(plain(duplicateCircle.circle), { center: { x: 28, y: 38 }, radius: 5 });
+  assert.deepEqual(plain(duplicateCircle.points), [{ x: 28, y: 38 }, { x: 33, y: 38 }]);
+});
+
+test('applyVertexDrag updates semantic circle radius and arc endpoint geometry', async () => {
+  const commands = await loadCommands();
+  const circle = commands.createCircleMeasurement({
+    id: 37,
+    circle: { center: { x: 10, y: 10 }, radius: 5 },
+    existingMeasurements: [],
+    palette: [],
+    page: 1,
+  });
+  const arc = commands.createArcMeasurement({
+    id: 38,
+    arc: { center: { x: 0, y: 0 }, radius: 10, startAngle: 0, sweep: Math.PI / 2 },
+    existingMeasurements: [circle],
+    palette: [],
+    page: 1,
+  });
+
+  assert.equal(commands.applyVertexDrag(circle, { kind: 'line-anchor', vertexIndex: 1 }, { x: 10, y: 22 }), true);
+  assert.equal(circle.circle.radius, 12);
+  assert.deepEqual(plain(circle.points), [{ x: 10, y: 10 }, { x: 22, y: 10 }]);
+
+  assert.equal(commands.applyVertexDrag(arc, { kind: 'line-anchor', vertexIndex: 1 }, { x: -10, y: 0 }), true);
+  assert.deepEqual(plain(arc.points[0]), { x: 10, y: 0 });
+  assert.ok(Math.abs(arc.points[1].x - -10) < 0.000001);
+  assert.ok(Math.abs(arc.points[1].y) < 0.000001);
+  assert.ok(Math.abs(arc.arc.sweep - Math.PI) < 0.000001);
+});
+
 test('createFreehandMeasurement snapshots selected path metadata and style', async () => {
   const commands = await loadCommands();
   const activePath = {
@@ -506,6 +666,36 @@ test('resizeMeasurementToLength scales mixed Line and Freehand source geometry a
   assert.equal(original.unmerged, true);
   assert.deepEqual(plain(original.measurements[0].points), [{ x: 0, y: 0 }, { x: 10, y: 0 }]);
   assert.deepEqual(plain(original.measurements[1].points), [{ x: 10, y: 0 }, { x: 20, y: 0 }]);
+});
+
+test('resizeMeasurementToLength scales semantic circle and arc geometry', async () => {
+  const commands = await loadCommands();
+  const circle = commands.createCircleMeasurement({
+    id: 61,
+    circle: { center: { x: 10, y: 10 }, radius: 5 },
+    existingMeasurements: [],
+    palette: [],
+    page: 1,
+    pxPerInch: 2,
+  });
+  const arc = commands.createArcMeasurement({
+    id: 62,
+    arc: { center: { x: 0, y: 0 }, radius: 10, startAngle: 0, sweep: Math.PI / 2 },
+    existingMeasurements: [circle],
+    palette: [],
+    page: 1,
+    pxPerInch: 2,
+  });
+
+  assert.equal(commands.resizeMeasurementToLength(circle, { targetLengthInches: 10 * Math.PI, pxPerInch: 2 }), true);
+  assert.equal(commands.resizeMeasurementToLength(arc, { targetLengthInches: 5 * Math.PI, pxPerInch: 2 }), true);
+
+  assert.deepEqual(plain(circle.circle), { center: { x: 10, y: 10 }, radius: 10 });
+  assert.deepEqual(plain(circle.points), [{ x: 10, y: 10 }, { x: 20, y: 10 }]);
+  assert.deepEqual(plain(arc.arc.center), { x: -10, y: 0 });
+  assert.equal(arc.arc.radius, 20);
+  assert.equal(circle.lengthInches, 10 * Math.PI);
+  assert.equal(arc.lengthInches, 5 * Math.PI);
 });
 
 test('resizeMeasurementToLength rejects invalid target lengths without changing geometry', async () => {
@@ -1382,6 +1572,29 @@ test('addAnchorToMeasurement inserts line anchors at the path hit', async () => 
     point: { x: 5, y: 0 },
   }), true);
   assert.deepEqual(JSON.parse(JSON.stringify(measurement.points)), [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 10, y: 0 }]);
+});
+
+test('addAnchorToMeasurement does not mutate semantic circle or arc geometry', async () => {
+  const commands = await loadCommands();
+  const circle = commands.createCircleMeasurement({
+    id: 71,
+    circle: { center: { x: 10, y: 10 }, radius: 5 },
+    existingMeasurements: [],
+    palette: [],
+    page: 1,
+  });
+  const arc = commands.createArcMeasurement({
+    id: 72,
+    arc: { center: { x: 0, y: 0 }, radius: 10, startAngle: 0, sweep: Math.PI / 2 },
+    existingMeasurements: [circle],
+    palette: [],
+    page: 1,
+  });
+
+  assert.equal(commands.addAnchorToMeasurement(circle, { kind: 'path-hit', segmentIndex: 0, point: { x: 13, y: 14 } }), false);
+  assert.equal(commands.addAnchorToMeasurement(arc, { kind: 'path-hit', segmentIndex: 0, point: { x: 7, y: 7 } }), false);
+  assert.deepEqual(plain(circle.points), [{ x: 10, y: 10 }, { x: 15, y: 10 }]);
+  assert.deepEqual(plain(arc.points[0]), { x: 10, y: 0 });
 });
 
 test('removeAnchorFromMeasurement refuses to remove the last line segment', async () => {

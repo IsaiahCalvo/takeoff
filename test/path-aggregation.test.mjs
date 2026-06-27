@@ -96,6 +96,38 @@ test('keeps different Path identities in separate groups', async () => {
   assert.deepEqual(plain(result.groups.map(group => group.totalsByUnit.ft)), [1, 3, 5]);
 });
 
+test('classifies semantic circle and arc runs in path aggregation', async () => {
+  const aggregation = await loadPathAggregation();
+
+  const result = aggregation.buildPathRunGroups([
+    pathMeasurement({
+      id: 'circle-run',
+      name: 'Circle run',
+      drawType: 'circle',
+      points: null,
+      circle: { center: { x: 10, y: 10 }, radius: 4 },
+      lengthInches: 24,
+    }),
+    pathMeasurement({
+      id: 'arc-run',
+      name: 'Arc run',
+      drawType: 'arc',
+      points: null,
+      arc: { center: { x: 10, y: 10 }, radius: 4, startAngle: 0, sweep: Math.PI / 2 },
+      lengthInches: 12,
+    }),
+  ], { units: ['ft'] });
+
+  assert.deepEqual(plain(result.groups[0].runs.map(run => ({
+    measurementId: run.measurementId,
+    measurementType: run.measurementType,
+    pointCount: run.pointCount,
+  }))), [
+    { measurementId: 'circle-run', measurementType: 'circle', pointCount: 2 },
+    { measurementId: 'arc-run', measurementType: 'arc', pointCount: 2 },
+  ]);
+});
+
 test('places measurements without full Path metadata into a stable legacy fallback group', async () => {
   const aggregation = await loadPathAggregation();
 

@@ -140,6 +140,42 @@
     return measurementModel.transformShapeGeometry(shape, point => ({ x: point.x + dx, y: point.y + dy }));
   }
 
+  function translateCircleGeometry(circle, dx, dy) {
+    return circle ? {
+      ...circle,
+      center: { x: circle.center.x + dx, y: circle.center.y + dy },
+    } : null;
+  }
+
+  function translateArcGeometry(arc, dx, dy) {
+    return arc ? {
+      ...arc,
+      center: { x: arc.center.x + dx, y: arc.center.y + dy },
+    } : null;
+  }
+
+  function scaleCircleGeometryAround(circle, center, scale) {
+    return circle ? {
+      ...circle,
+      center: {
+        x: center.x + (circle.center.x - center.x) * scale,
+        y: center.y + (circle.center.y - center.y) * scale,
+      },
+      radius: circle.radius * scale,
+    } : null;
+  }
+
+  function scaleArcGeometryAround(arc, center, scale) {
+    return arc ? {
+      ...arc,
+      center: {
+        x: center.x + (arc.center.x - center.x) * scale,
+        y: center.y + (arc.center.y - center.y) * scale,
+      },
+      radius: arc.radius * scale,
+    } : null;
+  }
+
   function transformSegmentGeometry(segment, mapPoint) {
     return {
       ...segment,
@@ -156,6 +192,8 @@
       ...current,
       points: Array.isArray(current.points) ? current.points.map(mapPoint) : current.points,
       segments: Array.isArray(current.segments) ? current.segments.map(segment => transformSegmentGeometry(segment, mapPoint)) : current.segments,
+      circle: current.circle ? { ...current.circle, center: mapPoint(current.circle.center) } : current.circle,
+      arc: current.arc ? { ...current.arc, center: mapPoint(current.arc.center) } : current.arc,
     };
   }
 
@@ -261,6 +299,39 @@
     return (total - anchorClearancePx) / total;
   }
 
+  function cloneCircle(circle) {
+    const normalized = geometry.circleFromCenterRadius(circle?.center, circle?.radius);
+    return normalized ? {
+      center: clonePoint(normalized.center),
+      radius: normalized.radius,
+    } : null;
+  }
+
+  function cloneArc(arc) {
+    if (!arc || !Number.isFinite(arc.radius) || arc.radius <= 0 || !Number.isFinite(arc.startAngle) || !Number.isFinite(arc.sweep)) return null;
+    const cloned = {
+      center: clonePoint(arc.center),
+      radius: arc.radius,
+      startAngle: arc.startAngle,
+      sweep: arc.sweep,
+    };
+    return geometry.arcPointAtT(cloned, 0) && geometry.arcPointAtT(cloned, 1) ? cloned : null;
+  }
+
+  function circleAnchorPoints(circle) {
+    return [
+      clonePoint(circle.center),
+      { x: circle.center.x + circle.radius, y: circle.center.y },
+    ];
+  }
+
+  function arcAnchorPoints(arc) {
+    return [
+      geometry.arcPointAtT(arc, 0),
+      geometry.arcPointAtT(arc, 1),
+    ].filter(Boolean);
+  }
+
   function createLineMeasurement({ id, points, existingMeasurements, palette, page, pxPerInch, activePath, name, panelOrder }) {
     const clonedPoints = clonePoints(points);
     const lengthPx = geometry.polylineLengthPx(clonedPoints);
@@ -326,12 +397,85 @@
     };
   }
 
+  function createCircleMeasurement({
+    id,
+    circle,
+    existingMeasurements,
+    palette,
+    page,
+    pxPerInch,
+    activePath,
+    name,
+    panelOrder,
+  }) {
+    const clonedCircle = cloneCircle(circle);
+    if (!clonedCircle) return null;
+    const points = circleAnchorPoints(clonedCircle);
+    const lengthPx = geometry.circleCircumferencePx(clonedCircle);
+    const pathSnapshot = selectedPathSnapshot(activePath);
+    const color = colorFromPathSnapshot(pathSnapshot, nextMeasurementColor(existingMeasurements, palette));
+    const assignedPanelOrder = numericPanelOrder(panelOrder);
+    return {
+      id,
+      name: cleanMeasurementName(existingMeasurements, name, { id }),
+      color,
+      ...(pathSnapshot || {}),
+      ...(assignedPanelOrder != null ? { panelOrder: assignedPanelOrder } : {}),
+      drawType: 'circle',
+      shape: measurementModel.createShapeMetadata('circle'),
+      points,
+      circle: clonedCircle,
+      lengthInches: pxPerInch ? lengthPx / pxPerInch : null,
+      lengthPx,
+      page,
+      labelT: 0.125,
+    };
+  }
+
+  function createArcMeasurement({
+    id,
+    arc,
+    existingMeasurements,
+    palette,
+    page,
+    pxPerInch,
+    activePath,
+    name,
+    panelOrder,
+  }) {
+    const clonedArc = cloneArc(arc);
+    if (!clonedArc) return null;
+    const points = arcAnchorPoints(clonedArc);
+    if (points.length < 2) return null;
+    const lengthPx = geometry.arcLengthPx(clonedArc);
+    const pathSnapshot = selectedPathSnapshot(activePath);
+    const color = colorFromPathSnapshot(pathSnapshot, nextMeasurementColor(existingMeasurements, palette));
+    const assignedPanelOrder = numericPanelOrder(panelOrder);
+    return {
+      id,
+      name: cleanMeasurementName(existingMeasurements, name, { id }),
+      color,
+      ...(pathSnapshot || {}),
+      ...(assignedPanelOrder != null ? { panelOrder: assignedPanelOrder } : {}),
+      drawType: 'arc',
+      shape: measurementModel.createShapeMetadata('arc'),
+      points,
+      arc: clonedArc,
+      lengthInches: pxPerInch ? lengthPx / pxPerInch : null,
+      lengthPx,
+      page,
+      labelT: 0.5,
+    };
+  }
+
   function cloneMeasurementForClipboard(selected, pageScales) {
     if (!selected) return null;
     const clipboard = {
       ...selected,
       points: clonePoints(selected.points),
       segments: measurementModel.isCurveMeasurement(selected) ? cloneSegments(selected.segments) : null,
+      circle: selected.circle ? cloneCircle(selected.circle) : selected.circle,
+      arc: selected.arc ? cloneArc(selected.arc) : selected.arc,
       shape: cloneMeasurementShape(selected),
       pathStyle: clonePathStyle(selected.pathStyle),
       mergeMemory: cloneValue(selected.mergeMemory),
@@ -397,6 +541,29 @@
 
   function applyVertexDrag(measurement, drag, point) {
     if (!measurement || !drag || !point) return false;
+    if (measurementModel.isCircleMeasurement?.(measurement)) {
+      if (drag.vertexIndex === 0) {
+        measurement.circle = { ...measurement.circle, center: clonePoint(point) };
+      } else if (drag.vertexIndex === 1) {
+        const radius = geometry.distancePx(measurement.circle.center, point);
+        if (!(radius > 0)) return false;
+        measurement.circle = { ...measurement.circle, radius };
+      } else {
+        return false;
+      }
+      measurement.points = circleAnchorPoints(measurement.circle);
+      return true;
+    }
+    if (measurementModel.isArcMeasurement?.(measurement)) {
+      const start = drag.vertexIndex === 0 ? point : geometry.arcPointAtT(measurement.arc, 0);
+      const end = drag.vertexIndex === 1 ? point : geometry.arcPointAtT(measurement.arc, 1);
+      if (!start || !end || (drag.vertexIndex !== 0 && drag.vertexIndex !== 1)) return false;
+      const arc = geometry.arcFromCenterStartEnd(measurement.arc.center, start, end);
+      if (!arc) return false;
+      measurement.arc = arc;
+      measurement.points = arcAnchorPoints(arc);
+      return true;
+    }
     if (!measurementModel.isCurveMeasurement(measurement)) {
       measurement.points[drag.vertexIndex] = point;
       return true;
@@ -434,6 +601,7 @@
 
   function canRemoveAnchorFromMeasurement(measurement) {
     if (!measurement) return false;
+    if (measurementModel.isCircleMeasurement?.(measurement) || measurementModel.isArcMeasurement?.(measurement)) return false;
     const anchorCount = measurementModel.isCurveMeasurement(measurement)
       ? measurementModel.anchorsFromSegments(measurement.segments).length
       : (measurement.points || []).length;
@@ -442,6 +610,7 @@
 
   function addAnchorToMeasurement(measurement, target) {
     if (!measurement || !target || target.kind !== 'path-hit') return false;
+    if (measurementModel.isCircleMeasurement?.(measurement) || measurementModel.isArcMeasurement?.(measurement)) return false;
     if (measurementModel.isCurveMeasurement(measurement)) {
       const segment = measurement.segments[target.segmentIndex];
       if (!segment) return false;
@@ -1171,6 +1340,12 @@
     } else if (measurementModel.isCurveMeasurement(measurement)) {
       measurement.segments = geometry.scaleSegmentsAround(measurement.segments, startAnchor, scale);
       measurementModel.updateCurveAnchors(measurement);
+    } else if (measurementModel.isCircleMeasurement?.(measurement)) {
+      measurement.circle = scaleCircleGeometryAround(measurement.circle, startAnchor, scale);
+      measurement.points = circleAnchorPoints(measurement.circle);
+    } else if (measurementModel.isArcMeasurement?.(measurement)) {
+      measurement.arc = scaleArcGeometryAround(measurement.arc, startAnchor, scale);
+      measurement.points = arcAnchorPoints(measurement.arc);
     } else {
       measurement.points = geometry.scalePointsAround(measurement.points || [], startAnchor, scale);
     }
@@ -1453,18 +1628,26 @@
     const dy = pasteAt.y - bounds.cy;
     let points = (source.points || []).map(point => ({ x: point.x + dx, y: point.y + dy }));
     let segments = measurementModel.isCurveMeasurement(source) ? geometry.translateSegments(source.segments, dx, dy) : null;
+    let circle = source.circle ? translateCircleGeometry(cloneCircle(source.circle), dx, dy) : source.circle;
+    let arc = source.arc ? translateArcGeometry(cloneArc(source.arc), dx, dy) : source.arc;
     let shape = translateShapeGeometry(cloneMeasurementShape(source), dx, dy);
     let mergeMemory = source.mergeMemory ? translateMergeMemoryGeometry(source.mergeMemory, dx, dy) : null;
 
     if (mode === 'real-length' && source.sourceLengthInches != null && pxPerInch) {
       const visualLength = mergeMemory
         ? measurementModel.measurementLengthPx({ drawType: 'path', shape: { active: 'path' }, points, mergeMemory })
-        : (segments ? measurementModel.measurementLengthPx({ segments }) : geometry.polylineLengthPx(points));
+        : (circle
+          ? measurementModel.measurementLengthPx({ drawType: 'circle', shape: { active: 'circle' }, circle })
+          : (arc
+            ? measurementModel.measurementLengthPx({ drawType: 'arc', shape: { active: 'arc' }, arc })
+            : (segments ? measurementModel.measurementLengthPx({ segments }) : geometry.polylineLengthPx(points))));
       const targetLengthPx = source.sourceLengthInches * pxPerInch;
       if (visualLength > 0 && targetLengthPx > 0) {
         const scale = targetLengthPx / visualLength;
         points = geometry.scalePointsAround(points, pasteAt, scale);
         if (segments) segments = geometry.scaleSegmentsAround(segments, pasteAt, scale);
+        if (circle) circle = scaleCircleGeometryAround(circle, pasteAt, scale);
+        if (arc) arc = scaleArcGeometryAround(arc, pasteAt, scale);
         shape = scaleShapeGeometryAround(shape, pasteAt, scale);
         if (mergeMemory) mergeMemory = scaleMergeMemoryGeometryAround(mergeMemory, pasteAt, scale);
       }
@@ -1478,6 +1661,8 @@
       if (beforeConstrain?.length && points?.length) {
         const shift = { dx: points[0].x - beforeConstrain[0].x, dy: points[0].y - beforeConstrain[0].y };
         shape = translateShapeGeometry(shape, points[0].x - beforeConstrain[0].x, points[0].y - beforeConstrain[0].y);
+        if (circle) circle = translateCircleGeometry(circle, shift.dx, shift.dy);
+        if (arc) arc = translateArcGeometry(arc, shift.dx, shift.dy);
         if (mergeMemory) mergeMemory = translateMergeMemoryGeometry(mergeMemory, shift.dx, shift.dy);
       }
     }
@@ -1491,6 +1676,8 @@
       page: currentPage,
       points,
       segments,
+      circle,
+      arc,
       shape,
       mergeMemory,
       labelT: Number.isFinite(source.labelT)
@@ -1513,6 +1700,8 @@
     defaultLabelT,
     createLineMeasurement,
     createFreehandMeasurement,
+    createCircleMeasurement,
+    createArcMeasurement,
     cloneMeasurementForClipboard,
     createDuplicateMeasurement,
     deleteMeasurementById,

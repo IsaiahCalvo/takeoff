@@ -448,6 +448,48 @@ test('applyMeasurementDrag moves mixed path merge memory with visible endpoints'
   assert.deepEqual(plain(measurement.mergeMemory.sources[1].current.segments[0].to), { x: 24, y: 6 });
 });
 
+test('applyMeasurementDrag translates semantic circle and arc geometry', async () => {
+  const workflow = await loadPointerWorkflow();
+  const circle = {
+    id: 31,
+    drawType: 'circle',
+    shape: { active: 'circle' },
+    points: [{ x: 10, y: 10 }, { x: 15, y: 10 }],
+    circle: { center: { x: 10, y: 10 }, radius: 5 },
+    rotationFrame: { x: 5, y: 5, width: 10, height: 10, cx: 10, cy: 10 },
+  };
+  const arc = {
+    id: 32,
+    drawType: 'arc',
+    shape: { active: 'arc' },
+    points: [{ x: 30, y: 10 }, { x: 20, y: 20 }],
+    arc: { center: { x: 20, y: 10 }, radius: 10, startAngle: 0, sweep: Math.PI / 2 },
+  };
+  const circleDrag = workflow.createMeasurementDrag({
+    measurement: circle,
+    pointer: { x: 0, y: 0 },
+    historyBefore: null,
+    bounds: { x: 5, y: 5, width: 10, height: 10 },
+  });
+  const arcDrag = workflow.createMeasurementDrag({
+    measurement: arc,
+    pointer: { x: 0, y: 0 },
+    historyBefore: null,
+    bounds: { x: 20, y: 10, width: 10, height: 10 },
+  });
+  circle.circle.center.x = 99;
+  arc.arc.center.y = 99;
+
+  workflow.applyMeasurementDrag({ measurement: circle, drag: circleDrag, cursor: { x: 4, y: 6 }, constrainDelta: () => ({ dx: 4, dy: 6 }) });
+  workflow.applyMeasurementDrag({ measurement: arc, drag: arcDrag, cursor: { x: -3, y: 2 }, constrainDelta: () => ({ dx: -3, dy: 2 }) });
+
+  assert.deepEqual(plain(circle.circle), { center: { x: 14, y: 16 }, radius: 5 });
+  assert.deepEqual(plain(circle.points), [{ x: 14, y: 16 }, { x: 19, y: 16 }]);
+  assert.deepEqual(plain(circle.rotationFrame), { x: 9, y: 11, width: 10, height: 10, cx: 14, cy: 16 });
+  assert.deepEqual(plain(arc.arc.center), { x: 17, y: 12 });
+  assert.deepEqual(plain(arc.points), [{ x: 27, y: 12 }, { x: 17, y: 22 }]);
+});
+
 test('applyMeasurementGroupDrag moves every selected measurement by one shared delta', async () => {
   const workflow = await loadPointerWorkflow();
   const first = {
@@ -479,6 +521,38 @@ test('applyMeasurementGroupDrag moves every selected measurement by one shared d
   assert.deepEqual(plain(second.points), [{ x: 38, y: 18 }, { x: 48, y: 18 }]);
   assert.deepEqual(plain(first.rotationFrame), { x: 8, y: -2, width: 10, height: 1, cx: 13, cy: -1.5 });
   assert.deepEqual(plain(second.rotationFrame), { x: 38, y: 18, width: 10, height: 1, cx: 43, cy: 18.5 });
+});
+
+test('applyMeasurementGroupDrag moves semantic circle members by the shared delta', async () => {
+  const workflow = await loadPointerWorkflow();
+  const first = {
+    id: 41,
+    points: [{ x: 0, y: 0 }, { x: 10, y: 0 }],
+  };
+  const circle = {
+    id: 42,
+    drawType: 'circle',
+    shape: { active: 'circle' },
+    points: [{ x: 30, y: 20 }, { x: 35, y: 20 }],
+    circle: { center: { x: 30, y: 20 }, radius: 5 },
+  };
+  const drag = workflow.createMeasurementGroupDrag({
+    measurements: [first, circle],
+    pointer: { x: 0, y: 0 },
+    historyBefore: null,
+    bounds: { x: 0, y: 0, width: 35, height: 25 },
+  });
+
+  workflow.applyMeasurementGroupDrag({
+    measurements: [first, circle],
+    drag,
+    cursor: { x: 8, y: -2 },
+    constrainDelta: () => ({ dx: 8, dy: -2 }),
+  });
+
+  assert.deepEqual(plain(first.points), [{ x: 8, y: -2 }, { x: 18, y: -2 }]);
+  assert.deepEqual(plain(circle.circle), { center: { x: 38, y: 18 }, radius: 5 });
+  assert.deepEqual(plain(circle.points), [{ x: 38, y: 18 }, { x: 43, y: 18 }]);
 });
 
 test('applyRotationDrag rotates geometry, snaps when shifted, and keeps the frame size stable', async () => {
@@ -586,6 +660,62 @@ test('applyTransformResizeDrag scales geometry uniformly around the frame center
     cy: 2.5,
     angle: 0,
   });
+});
+
+test('applyTransformResizeDrag scales semantic circle and arc geometry', async () => {
+  const workflow = await loadPointerWorkflow();
+  const circle = {
+    id: 51,
+    drawType: 'circle',
+    shape: { active: 'circle' },
+    rotationAngle: 0,
+    points: [{ x: 10, y: 10 }, { x: 15, y: 10 }],
+    circle: { center: { x: 10, y: 10 }, radius: 5 },
+    rotationFrame: { x: 5, y: 5, width: 10, height: 10, cx: 10, cy: 10, angle: 0 },
+  };
+  const arc = {
+    id: 52,
+    drawType: 'arc',
+    shape: { active: 'arc' },
+    rotationAngle: 0,
+    points: [{ x: 30, y: 10 }, { x: 20, y: 20 }],
+    arc: { center: { x: 20, y: 10 }, radius: 10, startAngle: 0, sweep: Math.PI / 2 },
+    rotationFrame: { x: 10, y: 0, width: 20, height: 20, cx: 20, cy: 10, angle: 0 },
+  };
+
+  const circleDrag = workflow.createTransformResizeDrag({
+    measurement: circle,
+    frame: circle.rotationFrame,
+    handle: 'e',
+    pointer: { x: 15, y: 10 },
+    historyBefore: null,
+  });
+  const arcDrag = workflow.createTransformResizeDrag({
+    measurement: arc,
+    frame: arc.rotationFrame,
+    handle: 'e',
+    pointer: { x: 30, y: 10 },
+    historyBefore: null,
+  });
+
+  workflow.applyTransformResizeDrag({
+    measurement: circle,
+    drag: circleDrag,
+    cursor: { x: 20, y: 10 },
+    constrainGeometry: (points, segments) => ({ points, segments }),
+  });
+  workflow.applyTransformResizeDrag({
+    measurement: arc,
+    drag: arcDrag,
+    cursor: { x: 40, y: 10 },
+    constrainGeometry: (points, segments) => ({ points, segments }),
+  });
+
+  assert.deepEqual(plain(circle.circle), { center: { x: 10, y: 10 }, radius: 10 });
+  assert.deepEqual(plain(circle.points), [{ x: 10, y: 10 }, { x: 20, y: 10 }]);
+  assert.deepEqual(plain(arc.arc.center), { x: 20, y: 10 });
+  assert.equal(arc.arc.radius, 20);
+  assert.deepEqual(plain(arc.points), [{ x: 40, y: 10 }, { x: 20, y: 30 }]);
 });
 
 test('applyMeasurementRotation rotates from current angle to a requested angle', async () => {

@@ -61,6 +61,8 @@
         <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg>
       </button>
     </div>
+    <div id="circleSplit" class="measure-split"><button id="btn-circle" class="tool-btn" aria-label="Circle" data-tooltip="Circle"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7"/><path d="M12 12h7"/></svg><span class="sr-only">Circle</span></button><button id="circleModeToggle" class="measure-menu-toggle" type="button" aria-label="Circle mode" aria-haspopup="true" aria-expanded="false" title="Circle mode"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg></button></div>
+    <div id="arcSplit" class="measure-split"><button id="btn-arc" class="tool-btn" aria-label="Arc" data-tooltip="Arc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17a7 7 0 0 1 14 0"/><circle cx="5" cy="17" r="1.5"/><circle cx="19" cy="17" r="1.5"/></svg><span class="sr-only">Arc</span></button><button id="arcModeToggle" class="measure-menu-toggle" type="button" aria-label="Arc mode" aria-haspopup="true" aria-expanded="false" title="Arc mode"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 3 7.5 6 4.5 9"/></svg></button></div>
     <button id="btn-erase" class="tool-btn" aria-label="Erase" data-tooltip="Erase">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <g transform="rotate(-90 12 12)">
@@ -122,6 +124,8 @@
   <button class="measure-mode-option active" type="button" role="menuitemradio" aria-checked="true" data-value="line">Line</button>
   <button class="measure-mode-option" type="button" role="menuitemradio" aria-checked="false" data-value="freehand">Freehand</button>
 </div>
+<div id="circleModeMenu" class="measure-mode-menu" role="menu" aria-label="Circle mode"><button class="measure-mode-option active" type="button" role="menuitemradio" aria-checked="true" data-value="circle-radius">Radius</button><button class="measure-mode-option" type="button" role="menuitemradio" aria-checked="false" data-value="circle-diameter">Diameter</button><button class="measure-mode-option" type="button" role="menuitemradio" aria-checked="false" data-value="circle-2p">2 point</button><button class="measure-mode-option" type="button" role="menuitemradio" aria-checked="false" data-value="circle-3p">3 point</button></div>
+<div id="arcModeMenu" class="measure-mode-menu" role="menu" aria-label="Arc mode"><button class="measure-mode-option active" type="button" role="menuitemradio" aria-checked="true" data-value="arc-3p">3 point</button><button class="measure-mode-option" type="button" role="menuitemradio" aria-checked="false" data-value="arc-center">Center, start, end</button></div>
 <div id="fitMenu" class="fit-menu" role="menu" aria-label="Fit options">
   <button class="fit-menu-option" type="button" data-fit="page" role="menuitem">Fit page</button>
   <button class="fit-menu-option" type="button" data-fit="width" role="menuitem">Fit width</button>
@@ -148,6 +152,7 @@
     </div>
     <div id="pathDockRoot" class="path-dock-root" hidden></div>
     <div class="status" id="status"></div>
+    <div id="draftPrompt" class="draft-prompt" aria-live="polite" hidden><div class="draft-prompt-title"></div><div class="draft-prompt-step"></div><div class="draft-prompt-metric"></div></div>
     <div class="hud">
       <span class="pill cursor-hud">
         <span id="cursorPos">

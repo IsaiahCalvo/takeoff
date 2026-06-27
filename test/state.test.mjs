@@ -42,6 +42,9 @@ test('createInitialState returns fresh mutable collections and current defaults'
   assert.deepEqual(plain(b.pathCategoryVisibility), {});
   assert.equal(b.mode, 'pan');
   assert.equal(b.drawMode, 'line');
+  assert.equal(b.circleDrawMode, 'circle-radius');
+  assert.equal(b.arcDrawMode, 'arc-3p');
+  assert.equal(b.circleArcDraft, null);
   assert.equal(b.unit, 'ft');
   assert.deepEqual(plain(b.pageScaleReferences), {});
   assert.equal('pdfEngineChoice' in b, false);
@@ -101,6 +104,9 @@ test('resetDocumentState clears active document data while preserving app-level 
   state.pxPerInch = 5;
   state.inProgress = { points: [] };
   state.freehandDraft = { rawPoints: [] };
+  state.circleArcDraft = { mode: 'circle-radius', points: [] };
+  state.circleDrawMode = 'circle-3p';
+  state.arcDrawMode = 'arc-center';
   state.selectedId = 1;
   state.selectedIds = [1, 2];
   state.marqueeSelection = { active: true };
@@ -145,6 +151,9 @@ test('resetDocumentState clears active document data while preserving app-level 
   assert.equal(state.pxPerInch, null);
   assert.equal(state.inProgress, null);
   assert.equal(state.freehandDraft, null);
+  assert.equal(state.circleArcDraft, null);
+  assert.equal(state.circleDrawMode, 'circle-3p');
+  assert.equal(state.arcDrawMode, 'arc-center');
   assert.equal(state.selectedId, null);
   assert.deepEqual(plain(state.selectedIds), []);
   assert.equal(state.marqueeSelection, null);
@@ -172,6 +181,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   state.continuousPageLayout = { pages: [{ page: 2 }] };
   state.inProgress = { points: [] };
   state.freehandDraft = { rawPoints: [] };
+  state.circleArcDraft = { mode: 'arc-3p', points: [] };
   state.selectedId = 3;
   state.selectedIds = [3, 4];
   state.marqueeSelection = { active: true };
@@ -277,6 +287,7 @@ test('restoreDocumentState applies saved document fields and clears transient ed
   assert.deepEqual(plain(state.redoStack), []);
   assert.equal(state.inProgress, null);
   assert.equal(state.freehandDraft, null);
+  assert.equal(state.circleArcDraft, null);
   assert.equal(state.selectedId, null);
   assert.deepEqual(plain(state.selectedIds), []);
   assert.equal(state.marqueeSelection, null);

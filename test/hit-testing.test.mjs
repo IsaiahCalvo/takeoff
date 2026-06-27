@@ -211,6 +211,71 @@ test('findSnapTarget snaps to Line centerlines within tolerance', async () => {
   assert.equal(Math.round(hit.point.y), 0);
 });
 
+test('findSnapTarget and path hits support semantic circles', async () => {
+  const hitTesting = await loadHitTesting();
+  const circle = {
+    id: 'circle-1',
+    shape: { active: 'circle' },
+    circle: {
+      center: { x: 10, y: 20 },
+      radius: 5,
+    },
+  };
+
+  const anchor = hitTesting.findSnapTarget([circle], { x: 11, y: 19 }, {
+    anchorTolerance: 3,
+    centerlineTolerance: 0,
+  });
+  assert.equal(anchor.kind, 'anchor');
+  assert.equal(anchor.anchorKind, 'circle-center');
+  assert.equal(anchor.measurementId, 'circle-1');
+  assert.deepEqual(JSON.parse(JSON.stringify(anchor.point)), { x: 10, y: 20 });
+  assert.deepEqual(JSON.parse(JSON.stringify(hitTesting.findNearestVertex([circle], { x: 15, y: 20 }, 2))), {
+    measurementId: 'circle-1',
+    kind: 'line-anchor',
+    vertexIndex: 1,
+  });
+
+  const pathHit = hitTesting.findNearestPathPoint([circle], { x: 10, y: 27 }, 3);
+  assert.equal(pathHit.measurementId, 'circle-1');
+  assert.equal(pathHit.type, 'circle');
+  assert.deepEqual(JSON.parse(JSON.stringify(pathHit.point)), { x: 10, y: 25 });
+  assert.equal(pathHit.distance, 2);
+});
+
+test('findSnapTarget and path hits support semantic arcs', async () => {
+  const hitTesting = await loadHitTesting();
+  const arc = {
+    id: 'arc-1',
+    shape: { active: 'arc' },
+    arc: {
+      center: { x: 0, y: 0 },
+      radius: 10,
+      startAngle: 0,
+      sweep: Math.PI / 2,
+    },
+  };
+
+  const endpoint = hitTesting.findSnapTarget([arc], { x: 1, y: 10 }, {
+    anchorTolerance: 3,
+    centerlineTolerance: 0,
+  });
+  assert.equal(endpoint.kind, 'anchor');
+  assert.equal(endpoint.anchorKind, 'arc-end');
+  assert.equal(endpoint.endpoint, 'end');
+  assert.deepEqual(JSON.parse(JSON.stringify(hitTesting.findNearestVertex([arc], { x: 10, y: 0 }, 2))), {
+    measurementId: 'arc-1',
+    kind: 'line-anchor',
+    vertexIndex: 0,
+  });
+
+  const pathHit = hitTesting.findNearestPathPoint([arc], { x: 7, y: 7 }, 3);
+  assert.equal(pathHit.measurementId, 'arc-1');
+  assert.equal(pathHit.type, 'arc');
+  assert.ok(pathHit.distance < 0.2);
+  assert.ok(pathHit.localT > 0.49 && pathHit.localT < 0.51);
+});
+
 test('findSnapTarget snaps to Freehand sampled centerlines within tolerance', async () => {
   const hitTesting = await loadHitTesting();
   const hit = hitTesting.findSnapTarget([

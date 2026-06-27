@@ -30,6 +30,18 @@
     return segments ? segments.map(cloneSegment) : null;
   }
 
+  function cloneCircle(circle) {
+    return circle?.center && Number.isFinite(circle.radius)
+      ? { ...circle, center: clonePoint(circle.center) }
+      : null;
+  }
+
+  function cloneArc(arc) {
+    return arc?.center && Number.isFinite(arc.radius)
+      ? { ...arc, center: clonePoint(arc.center) }
+      : null;
+  }
+
   function cloneValue(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
   }
@@ -46,6 +58,71 @@
     return transformShape(shape, point => ({ x: point.x + dx, y: point.y + dy }));
   }
 
+  function translateCircle(circle, dx, dy) {
+    return circle ? {
+      ...circle,
+      center: { x: circle.center.x + dx, y: circle.center.y + dy },
+    } : null;
+  }
+
+  function translateArc(arc, dx, dy) {
+    return arc ? {
+      ...arc,
+      center: { x: arc.center.x + dx, y: arc.center.y + dy },
+    } : null;
+  }
+
+  function rotateCircle(circle, center, degrees) {
+    return circle ? {
+      ...circle,
+      center: geometry.rotatePoint(circle.center, center, degrees),
+    } : null;
+  }
+
+  function rotateArc(arc, center, degrees) {
+    return arc ? {
+      ...arc,
+      center: geometry.rotatePoint(arc.center, center, degrees),
+      startAngle: arc.startAngle + degrees * Math.PI / 180,
+    } : null;
+  }
+
+  function scaleCircle(circle, center, scale) {
+    return circle ? {
+      ...circle,
+      center: {
+        x: center.x + (circle.center.x - center.x) * scale,
+        y: center.y + (circle.center.y - center.y) * scale,
+      },
+      radius: circle.radius * scale,
+    } : null;
+  }
+
+  function scaleArc(arc, center, scale) {
+    return arc ? {
+      ...arc,
+      center: {
+        x: center.x + (arc.center.x - center.x) * scale,
+        y: center.y + (arc.center.y - center.y) * scale,
+      },
+      radius: arc.radius * scale,
+    } : null;
+  }
+
+  function circleAnchorPoints(circle) {
+    return circle ? [
+      clonePoint(circle.center),
+      { x: circle.center.x + circle.radius, y: circle.center.y },
+    ] : [];
+  }
+
+  function arcAnchorPoints(arc) {
+    return arc ? [
+      geometry.arcPointAtT(arc, 0),
+      geometry.arcPointAtT(arc, 1),
+    ].filter(Boolean) : [];
+  }
+
   function transformCurrentGeometry(current, mapPoint) {
     if (!current || typeof current !== 'object') return current;
     return {
@@ -58,6 +135,8 @@
         c2: mapPoint(segment.c2),
         to: mapPoint(segment.to),
       })) : current.segments,
+      circle: current.circle ? { ...current.circle, center: mapPoint(current.circle.center) } : current.circle,
+      arc: current.arc ? { ...current.arc, center: mapPoint(current.arc.center) } : current.arc,
     };
   }
 
@@ -273,6 +352,8 @@
       startPointerAngle: geometry.angleDegFromCenter(center, pointer),
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalCircle: cloneCircle(measurement.circle),
+      originalArc: cloneArc(measurement.arc),
       originalShape: cloneShape(measurement.shape),
       originalMergeMemory: cloneValue(measurement.mergeMemory),
       originalAngle: geometry.normalizeDegrees(measurement.rotationAngle || 0),
@@ -306,6 +387,8 @@
       center: { x: frame.cx, y: frame.cy },
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalCircle: cloneCircle(measurement.circle),
+      originalArc: cloneArc(measurement.arc),
       originalShape: cloneShape(measurement.shape),
       originalMergeMemory: cloneValue(measurement.mergeMemory),
       originalAngle: geometry.normalizeDegrees(measurement.rotationAngle || frame.angle || 0),
@@ -322,6 +405,8 @@
       start: clonePoint(pointer),
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalCircle: cloneCircle(measurement.circle),
+      originalArc: cloneArc(measurement.arc),
       originalShape: cloneShape(measurement.shape),
       originalMergeMemory: cloneValue(measurement.mergeMemory),
       originalFrame: measurement.rotationFrame ? { ...measurement.rotationFrame } : null,
@@ -350,6 +435,8 @@
         measurementId: measurement.id,
         originalPoints: clonePoints(measurement.points),
         originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+        originalCircle: cloneCircle(measurement.circle),
+        originalArc: cloneArc(measurement.arc),
         originalShape: cloneShape(measurement.shape),
         originalMergeMemory: cloneValue(measurement.mergeMemory),
         originalFrame: measurement.rotationFrame ? { ...measurement.rotationFrame } : null,
@@ -382,6 +469,14 @@
     measurement.points = geometry.translatePoints(drag.originalPoints, dx, dy);
     if (isCurveMeasurement(measurement) && drag.originalSegments) {
       measurement.segments = geometry.translateSegments(drag.originalSegments, dx, dy);
+    }
+    if (drag.originalCircle) {
+      measurement.circle = translateCircle(drag.originalCircle, dx, dy);
+      measurement.points = circleAnchorPoints(measurement.circle);
+    }
+    if (drag.originalArc) {
+      measurement.arc = translateArc(drag.originalArc, dx, dy);
+      measurement.points = arcAnchorPoints(measurement.arc);
     }
     if (drag.originalShape) measurement.shape = translateShape(drag.originalShape, dx, dy);
     if (drag.originalMergeMemory) measurement.mergeMemory = translateMergeMemory(drag.originalMergeMemory, dx, dy);
@@ -424,6 +519,8 @@
     originalFrame = null,
     originalPoints,
     originalSegments = null,
+    originalCircle = null,
+    originalArc = null,
     originalShape = null,
     originalMergeMemory = null,
     nextAngle,
@@ -440,6 +537,12 @@
       : null;
     const constrainedGeometry = constrainGeometry(rotatedPoints, isCurve ? rotatedSegments : null);
     const constrainedDelta = firstPointDelta(rotatedPoints, constrainedGeometry.points);
+    const rotatedCircle = originalCircle
+      ? translateCircle(rotateCircle(originalCircle, center, rotateDelta), constrainedDelta.dx, constrainedDelta.dy)
+      : null;
+    const rotatedArc = originalArc
+      ? translateArc(rotateArc(originalArc, center, rotateDelta), constrainedDelta.dx, constrainedDelta.dy)
+      : null;
     const rotatedShape = originalShape ? translateShape(rotateShape(originalShape, center, rotateDelta), constrainedDelta.dx, constrainedDelta.dy) : null;
     const rotatedMergeMemory = originalMergeMemory
       ? translateMergeMemory(rotateMergeMemory(originalMergeMemory, center, rotateDelta), constrainedDelta.dx, constrainedDelta.dy)
@@ -448,6 +551,14 @@
     measurement.points = constrainedGeometry.points;
     if (isCurve && constrainedGeometry.segments) {
       measurement.segments = constrainedGeometry.segments;
+    }
+    if (rotatedCircle) {
+      measurement.circle = rotatedCircle;
+      measurement.points = circleAnchorPoints(rotatedCircle);
+    }
+    if (rotatedArc) {
+      measurement.arc = rotatedArc;
+      measurement.points = arcAnchorPoints(rotatedArc);
     }
     if (rotatedShape) measurement.shape = rotatedShape;
     if (rotatedMergeMemory) measurement.mergeMemory = rotatedMergeMemory;
@@ -485,6 +596,8 @@
       originalFrame: drag.originalFrame,
       originalPoints: drag.originalPoints,
       originalSegments: drag.originalSegments,
+      originalCircle: drag.originalCircle,
+      originalArc: drag.originalArc,
       originalShape: drag.originalShape,
       originalMergeMemory: drag.originalMergeMemory,
       nextAngle,
@@ -519,6 +632,12 @@
       : null;
     const constrainedGeometry = constrainGeometry(scaledPoints, isCurve ? scaledSegments : null);
     const constrainedDelta = firstPointDelta(scaledPoints, constrainedGeometry.points);
+    const scaledCircle = drag.originalCircle
+      ? translateCircle(scaleCircle(drag.originalCircle, drag.center, scale), constrainedDelta.dx, constrainedDelta.dy)
+      : null;
+    const scaledArc = drag.originalArc
+      ? translateArc(scaleArc(drag.originalArc, drag.center, scale), constrainedDelta.dx, constrainedDelta.dy)
+      : null;
     const scaledShape = drag.originalShape
       ? translateShape(scaleShape(drag.originalShape, drag.center, scale), constrainedDelta.dx, constrainedDelta.dy)
       : null;
@@ -528,6 +647,14 @@
 
     measurement.points = constrainedGeometry.points;
     if (isCurve && constrainedGeometry.segments) measurement.segments = constrainedGeometry.segments;
+    if (scaledCircle) {
+      measurement.circle = scaledCircle;
+      measurement.points = circleAnchorPoints(scaledCircle);
+    }
+    if (scaledArc) {
+      measurement.arc = scaledArc;
+      measurement.points = arcAnchorPoints(scaledArc);
+    }
     if (scaledShape) measurement.shape = scaledShape;
     if (scaledMergeMemory) measurement.mergeMemory = scaledMergeMemory;
     measurement.rotationFrame = {
@@ -558,6 +685,8 @@
       originalFrame: measurement.rotationFrame ? { ...measurement.rotationFrame } : null,
       originalPoints: clonePoints(measurement.points),
       originalSegments: isCurveMeasurement(measurement) ? cloneSegments(measurement.segments) : null,
+      originalCircle: cloneCircle(measurement.circle),
+      originalArc: cloneArc(measurement.arc),
       originalShape: cloneShape(measurement.shape),
       originalMergeMemory: cloneValue(measurement.mergeMemory),
       nextAngle,

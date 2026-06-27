@@ -68,6 +68,74 @@ test('measurement shape helpers prefer explicit metadata and infer legacy shape'
   assert.equal(measurements.isLineMeasurement({ points: [] }), true);
 });
 
+test('circle measurements expose semantic length, display points, bounds, and projection', async () => {
+  const measurements = await loadMeasurements();
+  const measurement = {
+    shape: { active: 'circle' },
+    circle: {
+      center: { x: 10, y: 20 },
+      radius: 5,
+    },
+  };
+
+  assert.equal(measurements.measurementShapeKind(measurement), 'circle');
+  assert.equal(measurements.isCircleMeasurement(measurement), true);
+  assert.equal(measurements.measurementLengthPx(measurement), 10 * Math.PI);
+  const points = measurements.measurementDisplayPoints(measurement);
+  assert.ok(points.length >= 33);
+  assert.deepEqual(JSON.parse(JSON.stringify(points[0])), { x: 15, y: 20 });
+  assert.deepEqual(JSON.parse(JSON.stringify(measurements.measurementBounds(measurement))), {
+    x: 5,
+    y: 15,
+    width: 10,
+    height: 10,
+    cx: 10,
+    cy: 20,
+  });
+
+  const hit = measurements.projectPointToCircleMeasurement({ x: 10, y: 27 }, measurement);
+  assert.equal(hit.type, 'circle');
+  assert.deepEqual(JSON.parse(JSON.stringify(hit.point)), { x: 10, y: 25 });
+  assert.equal(hit.distance, 2);
+});
+
+test('arc measurements expose semantic length, angle, display points, bounds, and projection', async () => {
+  const measurements = await loadMeasurements();
+  const measurement = {
+    shape: { active: 'arc' },
+    arc: {
+      center: { x: 0, y: 0 },
+      radius: 10,
+      startAngle: 0,
+      sweep: Math.PI / 2,
+    },
+  };
+
+  assert.equal(measurements.measurementShapeKind(measurement), 'arc');
+  assert.equal(measurements.isArcMeasurement(measurement), true);
+  assert.equal(measurements.measurementLengthPx(measurement), 5 * Math.PI);
+  assert.deepEqual(JSON.parse(JSON.stringify(measurements.arcMeasurementMetrics(measurement))), {
+    radiusPx: 10,
+    lengthPx: 5 * Math.PI,
+    angleRadians: Math.PI / 2,
+    angleDegrees: 90,
+  });
+  const points = measurements.measurementDisplayPoints(measurement);
+  assert.deepEqual(JSON.parse(JSON.stringify(points[0])), { x: 10, y: 0 });
+  assert.ok(Math.abs(points[points.length - 1].x) < 0.000001);
+  assert.ok(Math.abs(points[points.length - 1].y - 10) < 0.000001);
+  const bounds = measurements.measurementBounds(measurement);
+  assert.ok(Math.abs(bounds.x) < 0.000001);
+  assert.ok(Math.abs(bounds.y) < 0.000001);
+  assert.ok(Math.abs(bounds.width - 10) < 0.000001);
+  assert.ok(Math.abs(bounds.height - 10) < 0.000001);
+
+  const hit = measurements.projectPointToArcMeasurement({ x: 7, y: 7 }, measurement);
+  assert.equal(hit.type, 'arc');
+  assert.ok(hit.distance < 0.2);
+  assert.ok(hit.localT > 0.49 && hit.localT < 0.51);
+});
+
 test('closed measurement helpers require a snapped terminal endpoint and compute area', async () => {
   const measurements = await loadMeasurements();
   const closed = {
@@ -89,6 +157,49 @@ test('closed measurement helpers require a snapped terminal endpoint and compute
   assert.deepEqual(JSON.parse(JSON.stringify(measurements.measurementAreaCenter(closed))), { x: 10, y: 5 });
   assert.equal(measurements.isClosedMeasurement(unsnapped), false);
   assert.equal(measurements.measurementAreaPx(unsnapped), null);
+});
+
+test('closed measurement helpers reject self-intersecting areas', async () => {
+  const measurements = await loadMeasurements();
+  const crossed = {
+    id: 'crossed-room',
+    shape: { active: 'line' },
+    points: [
+      { x: 0, y: 0 },
+      { x: 4, y: 10 },
+      { x: 8, y: 0 },
+      { x: 0, y: 6 },
+      { x: 8, y: 6 },
+      { x: 0, y: 0 },
+    ],
+    snapConnections: [{ endpoint: 'end', targetId: 'crossed-room', targetEndpoint: 'start' }],
+  };
+
+  assert.equal(measurements.isClosedMeasurement(crossed), false);
+  assert.equal(measurements.measurementAreaPx(crossed), null);
+  assert.equal(measurements.measurementAreaCenter(crossed), null);
+});
+
+test('closed curve area uses enough precision for circle-like freehand paths', async () => {
+  const measurements = await loadMeasurements();
+  const radius = 100;
+  const control = 0.5522847498307936 * radius;
+  const measurement = {
+    id: 'round-room',
+    shape: { active: 'freehand' },
+    segments: [
+      { type: 'cubic', from: { x: radius, y: 0 }, c1: { x: radius, y: control }, c2: { x: control, y: radius }, to: { x: 0, y: radius } },
+      { type: 'cubic', from: { x: 0, y: radius }, c1: { x: -control, y: radius }, c2: { x: -radius, y: control }, to: { x: -radius, y: 0 } },
+      { type: 'cubic', from: { x: -radius, y: 0 }, c1: { x: -radius, y: -control }, c2: { x: -control, y: -radius }, to: { x: 0, y: -radius } },
+      { type: 'cubic', from: { x: 0, y: -radius }, c1: { x: control, y: -radius }, c2: { x: radius, y: -control }, to: { x: radius, y: 0 } },
+    ],
+    snapConnections: [{ endpoint: 'end', targetId: 'round-room', targetEndpoint: 'start' }],
+  };
+
+  assert.ok(Math.abs(measurements.measurementAreaPx(measurement) - Math.PI * radius * radius) < 15);
+  const center = measurements.measurementAreaCenter(measurement);
+  assert.ok(Math.abs(center.x) < 0.000001);
+  assert.ok(Math.abs(center.y) < 0.000001);
 });
 
 test('active line metadata ignores stale freehand segments for geometry', async () => {

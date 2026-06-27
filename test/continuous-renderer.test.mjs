@@ -142,6 +142,38 @@ test('measurementToStackMeasurement offsets page-owned line and freehand geometr
   assert.deepEqual(plain(source.points[0]), { x: 1, y: 2 });
 });
 
+test('measurementToStackMeasurement offsets semantic circle and arc centers', async () => {
+  const renderer = await loadContinuousRenderer();
+  const layout = renderer.buildContinuousPageLayout([
+    { page: 1, cssWidth: 100, cssHeight: 50 },
+    { page: 2, cssWidth: 80, cssHeight: 60 },
+  ], { pageGap: 10 });
+  const circle = {
+    id: 11,
+    page: 2,
+    drawType: 'circle',
+    points: [{ x: 20, y: 10 }, { x: 30, y: 10 }],
+    circle: { center: { x: 20, y: 10 }, radius: 10 },
+  };
+  const arc = {
+    id: 12,
+    page: 2,
+    drawType: 'arc',
+    points: [{ x: 30, y: 10 }, { x: 20, y: 20 }],
+    arc: { center: { x: 20, y: 10 }, radius: 10, startAngle: 0, sweep: Math.PI / 2 },
+  };
+
+  const stackedCircle = renderer.measurementToStackMeasurement(circle, layout);
+  const stackedArc = renderer.measurementToStackMeasurement(arc, layout);
+
+  assert.deepEqual(plain(stackedCircle.circle), { center: { x: 30, y: 70 }, radius: 10 });
+  assert.deepEqual(plain(stackedCircle.points), [{ x: 30, y: 70 }, { x: 40, y: 70 }]);
+  assert.deepEqual(plain(stackedArc.arc.center), { x: 30, y: 70 });
+  assert.equal(stackedArc.arc.radius, 10);
+  assert.deepEqual(plain(stackedArc.points), [{ x: 40, y: 70 }, { x: 30, y: 80 }]);
+  assert.deepEqual(plain(circle.circle.center), { x: 20, y: 10 });
+});
+
 test('measurementToStackMeasurement offsets mixed source geometry without mutating stored merge memory', async () => {
   const renderer = await loadContinuousRenderer();
   const layout = renderer.buildContinuousPageLayout([

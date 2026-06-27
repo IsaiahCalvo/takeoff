@@ -61,9 +61,10 @@
       c: 'calibrate',
       m: 'measure',
       p: 'pan',
-      e: 'erase',
     };
     if (modeHotkeys[key]) return { action: 'set-mode', mode: modeHotkeys[key] };
+    if (key === 'e') return { action: 'set-draw-tool', tool: 'circle' };
+    if (key === 'a') return { action: 'set-draw-tool', tool: 'arc' };
     if (key === 'f') return { action: 'fit-view' };
     return null;
   }
