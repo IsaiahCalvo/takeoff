@@ -4,9 +4,13 @@ import vm from 'node:vm';
 import { readFile } from 'node:fs/promises';
 
 async function loadCircleArcTool() {
-  const source = await readFile(new URL('../src/app/circle-arc-tool.js', import.meta.url), 'utf8');
+  const [geometry, source] = await Promise.all([
+    readFile(new URL('../src/app/geometry.js', import.meta.url), 'utf8'),
+    readFile(new URL('../src/app/circle-arc-tool.js', import.meta.url), 'utf8'),
+  ]);
   const sandbox = { window: {} };
   vm.createContext(sandbox);
+  vm.runInContext(geometry, sandbox, { filename: 'geometry.js' });
   vm.runInContext(source, sandbox, { filename: 'circle-arc-tool.js' });
   return sandbox.window.TakeoffCircleArcTool;
 }
@@ -39,4 +43,28 @@ test('draft prompt model names circle and arc modes with the next required point
     metricText: 'Angle 90.0 deg | 1.571 rad',
   });
   assert.equal(tool.promptModel({ mode: 'line' }), null);
+});
+
+test('circle geometry keeps the source tool dimension and handle point', async () => {
+  const tool = await loadCircleArcTool();
+
+  assert.deepEqual(plain(tool.geometryFromPoints('circle-radius', [
+    { x: 10, y: 10 },
+    { x: 10, y: 18 },
+  ])), {
+    kind: 'circle',
+    circle: { center: { x: 10, y: 10 }, radius: 8 },
+    circleDimension: 'radius',
+    handlePoint: { x: 10, y: 18 },
+  });
+
+  assert.deepEqual(plain(tool.geometryFromPoints('circle-diameter', [
+    { x: 10, y: 10 },
+    { x: 10, y: 26 },
+  ])), {
+    kind: 'circle',
+    circle: { center: { x: 10, y: 10 }, radius: 8 },
+    circleDimension: 'diameter',
+    handlePoint: { x: 10, y: 26 },
+  });
 });

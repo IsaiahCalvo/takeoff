@@ -16,12 +16,20 @@
     return handles;
   }
 
+  function finitePoint(point) {
+    return !!(point && Number.isFinite(point.x) && Number.isFinite(point.y));
+  }
+
   function circleSnapHandles(measurement) {
     if (!measurements.isCircleMeasurement?.(measurement)) return [];
     const circle = measurement.circle;
+    const handlePoint = finitePoint(measurement.points?.[1])
+      ? measurement.points[1]
+      : { x: circle.center.x + circle.radius, y: circle.center.y };
+    const handleKind = measurement.shape?.circleDimension === 'diameter' ? 'circle-diameter' : 'circle-radius';
     return [
       { kind: 'circle-center', point: circle.center },
-      { kind: 'circle-radius', point: { x: circle.center.x + circle.radius, y: circle.center.y } },
+      { kind: handleKind, point: handlePoint },
     ];
   }
 
@@ -30,10 +38,12 @@
     const start = geometry.arcPointAtT(measurement.arc, 0);
     const end = geometry.arcPointAtT(measurement.arc, 1);
     const center = measurement.arc.center;
+    const midpoint = geometry.arcPointAtT(measurement.arc, 0.5);
     return [
       start ? { kind: 'arc-start', point: start } : null,
       end ? { kind: 'arc-end', point: end } : null,
       center ? { kind: 'arc-center', point: center } : null,
+      midpoint ? { kind: 'arc-midpoint', point: midpoint } : null,
     ].filter(Boolean);
   }
 
@@ -126,13 +136,11 @@
         continue;
       }
       if (measurements.isArcMeasurement?.(measurement)) {
-        const start = geometry.arcPointAtT(measurement.arc, 0);
-        const end = geometry.arcPointAtT(measurement.arc, 1);
-        for (const handle of [start, end].map((anchorPoint, vertexIndex) => ({
+        for (const handle of arcSnapHandles(measurement).map((arcHandle, vertexIndex) => ({
           kind: 'line-anchor',
           vertexIndex,
-          point: anchorPoint,
-        })).filter(handle => handle.point)) {
+          point: arcHandle.point,
+        }))) {
           consider(measurement, handle);
         }
         continue;

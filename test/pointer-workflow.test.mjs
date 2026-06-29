@@ -487,7 +487,10 @@ test('applyMeasurementDrag translates semantic circle and arc geometry', async (
   assert.deepEqual(plain(circle.points), [{ x: 14, y: 16 }, { x: 19, y: 16 }]);
   assert.deepEqual(plain(circle.rotationFrame), { x: 9, y: 11, width: 10, height: 10, cx: 14, cy: 16 });
   assert.deepEqual(plain(arc.arc.center), { x: 17, y: 12 });
-  assert.deepEqual(plain(arc.points), [{ x: 27, y: 12 }, { x: 17, y: 22 }]);
+  assert.equal(arc.points.length, 4);
+  assert.deepEqual(plain(arc.points.slice(0, 3)), [{ x: 27, y: 12 }, { x: 17, y: 22 }, { x: 17, y: 12 }]);
+  assert.ok(Math.abs(arc.points[3].x - 24.071067811865476) < 0.000001);
+  assert.ok(Math.abs(arc.points[3].y - 19.071067811865476) < 0.000001);
 });
 
 test('applyMeasurementGroupDrag moves every selected measurement by one shared delta', async () => {
@@ -715,7 +718,10 @@ test('applyTransformResizeDrag scales semantic circle and arc geometry', async (
   assert.deepEqual(plain(circle.points), [{ x: 10, y: 10 }, { x: 20, y: 10 }]);
   assert.deepEqual(plain(arc.arc.center), { x: 20, y: 10 });
   assert.equal(arc.arc.radius, 20);
-  assert.deepEqual(plain(arc.points), [{ x: 40, y: 10 }, { x: 20, y: 30 }]);
+  assert.equal(arc.points.length, 4);
+  assert.deepEqual(plain(arc.points.slice(0, 3)), [{ x: 40, y: 10 }, { x: 20, y: 30 }, { x: 20, y: 10 }]);
+  assert.ok(Math.abs(arc.points[3].x - 34.14213562373095) < 0.000001);
+  assert.ok(Math.abs(arc.points[3].y - 24.14213562373095) < 0.000001);
 });
 
 test('applyMeasurementRotation rotates from current angle to a requested angle', async () => {

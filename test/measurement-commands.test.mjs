@@ -257,6 +257,51 @@ test('createCircleMeasurement builds a scaled semantic circle run', async () => 
   assert.equal(measurement.panelOrder, 9);
 });
 
+test('semantic circle handles preserve radius or diameter editing intent', async () => {
+  const commands = await loadCommands();
+  const radiusCircle = commands.createCircleMeasurement({
+    id: 39,
+    circle: { center: { x: 10, y: 10 }, radius: 5 },
+    circleDimension: 'radius',
+    handlePoint: { x: 10, y: 15 },
+    existingMeasurements: [],
+    palette: [],
+    page: 1,
+    pxPerInch: 1,
+  });
+  const diameterCircle = commands.createCircleMeasurement({
+    id: 40,
+    circle: { center: { x: 10, y: 10 }, radius: 5 },
+    circleDimension: 'diameter',
+    handlePoint: { x: 20, y: 10 },
+    existingMeasurements: [radiusCircle],
+    palette: [],
+    page: 1,
+    pxPerInch: 1,
+  });
+
+  assert.equal(radiusCircle.shape.circleDimension, 'radius');
+  assert.deepEqual(plain(radiusCircle.points), [{ x: 10, y: 10 }, { x: 10, y: 15 }]);
+  assert.equal(diameterCircle.shape.circleDimension, 'diameter');
+  assert.deepEqual(plain(diameterCircle.points), [{ x: 10, y: 10 }, { x: 20, y: 10 }]);
+
+  assert.equal(commands.resizeMeasurementToLength(radiusCircle, { targetLengthInches: 20 * Math.PI, pxPerInch: 1 }), true);
+  assert.equal(radiusCircle.circle.radius, 10);
+  assert.deepEqual(plain(radiusCircle.points), [{ x: 10, y: 10 }, { x: 10, y: 20 }]);
+
+  assert.equal(commands.resizeMeasurementToLength(diameterCircle, { targetLengthInches: 20 * Math.PI, pxPerInch: 1 }), true);
+  assert.equal(diameterCircle.circle.radius, 10);
+  assert.deepEqual(plain(diameterCircle.points), [{ x: 10, y: 10 }, { x: 30, y: 10 }]);
+
+  assert.equal(commands.applyVertexDrag(radiusCircle, { kind: 'line-anchor', vertexIndex: 1 }, { x: 10, y: 24 }), true);
+  assert.equal(radiusCircle.circle.radius, 14);
+  assert.deepEqual(plain(radiusCircle.points), [{ x: 10, y: 10 }, { x: 10, y: 24 }]);
+
+  assert.equal(commands.applyVertexDrag(diameterCircle, { kind: 'line-anchor', vertexIndex: 1 }, { x: 38, y: 10 }), true);
+  assert.equal(diameterCircle.circle.radius, 14);
+  assert.deepEqual(plain(diameterCircle.points), [{ x: 10, y: 10 }, { x: 38, y: 10 }]);
+});
+
 test('createArcMeasurement builds a scaled semantic arc run', async () => {
   const commands = await loadCommands();
   const arc = {
@@ -378,13 +423,43 @@ test('applyVertexDrag updates semantic circle radius and arc endpoint geometry',
 
   assert.equal(commands.applyVertexDrag(circle, { kind: 'line-anchor', vertexIndex: 1 }, { x: 10, y: 22 }), true);
   assert.equal(circle.circle.radius, 12);
-  assert.deepEqual(plain(circle.points), [{ x: 10, y: 10 }, { x: 22, y: 10 }]);
+  assert.deepEqual(plain(circle.points), [{ x: 10, y: 10 }, { x: 10, y: 22 }]);
 
   assert.equal(commands.applyVertexDrag(arc, { kind: 'line-anchor', vertexIndex: 1 }, { x: -10, y: 0 }), true);
   assert.deepEqual(plain(arc.points[0]), { x: 10, y: 0 });
   assert.ok(Math.abs(arc.points[1].x - -10) < 0.000001);
   assert.ok(Math.abs(arc.points[1].y) < 0.000001);
   assert.ok(Math.abs(arc.arc.sweep - Math.PI) < 0.000001);
+});
+
+test('applyVertexDrag keeps arc handles at endpoints, apex, and curve midpoint', async () => {
+  const commands = await loadCommands();
+  const arc = commands.createArcMeasurement({
+    id: 41,
+    arc: { center: { x: 0, y: 0 }, radius: 10, startAngle: 0, sweep: Math.PI / 2 },
+    existingMeasurements: [],
+    palette: [],
+    page: 1,
+  });
+
+  assert.equal(arc.points.length, 4);
+  assert.deepEqual(plain(arc.points[0]), { x: 10, y: 0 });
+  assert.ok(Math.abs(arc.points[1].x) < 0.000001);
+  assert.ok(Math.abs(arc.points[1].y - 10) < 0.000001);
+  assert.deepEqual(plain(arc.points[2]), { x: 0, y: 0 });
+  assert.ok(Math.abs(arc.points[3].x - Math.SQRT1_2 * 10) < 0.000001);
+  assert.ok(Math.abs(arc.points[3].y - Math.SQRT1_2 * 10) < 0.000001);
+
+  assert.equal(commands.applyVertexDrag(arc, { kind: 'line-anchor', vertexIndex: 3 }, { x: 10, y: 10 }), true);
+
+  assert.ok(Math.abs(arc.arc.center.x - 5) < 0.000001);
+  assert.ok(Math.abs(arc.arc.center.y - 5) < 0.000001);
+  assert.ok(Math.abs(arc.arc.radius - Math.SQRT1_2 * 10) < 0.000001);
+  assert.equal(arc.points.length, 4);
+  assert.deepEqual(plain(arc.points[0]), { x: 10, y: 0 });
+  assert.deepEqual(plain(arc.points[1]), { x: 0, y: 10 });
+  assert.deepEqual(plain(arc.points[2]), { x: 5, y: 5 });
+  assert.deepEqual(plain(arc.points[3]), { x: 10, y: 10 });
 });
 
 test('createFreehandMeasurement snapshots selected path metadata and style', async () => {

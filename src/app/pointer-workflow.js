@@ -58,6 +58,19 @@
     return transformShape(shape, point => ({ x: point.x + dx, y: point.y + dy }));
   }
 
+  function normalizeCircleDimension(value) {
+    return value === 'diameter' ? 'diameter' : 'radius';
+  }
+
+  function circleDimensionForShape(shape) {
+    return normalizeCircleDimension(shape?.circleDimension);
+  }
+
+  function circleHandleAngleForShape(shape) {
+    const angle = Number(shape?.circleHandleAngle);
+    return Number.isFinite(angle) ? angle : 0;
+  }
+
   function translateCircle(circle, dx, dy) {
     return circle ? {
       ...circle,
@@ -109,17 +122,28 @@
     } : null;
   }
 
-  function circleAnchorPoints(circle) {
+  function circleAnchorPoints(circle, shape = null) {
+    const dimension = circleDimensionForShape(shape);
+    const angle = circleHandleAngleForShape(shape);
+    const handleLength = circle?.radius * (dimension === 'diameter' ? 2 : 1);
     return circle ? [
       clonePoint(circle.center),
-      { x: circle.center.x + circle.radius, y: circle.center.y },
+      {
+        x: circle.center.x + Math.cos(angle) * handleLength,
+        y: circle.center.y + Math.sin(angle) * handleLength,
+      },
     ] : [];
   }
 
   function arcAnchorPoints(arc) {
+    const start = arc ? geometry.arcPointAtT(arc, 0) : null;
+    const end = arc ? geometry.arcPointAtT(arc, 1) : null;
+    const midpoint = arc ? geometry.arcPointAtT(arc, 0.5) : null;
     return arc ? [
-      geometry.arcPointAtT(arc, 0),
-      geometry.arcPointAtT(arc, 1),
+      start,
+      end,
+      clonePoint(arc.center),
+      midpoint,
     ].filter(Boolean) : [];
   }
 
@@ -155,7 +179,11 @@
   }
 
   function rotateShape(shape, center, degrees) {
-    return transformShape(shape, point => geometry.rotatePoint(point, center, degrees));
+    const rotated = transformShape(shape, point => geometry.rotatePoint(point, center, degrees));
+    if (rotated && Number.isFinite(rotated.circleHandleAngle)) {
+      rotated.circleHandleAngle += degrees * Math.PI / 180;
+    }
+    return rotated;
   }
 
   function rotateMergeMemory(memory, center, degrees) {
@@ -472,7 +500,7 @@
     }
     if (drag.originalCircle) {
       measurement.circle = translateCircle(drag.originalCircle, dx, dy);
-      measurement.points = circleAnchorPoints(measurement.circle);
+      measurement.points = circleAnchorPoints(measurement.circle, drag.originalShape || measurement.shape);
     }
     if (drag.originalArc) {
       measurement.arc = translateArc(drag.originalArc, dx, dy);
@@ -554,7 +582,7 @@
     }
     if (rotatedCircle) {
       measurement.circle = rotatedCircle;
-      measurement.points = circleAnchorPoints(rotatedCircle);
+      measurement.points = circleAnchorPoints(rotatedCircle, rotatedShape || originalShape || measurement.shape);
     }
     if (rotatedArc) {
       measurement.arc = rotatedArc;
@@ -649,7 +677,7 @@
     if (isCurve && constrainedGeometry.segments) measurement.segments = constrainedGeometry.segments;
     if (scaledCircle) {
       measurement.circle = scaledCircle;
-      measurement.points = circleAnchorPoints(scaledCircle);
+      measurement.points = circleAnchorPoints(scaledCircle, scaledShape || drag.originalShape || measurement.shape);
     }
     if (scaledArc) {
       measurement.arc = scaledArc;

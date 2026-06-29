@@ -276,6 +276,39 @@ test('findSnapTarget and path hits support semantic arcs', async () => {
   assert.ok(pathHit.localT > 0.49 && pathHit.localT < 0.51);
 });
 
+test('semantic arc edit handles include apex, endpoints, and curve midpoint', async () => {
+  const hitTesting = await loadHitTesting();
+  const arc = {
+    id: 'arc-2',
+    shape: { active: 'arc' },
+    arc: {
+      center: { x: 0, y: 0 },
+      radius: 10,
+      startAngle: 0,
+      sweep: Math.PI / 2,
+    },
+  };
+
+  assert.deepEqual(JSON.parse(JSON.stringify(hitTesting.findNearestVertex([arc], { x: 0, y: 0 }, 2))), {
+    measurementId: 'arc-2',
+    kind: 'line-anchor',
+    vertexIndex: 2,
+  });
+  assert.deepEqual(JSON.parse(JSON.stringify(hitTesting.findNearestVertex([arc], { x: 7, y: 7 }, 2))), {
+    measurementId: 'arc-2',
+    kind: 'line-anchor',
+    vertexIndex: 3,
+  });
+
+  const midpointSnap = hitTesting.findSnapTarget([arc], { x: 7, y: 7 }, {
+    anchorTolerance: 2,
+    centerlineTolerance: 0,
+  });
+  assert.equal(midpointSnap.kind, 'anchor');
+  assert.equal(midpointSnap.anchorKind, 'arc-midpoint');
+  assert.equal(midpointSnap.endpoint, null);
+});
+
 test('findSnapTarget snaps to Freehand sampled centerlines within tolerance', async () => {
   const hitTesting = await loadHitTesting();
   const hit = hitTesting.findSnapTarget([

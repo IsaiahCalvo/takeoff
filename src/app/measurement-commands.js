@@ -307,6 +307,38 @@
     } : null;
   }
 
+  function finitePoint(point) {
+    return !!(point && Number.isFinite(point.x) && Number.isFinite(point.y));
+  }
+
+  function normalizeCircleDimension(value) {
+    return value === 'diameter' ? 'diameter' : 'radius';
+  }
+
+  function circleDimensionForMeasurement(measurementOrShape) {
+    const shape = measurementOrShape?.shape || measurementOrShape;
+    return normalizeCircleDimension(shape?.circleDimension);
+  }
+
+  function circleHandleAngleForPoint(circle, point) {
+    if (!finitePoint(circle?.center) || !finitePoint(point)) return 0;
+    return geometry.angleRadFromCenter(circle.center, point);
+  }
+
+  function circleHandleAngleForMeasurement(measurementOrShape) {
+    const shape = measurementOrShape?.shape || measurementOrShape;
+    const angle = Number(shape?.circleHandleAngle);
+    return Number.isFinite(angle) ? angle : 0;
+  }
+
+  function setCircleHandleAngle(measurement, point) {
+    if (!measurement?.circle || !point) return;
+    measurement.shape = measurementModel.cloneShapeMetadata?.(measurement.shape, 'circle') || measurementModel.createShapeMetadata('circle', measurement.shape);
+    measurement.shape.active = 'circle';
+    measurement.shape.circleDimension = circleDimensionForMeasurement(measurement);
+    measurement.shape.circleHandleAngle = circleHandleAngleForPoint(measurement.circle, point);
+  }
+
   function cloneArc(arc) {
     if (!arc || !Number.isFinite(arc.radius) || arc.radius <= 0 || !Number.isFinite(arc.startAngle) || !Number.isFinite(arc.sweep)) return null;
     const cloned = {
@@ -318,17 +350,28 @@
     return geometry.arcPointAtT(cloned, 0) && geometry.arcPointAtT(cloned, 1) ? cloned : null;
   }
 
-  function circleAnchorPoints(circle) {
+  function circleAnchorPoints(circle, measurementOrShape = null) {
+    const dimension = circleDimensionForMeasurement(measurementOrShape);
+    const angle = circleHandleAngleForMeasurement(measurementOrShape);
+    const handleLength = circle.radius * (dimension === 'diameter' ? 2 : 1);
     return [
       clonePoint(circle.center),
-      { x: circle.center.x + circle.radius, y: circle.center.y },
+      {
+        x: circle.center.x + Math.cos(angle) * handleLength,
+        y: circle.center.y + Math.sin(angle) * handleLength,
+      },
     ];
   }
 
   function arcAnchorPoints(arc) {
+    const start = geometry.arcPointAtT(arc, 0);
+    const end = geometry.arcPointAtT(arc, 1);
+    const midpoint = geometry.arcPointAtT(arc, 0.5);
     return [
-      geometry.arcPointAtT(arc, 0),
-      geometry.arcPointAtT(arc, 1),
+      start,
+      end,
+      arc?.center ? clonePoint(arc.center) : null,
+      midpoint,
     ].filter(Boolean);
   }
 
@@ -400,6 +443,8 @@
   function createCircleMeasurement({
     id,
     circle,
+    circleDimension,
+    handlePoint,
     existingMeasurements,
     palette,
     page,
@@ -410,7 +455,11 @@
   }) {
     const clonedCircle = cloneCircle(circle);
     if (!clonedCircle) return null;
-    const points = circleAnchorPoints(clonedCircle);
+    const shape = measurementModel.createShapeMetadata('circle', {
+      circleDimension: normalizeCircleDimension(circleDimension),
+      circleHandleAngle: circleHandleAngleForPoint(clonedCircle, handlePoint),
+    });
+    const points = circleAnchorPoints(clonedCircle, shape);
     const lengthPx = geometry.circleCircumferencePx(clonedCircle);
     const pathSnapshot = selectedPathSnapshot(activePath);
     const color = colorFromPathSnapshot(pathSnapshot, nextMeasurementColor(existingMeasurements, palette));
@@ -422,7 +471,7 @@
       ...(pathSnapshot || {}),
       ...(assignedPanelOrder != null ? { panelOrder: assignedPanelOrder } : {}),
       drawType: 'circle',
-      shape: measurementModel.createShapeMetadata('circle'),
+      shape,
       points,
       circle: clonedCircle,
       lengthInches: pxPerInch ? lengthPx / pxPerInch : null,
@@ -545,20 +594,35 @@
       if (drag.vertexIndex === 0) {
         measurement.circle = { ...measurement.circle, center: clonePoint(point) };
       } else if (drag.vertexIndex === 1) {
-        const radius = geometry.distancePx(measurement.circle.center, point);
+        const handleDistance = geometry.distancePx(measurement.circle.center, point);
+        const dimension = circleDimensionForMeasurement(measurement);
+        const radius = handleDistance / (dimension === 'diameter' ? 2 : 1);
         if (!(radius > 0)) return false;
         measurement.circle = { ...measurement.circle, radius };
+        setCircleHandleAngle(measurement, point);
       } else {
         return false;
       }
-      measurement.points = circleAnchorPoints(measurement.circle);
+      measurement.points = circleAnchorPoints(measurement.circle, measurement);
       return true;
     }
     if (measurementModel.isArcMeasurement?.(measurement)) {
-      const start = drag.vertexIndex === 0 ? point : geometry.arcPointAtT(measurement.arc, 0);
-      const end = drag.vertexIndex === 1 ? point : geometry.arcPointAtT(measurement.arc, 1);
-      if (!start || !end || (drag.vertexIndex !== 0 && drag.vertexIndex !== 1)) return false;
-      const arc = geometry.arcFromCenterStartEnd(measurement.arc.center, start, end);
+      const start = geometry.arcPointAtT(measurement.arc, 0);
+      const end = geometry.arcPointAtT(measurement.arc, 1);
+      let arc = null;
+      if (drag.vertexIndex === 0) {
+        arc = geometry.arcFromCenterStartEnd(measurement.arc.center, point, end);
+      } else if (drag.vertexIndex === 1) {
+        arc = geometry.arcFromCenterStartEnd(measurement.arc.center, start, point);
+      } else if (drag.vertexIndex === 2) {
+        const dx = point.x - measurement.arc.center.x;
+        const dy = point.y - measurement.arc.center.y;
+        arc = translateArcGeometry(measurement.arc, dx, dy);
+      } else if (drag.vertexIndex === 3) {
+        arc = geometry.arcFromThreePoints(start, point, end);
+      } else {
+        return false;
+      }
       if (!arc) return false;
       measurement.arc = arc;
       measurement.points = arcAnchorPoints(arc);
@@ -1342,7 +1406,7 @@
       measurementModel.updateCurveAnchors(measurement);
     } else if (measurementModel.isCircleMeasurement?.(measurement)) {
       measurement.circle = scaleCircleGeometryAround(measurement.circle, startAnchor, scale);
-      measurement.points = circleAnchorPoints(measurement.circle);
+      measurement.points = circleAnchorPoints(measurement.circle, measurement);
     } else if (measurementModel.isArcMeasurement?.(measurement)) {
       measurement.arc = scaleArcGeometryAround(measurement.arc, startAnchor, scale);
       measurement.points = arcAnchorPoints(measurement.arc);

@@ -38,10 +38,30 @@
 
   function geometryFromPoints(mode, points) {
     if (!Array.isArray(points) || points.length < requiredPointCount(mode)) return null;
-    if (mode === 'circle-radius') return { kind: 'circle', circle: geometry.circleFromCenterRadius(points[0], points[1]) };
-    if (mode === 'circle-diameter') return { kind: 'circle', circle: geometry.circleFromCenterRadius(points[0], geometry.distancePx(points[0], points[1]) / 2) };
-    if (mode === 'circle-2p') return { kind: 'circle', circle: geometry.circleFromDiameterPoints(points[0], points[1]) };
-    if (mode === 'circle-3p') return { kind: 'circle', circle: geometry.circleFromThreePoints(points[0], points[1], points[2]) };
+    if (mode === 'circle-radius') return {
+      kind: 'circle',
+      circle: geometry.circleFromCenterRadius(points[0], points[1]),
+      circleDimension: 'radius',
+      handlePoint: points[1],
+    };
+    if (mode === 'circle-diameter') return {
+      kind: 'circle',
+      circle: geometry.circleFromCenterRadius(points[0], geometry.distancePx(points[0], points[1]) / 2),
+      circleDimension: 'diameter',
+      handlePoint: points[1],
+    };
+    if (mode === 'circle-2p') return {
+      kind: 'circle',
+      circle: geometry.circleFromDiameterPoints(points[0], points[1]),
+      circleDimension: 'radius',
+      handlePoint: points[1],
+    };
+    if (mode === 'circle-3p') return {
+      kind: 'circle',
+      circle: geometry.circleFromThreePoints(points[0], points[1], points[2]),
+      circleDimension: 'radius',
+      handlePoint: points[0],
+    };
     if (mode === 'arc-3p') return { kind: 'arc', arc: geometry.arcFromThreePoints(points[0], points[1], points[2]) };
     if (mode === 'arc-center') return { kind: 'arc', arc: geometry.arcFromCenterStartEnd(points[0], points[1], points[2]) };
     return null;
@@ -196,7 +216,12 @@
         panelOrder: deps.allocateMeasurementPanelOrder(),
       };
       const measurement = geometryInfo.kind === 'circle'
-        ? deps.measurementCommands.createCircleMeasurement({ ...common, circle: geometryInfo.circle })
+        ? deps.measurementCommands.createCircleMeasurement({
+          ...common,
+          circle: geometryInfo.circle,
+          circleDimension: geometryInfo.circleDimension,
+          handlePoint: geometryInfo.handlePoint,
+        })
         : deps.measurementCommands.createArcMeasurement({ ...common, arc: geometryInfo.arc });
       deps.state.circleArcDraft = null;
       if (!measurement) {
